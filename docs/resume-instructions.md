@@ -125,13 +125,19 @@ plain hyphens only.
 Tailor `resumes/master/Narendranath-Edara-Resume.tex` per the arc and JD. Keep the frozen preamble
 geometry: letterpaper, 10pt, 0.33in side margins, single column, no tables.
 
+**Experience order is strict reverse-chronological, no exceptions** (Naren's rule, 2026-10-12):
+ExponentHR (Jul 2024–Present) → Missouri S&T (Aug 2023–Jul 2024) → C2FO Product Intern
+(Jun–Aug 2023) → Udaan (Sep 2020–Mar 2021) → Zomato (Mar 2018–Sep 2020). Every variant build must
+verify this order in the `.tex` AND in the compiled PDF's text extraction before it leaves
+`draft_ready` — a mis-ordered Experience section is a defect, not a style choice.
+
 ## Step 9 — Verify
 Lint for live `% $ _ & #`. Check every bullet against the budgets in Step 5. Compile and confirm
 2 pages, per-page fill (non-last 90–100%, last ≥60%), no overfull boxes. Read the ATS text
 extraction for ordering and garbage. Glance at a rendered preview.
 
-**Fill Order:** 7th–8th ExponentHR bullet → 4th Zomato → 3rd Udaan → C2FO to a full block → 2nd
-bullet per project → 4th–5th project → 4th Skills row.
+**Fill Order:** 7th–8th ExponentHR bullet → C2FO to a full block → 3rd Udaan → 4th Zomato →
+2nd bullet per project → 4th–5th project → 4th Skills row.
 **Cut Order:** 5th project → 2nd bullets on weakest projects → 3rd Udaan → 4th Zomato →
 weakest-mapped ExponentHR bullet → 3rd Summary sentence → one page.
 
