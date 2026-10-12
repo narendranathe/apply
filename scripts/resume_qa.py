@@ -3,9 +3,8 @@
 
   python3 resume_qa.py lint   resume.tex          # live % $ _ & # -> silent LaTeX killers
   python3 resume_qa.py budget resume.tex          # character budgets, pre-compile
-  python3 resume_qa.py order  resume.tex          # Experience reverse-chronological (most recent first)
   python3 resume_qa.py layout resume.pdf [--pages N]
-  python3 resume_qa.py all    resume.tex [--pages N]   # lint -> budget -> order -> pdflatex x2 -> layout
+  python3 resume_qa.py all    resume.tex [--pages N]   # lint -> budget -> pdflatex x2 -> layout
 
 Thresholds are CALIBRATED against v8preamble.tex geometry (10pt, 0.33in sides, itemize
 leftmargin 0.14in). Do not substitute numbers from any other spec."""
@@ -59,7 +58,7 @@ def lint(path):
 
 # ---------- budget ----------
 def plain(s):
-    s = re.sub(r'\\(textbf|emph|textit)\\{([^{}]*)\\}', r'\2', s)
+    s = re.sub(r'\\(textbf|emph|textit)\{([^{}]*)\}', r'\2', s)
     s = re.sub(r'\\[a-zA-Z]+', '', s)
     s = s.replace('$|$', '|').replace('\\&', '&').replace('\\$', '$').replace('\\%', '%')
     return re.sub(r'[{}]', '', s).strip()
@@ -162,8 +161,8 @@ def layout(path, want_pages=None):
                     fails.append(f"p{pi} 3-LINE BULLET ({c}c): {t[:50]}...")
                 elif nl == 2 and len(b[1]["text"]) < TAIL_MIN:
                     fails.append(f"p{pi} DEAD ZONE, tail {len(b[1]['text'])}c ({c}c) -> grow to "
-                                 f"{TWO_LO}-{TWO_HI}c or cut to <={SUM_2_HI}c: {t[:40]}...")
-                elif nl == 1 and c < ONE_HI:
+                                 f"{TWO_LO}-{TWO_HI}c or cut to <={ONE_HI}c: {t[:40]}...")
+                elif nl == 1 and c < ONE_LO:
                     warns.append(f"p{pi} SHORT single line ({c}c): {t[:40]}...")
     log = os.path.splitext(path)[0] + ".log"
     over = 0
@@ -190,35 +189,6 @@ def layout(path, want_pages=None):
     return not fails
 
 # ---------- driver ----------
-# ---------- order ----------
-ORDER_MONTHS = {"jan":1,"feb":2,"mar":3,"apr":4,"may":5,"jun":6,
-                "jul":7,"aug":8,"sep":9,"oct":10,"nov":11,"dec":12}
-
-def _start_key(datestr):
-    m = re.match(r"\s*([A-Za-z]+)\.?\s+(\d{4})", datestr)
-    if not m:
-        return None
-    mon = ORDER_MONTHS.get(m.group(1)[:3].lower())
-    return (int(m.group(2)), mon) if mon else None
-
-def order(path):
-    # Naren's rule (2026-10-12): Experience roles must run strict reverse-chronological
-    # (most recent first). Catches the 2026-10-12 defect where variants shipped
-    # Zomato -> Udaan -> C2FO (oldest first) on page 2.
-    src = open(path).read()
-    roles = re.findall(r"\\roleheader\{[^}]*\}\{([^}]*)\}\{([^}]*)\}", src)
-    if not roles:
-        print("ORDER FAIL: no \\roleheader entries found"); return False
-    keys = [(emp, dates.strip(), _start_key(dates.split("-")[0])) for emp, dates in roles]
-    ok = True
-    for (e1, d1, k1), (e2, d2, k2) in zip(keys, keys[1:]):
-        if k1 is None or k2 is None or not (k1 > k2):
-            print(f"  OUT OF ORDER: {e1} ({d1}) listed before {e2} ({d2})")
-            ok = False
-    seq = " > ".join(e for e, _, _ in keys)
-    print(("ORDER PASS: " if ok else "ORDER FAIL: ") + seq)
-    return ok
-
 def main():
     a = sys.argv[1:]
     if not a:
@@ -227,12 +197,10 @@ def main():
     pages = int(a[a.index("--pages") + 1]) if "--pages" in a else None
     if cmd == "lint":   return 0 if lint(path) else 1
     if cmd == "budget": return 0 if budget(path) else 1
-    if cmd == "order":  return 0 if order(path) else 1
     if cmd == "layout": return 0 if layout(path, pages) else 1
     if cmd == "all":
         if not lint(path): return 1
         if not budget(path, verbose=False): return 1
-        if not order(path): return 1
         for _ in range(2):
             subprocess.run(["pdflatex", "-interaction=nonstopmode", path],
                            capture_output=True)

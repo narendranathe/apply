@@ -1,73 +1,44 @@
 # AGENTS.md — multi-agent operating contract
 
-Applies to every agent working this repo: Milo, Codex, Cloud Agent, and any future runner.
-Naren owns all approvals. Agents prepare; he decides.
+Applies to every agent in this private repository. The October 11, 2026 [V2 migration decision](docs/migration/ONE_PASS_CLOUD_MIGRATION_PROMPT_V2.md) supersedes the former blanket per-application approval rule.
 
-## 1. Sync discipline
+## Sync and one writer
 
-The GitHub repo (`narendranathe/apply`) is the shared source of truth for text files.
+- GitHub is the shared source for code and safe configuration. Pull before work and push a completed unit. API-only agents must read current files before editing and sync their completed changes through the GitHub API. Never force-push or rebase shared history.
+- The GitHub Actions orchestrator is the only operational cloud writer. Every business lane uses its common concurrency group. Do not run independent live writers or submitters.
+- Notion is authoritative. Application records and audit events are immutable; append transitions, verify fresh state and post-write readback. Conflicts or uncertain writes stop the run for reconciliation.
+- `applications/registry.json` is an ignored compatibility import/export view. `scripts/registry.py check` reads Notion and fails closed when unavailable. Local `claim`/`set` and `new_application.py` mutations are retired.
+- Plaintext application packets, answers, PDFs and per-application resume variants are never committed. Recoverable packets belong in the access-controlled Notion record and authenticated encrypted archives; render PDFs in private ephemeral staging.
 
-- **Before starting work:** get the latest. If you have git credentials, `git pull`.
-  If you work through the GitHub API (no git auth), read via `get_file_contents` —
-  never assume your copy is current.
-- **After finishing a unit of work:** sync it back. With git credentials, commit + push.
-  Via API: `push_files` for batches, `create_or_update_file` for single files.
-- **PDFs never go to GitHub.** The API push path is text-only and `*.pdf` is gitignored.
-  PDFs are local build artifacts — compile from the `.tex` with the preamble documented
-  in `docs/resume-instructions.md`. The `.tex` is the source of truth.
-- Never force-push. Never rebase shared history.
+## Dedup before preparation and submission
 
-## 2. Dedup is mandatory, not optional
+- Check canonical employer plus exact requisition ID and all known official URL aliases before preparing anything. Strip referral tracking, retain identity query parameters, and preserve history.
+- Applied, submitting, or unknown prior submissions suppress another attempt. Historical `applied` without receipt means `submission_unknown`, never verified success.
+- A genuinely different requisition can proceed through its own qualification gates. An employer-only legacy record with ambiguous role identity blocks until reconciled. Never create an alternative URL to evade suppression.
 
-Duplicate applications to the same employer get candidates blacklisted. The registry is the guardrail.
+## Truthful preparation
 
-- Before sourcing or preparing ANY role, run `python3 scripts/registry.py check --key <dedup_key>`.
-- Dedup key: the canonical job URL if available, else `company:job_id`, else `company:role:location`
-  normalized (lowercase, no punctuation). When in doubt, use the posting URL.
-- If the key exists in `applications/registry.json`: **stop.** Log nothing, create nothing.
-  If you believe it's a genuinely different role at the same company, add a note to the existing
-  entry and ask Naren — do not create a second folder on your own.
-- Claim immediately: `python3 scripts/registry.py claim --key ... --company ... --role ... --url ... --agent <your-name>`
-  This creates the registry entry (`sourced`) and the application folder in one step, so two
-  agents racing the same role can't both prepare it. First claim wins.
+- `docs/ground-truth.md` is the only resume fact source. Exclude unresolved `[VERIFY]` and `[BLOCKED]` claims; a specifically documented corrected fragment can ship only through its reviewed claim manifest.
+- Keep HR titles and employment dates unchanged. Independent AI projects stay in Projects, and incomplete work stays labeled in progress.
+- Tailor from `resumes/master/` into private ephemeral packets; never tailor the master in place. Follow `docs/arcs.md` and preserve the frozen preamble.
+- Experience must remain strict reverse-chronological: ExponentHR, Missouri S&T, C2FO, Udaan, Zomato. Verify both source dates/order and compiled PDF text before eligibility.
+- Keep the exact official JD snapshot, requirement-to-fact map, every changed/removed/reordered bullet in the changelog, screening answer provenance, source and artifact hashes, and meaningful compile/text/layout/render QA. A changed master or fact source requires a new manifest review.
+- Use only documented standing answers or exact question-specific verified answers. Unknown compensation, sponsorship, location commitments, demographic/EEO facts, legal attestations, or other material facts become exceptions. Never guess or select a convenient answer.
 
-## 3. Facts
+## Standing submission authorization
 
-- `docs/ground-truth.md` is the only source of facts for resume content. Nothing ships that isn't in it.
-- `[VERIFY]` items don't ship without Naren's confirmation. `[BLOCKED]` items never ship.
-- Titles in Experience are HR-verifiable and never adjusted. Routing happens via the summary
-  headline and the arc, never via a rewritten job title.
+Routine truthful applications may be submitted automatically when all V2 gates pass: currently open official employer/requisition, no duplicate or uncertain prior attempt, supported role/experience/location/work-authorization/compensation screening, exact verified PDF and requested answers, a permitted reliable provider method, and a uniquely recorded central-writer attempt with exact hashes.
 
-## 4. Resume tailoring
+No mandatory `approved` state or per-application human review applies to routine eligible applications. Ask Naren for unknown personal facts, prohibited/unclear permissions, legally material human-only questions, or a new paid service/credential. Prepare the concrete packet before requesting a decision.
 
-- One JD per application folder. Tailor from `resumes/master/`, never edit the master in place.
-- **Experience is strict reverse-chronological, always** (Naren's rule, 2026-10-12): ExponentHR →
-  Missouri S&T → C2FO → Udaan → Zomato. Verify in the `.tex` and in the compiled PDF's text
-  extraction before any draft leaves `draft_ready`.
-- Follow the arc system in `docs/arcs.md`: pick the primary arc from the JD's own language.
-- Every tailored resume ships with `changelog.md`: each bullet changed/added/removed vs master,
-  with the JD requirement it maps to. Naren approves the changelog, not just the PDF.
-- Name variants `resumes/variants/<application-folder>.tex/.pdf` and reference them from the
-  application folder. The registry records which variant was submitted.
+- Supported application APIs need verified employer-specific permission and scoped credentials. Public job-reading access is not submission permission.
+- Never bypass CAPTCHA, anti-bot measures, rate limits, or site restrictions; never migrate browser sessions or drive a laptop extension as a cloud runner.
+- Never automatically sign legal attestations, commit to contracts, accept offers, pay fees, take assessments, or send personal emails/LinkedIn messages.
+- Persist `submitting` with resume/answer/payload hashes before the single external request. A receipt/portal record, not a click or attempt, is required for `applied_verified`.
+- Timeouts, ambiguous receipts, or failed receipt persistence become `submission_unknown`; never blindly retry. A blocked role becomes a durable exception while other roles continue. A storage ambiguity stops all further effects.
 
-## 5. Answers
+## States and evidence
 
-- Draft knockout answers in `answers.md` per application: work authorization, sponsorship needs,
-  location/relocation, years of experience, salary expectations, and anything the posting asks.
-- Standing answers live in `docs/knockout-answers.md`. Per-posting deviations go in the
-  application folder and are flagged for Naren.
-- Never misrepresent work authorization or sponsorship needs. When a question is ambiguous,
-  draft the honest answer and flag it — don't guess.
+`discovered → qualified → prepared → submission_eligible → submitting → applied_verified`, with `needs_user_fact`, `submission_blocked`, `manual_action_needed`, `submission_unknown`, `closed`, `rejected`, `withdrawn`, and `interview` exceptions/outcomes.
 
-## 6. Submission
-
-- **Nothing is submitted without Naren's explicit approval** of the exact resume PDF and the
-  exact answers. `approved` status + his words, not an agent's inference.
-- After submission, update the registry immediately: `applied`, date, agent, resume variant.
-- If a submission fails or a posting disappears, record it — don't silently retry.
-
-## 7. Record-keeping
-
-- Every application folder keeps the JD snapshot (`jd.md`). Postings change; we keep the copy
-  we applied against.
-- Update `status.json` on every transition. The registry is the index; the folder is the record.
+Legacy `sourced → discovered`, `draft_ready → prepared`, `approved → prepared` (historical approval retained as evidence), and `applied → applied_verified` only with definitive confirmation; otherwise `submission_unknown`. All transitions retain source dates, actor, stable identity, exact status and evidence. Report confirmed submissions separately from attempted submissions.

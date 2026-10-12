@@ -1,0 +1,68 @@
+{
+ "apiVersion": "1",
+ "jobs": [
+  {
+   "id": "ash-1",
+   "title": "Applied AI Engineer",
+   "location": "New York, NY",
+   "isListed": true,
+   "isRemote": false,
+   "secondaryLocations": [
+    {
+     "location": "Remote (Canada)",
+     "address": {
+      "postalAddress": {
+       "addressCountry": "Canada"
+      }
+     }
+    }
+   ],
+   "address": {
+    "postalAddress": {
+     "addressCountry": "USA",
+     "addressRegion": "NY"
+    }
+   },
+   "publishedAt": "2026-09-29T10:00:00.000+00:00",
+   "employmentType": "FullTime",
+   "jobUrl": "https://jobs.ashbyhq.com/gamma/ash-1",
+   "applyUrl": "https://jobs.ashbyhq.com/gamma/ash-1/application",
+   "descriptionPlain": "Ship RAG features and an evaluation harness in Python. 3+ years of professional experience. Questions? Email recruiting@gamma.example or accommodations@gamma.example.",
+   "compensation": {
+    "scrapeableCompensationSalarySummary": "$160K - $210K",
+    "summaryComponents": [
+     {
+      "compensationType": "Salary",
+      "interval": "1 YEAR",
+      "currencyCode": "USD",
+      "minValue": 160000,
+      "maxValue": 210000
+     }
+    ]
+   }
+  },
+  {
+   "id": "ash-2",
+   "title": "Data Engineer",
+   "location": "Remote (US)",
+   "isListed": false,
+   "publishedAt": "2026-09-30T10:00:00.000+00:00",
+   "jobUrl": "https://jobs.ashbyhq.com/gamma/ash-2",
+   "descriptionPlain": "Unlisted."
+  },
+  {
+   "id": "ash-3",
+   "title": "Forward Deployed Engineer, AI",
+   "location": "Remote (Canada)",
+   "isListed": true,
+   "address": {
+    "postalAddress": {
+     "addressCountry": "Canada"
+    }
+   },
+   "publishedAt": "2026-09-30T10:00:00.000+00:00",
+   "jobUrl": "https://jobs.ashbyhq.com/gamma/ash-3",
+   "descriptionPlain": "Canada only."
+  }
+ ]
+}

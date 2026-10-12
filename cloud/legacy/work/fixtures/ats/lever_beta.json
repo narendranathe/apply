@@ -1,0 +1,69 @@
+[
+ {
+  "id": "lev-1",
+  "text": "AI Platform Engineer",
+  "hostedUrl": "https://jobs.lever.co/beta/lev-1",
+  "applyUrl": "https://jobs.lever.co/beta/lev-1/apply",
+  "categories": {
+   "location": "Austin, TX",
+   "allLocations": [
+    "Austin, TX"
+   ],
+   "team": "Platform",
+   "commitment": "Full-time"
+  },
+  "country": "US",
+  "workplaceType": "hybrid",
+  "createdAt": 1790856000000,
+  "descriptionPlain": "Build agents and MCP tooling in Python on Kubernetes.",
+  "lists": [
+   {
+    "text": "Requirements",
+    "content": "<li>Applicants must be authorized to work in the U.S. without the need for visa sponsorship.</li>"
+   }
+  ],
+  "additionalPlain": "",
+  "salaryRange": {
+   "min": 150000,
+   "max": 190000,
+   "currency": "USD",
+   "interval": "per-year-salary"
+  }
+ },
+ {
+  "id": "lev-2",
+  "text": "Solutions Engineer",
+  "hostedUrl": "https://jobs.lever.co/beta/lev-2",
+  "categories": {
+   "location": "Remote",
+   "allLocations": [
+    "Remote"
+   ],
+   "commitment": "Full-time"
+  },
+  "country": "US",
+  "workplaceType": "remote",
+  "createdAt": 1790856000000,
+  "descriptionPlain": "Help customers design ETL and data pipeline architecture with SQL and Python against their data warehouse.",
+  "lists": [],
+  "additionalPlain": ""
+ },
+ {
+  "id": "lev-3",
+  "text": "Solutions Engineer",
+  "hostedUrl": "https://jobs.lever.co/beta/lev-3",
+  "categories": {
+   "location": "Remote",
+   "allLocations": [
+    "Remote"
+   ],
+   "commitment": "Full-time"
+  },
+  "country": "US",
+  "workplaceType": "remote",
+  "createdAt": 1790856000000,
+  "descriptionPlain": "Run product demos for marketing software buyers.",
+  "lists": [],
+  "additionalPlain": ""
+ }
+]

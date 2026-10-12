@@ -1,0 +1,84 @@
+{
+  "source_root": "local coordination outputs/work snapshot, 2026-10-11",
+  "source_version": 4,
+  "runtime_enabled": false,
+  "files": [
+    {
+      "source_relative": "outputs/outreach_sync.py",
+      "source_sha256": "19cbc41a626c31bb63ab0ae1a2bf0552dcf081cad4d2c7707053b00cdcc1ac20",
+      "ported_relative": "outputs/outreach_sync.py",
+      "ported_sha256": "c2335bf48033524f25c4b84766ebb7ace817d1a09a6445ce03eb0059d01e4671",
+      "change": "Safe default log stays beneath port directory; original path never mutated."
+    },
+    {
+      "source_relative": "outputs/work_queue.py",
+      "source_sha256": "7126218dacb67186f4f25ad81f1c355b9a59760115aa6482205b2eb7a074a81c",
+      "ported_relative": "outputs/work_queue.py",
+      "ported_sha256": "7126218dacb67186f4f25ad81f1c355b9a59760115aa6482205b2eb7a074a81c",
+      "change": "Byte-identical source port."
+    },
+    {
+      "source_relative": "outputs/campaign_planner.py",
+      "source_sha256": "50cfff535db37c78a5c18e9b6cd36d9cdd6c28e1fbea6a884265558a8738a5f5",
+      "ported_relative": "outputs/campaign_planner.py",
+      "ported_sha256": "50cfff535db37c78a5c18e9b6cd36d9cdd6c28e1fbea6a884265558a8738a5f5",
+      "change": "Byte-identical source port."
+    },
+    {
+      "source_relative": "outputs/ats_scan.py",
+      "source_sha256": "17a29bbd37618d9392202d545d02f3bfd44d310914a41646b386c78a7185a1a8",
+      "ported_relative": "outputs/ats_scan.py",
+      "ported_sha256": "17a29bbd37618d9392202d545d02f3bfd44d310914a41646b386c78a7185a1a8",
+      "change": "Byte-identical source port."
+    },
+    {
+      "source_relative": "work/test_outreach_sync.py",
+      "source_sha256": "60787730f1456778ade0f7c5a7984387cf4032f404726af2fa0f41fe4e84848c",
+      "ported_relative": "work/test_outreach_sync.py",
+      "ported_sha256": "60787730f1456778ade0f7c5a7984387cf4032f404726af2fa0f41fe4e84848c",
+      "change": "Byte-identical synthetic test port."
+    },
+    {
+      "source_relative": "work/test_work_queue.py",
+      "source_sha256": "3a2c130b37cc4287d3f1733ade3e20273a709f6f6726d234371739ea724ba6b4",
+      "ported_relative": "work/test_work_queue.py",
+      "ported_sha256": "3a2c130b37cc4287d3f1733ade3e20273a709f6f6726d234371739ea724ba6b4",
+      "change": "Byte-identical synthetic test port."
+    },
+    {
+      "source_relative": "work/test_campaign_planner.py",
+      "source_sha256": "92a9cff28052a277b079082307ae3238b78f1d868c366154f9c17e28b7083dcd",
+      "ported_relative": "work/test_campaign_planner.py",
+      "ported_sha256": "92a9cff28052a277b079082307ae3238b78f1d868c366154f9c17e28b7083dcd",
+      "change": "Byte-identical synthetic test port."
+    },
+    {
+      "source_relative": "work/test_campaign_planner_multichannel.py",
+      "source_sha256": "9321c92427c7bad2343b0d1b96b2b84345d8f3fe7e1f370fdfefda7b64ad88d0",
+      "ported_relative": "work/test_campaign_planner_multichannel.py",
+      "ported_sha256": "9321c92427c7bad2343b0d1b96b2b84345d8f3fe7e1f370fdfefda7b64ad88d0",
+      "change": "Byte-identical synthetic test port."
+    },
+    {
+      "source_relative": "work/test_ats_scan.py",
+      "source_sha256": "d26f96b427f53af9d7e7488fb7787a06dfdd4d91821a7cf4f0e01ea0bf4a0e7b",
+      "ported_relative": "work/test_ats_scan.py",
+      "ported_sha256": "d26f96b427f53af9d7e7488fb7787a06dfdd4d91821a7cf4f0e01ea0bf4a0e7b",
+      "change": "Byte-identical synthetic test port."
+    },
+    {
+      "source_relative": "outputs/ats_registry.json",
+      "source_sha256": "df4f4ed213eb0825f77ea5f94346a27d821ec23b1f22694fe2a8224454779176",
+      "ported_relative": "outputs/ats_registry.json",
+      "ported_sha256": "d1f2836159f173b5dfb6a928aab60f1949f58242f71196b02c5bf975eb76098f",
+      "change": "Public ATS board seed configuration; formatting normalized."
+    },
+    {
+      "source_relative": "outputs/campaign_policy.json",
+      "source_sha256": "8a283dcd84177e8c59e85ebcf566e9a21ccba7603542dc3989f42413d6cf0911",
+      "ported_relative": "outputs/campaign_policy.json",
+      "ported_sha256": "01d73e6570a40bbdd6632fa4e2e04ec5f3fe29442ef5ae75762117e8f65d35c6",
+      "change": "Safe historical configuration; private alumni facts omitted, formatting normalized. Not live cloud policy."
+    }
+  ]
+}

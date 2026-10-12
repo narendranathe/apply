@@ -1,0 +1,37 @@
+name: Cloud shadow validation
+run-name: 'cloud:dry-run:all'
+on:
+  push:
+    branches: [codex/cloud-migration-v2]
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: hiring-outreach-single-writer
+  cancel-in-progress: false
+jobs:
+  shadow:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - name: Install isolated PDF build tools
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends texlive-latex-extra texlive-fonts-recommended lmodern poppler-utils
+      - name: Validate all lanes against live Notion without writes
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+        run: python -m cloud.orchestrator --lane all --mode dry-run
+      - name: Aggregate evidence only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: cloud-shadow-${{ github.run_id }}
+          path: run-output/summary.json
+          retention-days: 14
+          if-no-files-found: ignore

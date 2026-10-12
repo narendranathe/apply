@@ -1,0 +1,65 @@
+# Cloud migration V2 execution report
+
+As of October 12, 2026, engineering and historical preservation are implemented on the migration branch. Production is disabled. **Fully cloud-hosted while the Mac is off: FAIL**, pending runner credentials, hosted Notion validation and a coordinated cutover. Existing local schedules remain active.
+
+## Direct links
+
+- [Private repository](https://github.com/narendranathe/apply) and [migration PR 1](https://github.com/narendranathe/apply/pull/1).
+- [Unified operations workflow](https://github.com/narendranathe/apply/blob/codex/cloud-migration-v2/.github/workflows/cloud-operations.yml), [history reconciliation](https://github.com/narendranathe/apply/blob/codex/cloud-migration-v2/.github/workflows/history-reconciliation.yml), [read-only shadow](https://github.com/narendranathe/apply/blob/codex/cloud-migration-v2/.github/workflows/cloud-shadow.yml), and [CI](https://github.com/narendranathe/apply/actions).
+- Existing [Hiring & Outreach hub](https://app.notion.com/p/3e3e10221fac81af955fcd0c2f452951), [migration report](https://app.notion.com/p/3f7e10221fac81e8b516d9929c39ce4b), [cloud operations](https://app.notion.com/p/cbb3d68681d64b88a6efacdf90aa0b02?v=3f6e10221fac815cbce5000c78c38fbd), [applications](https://app.notion.com/p/cbb3d68681d64b88a6efacdf90aa0b02?v=3f7e10221fac814fb9ff000cc6a40ec3), [jobs](https://app.notion.com/p/cbb3d68681d64b88a6efacdf90aa0b02?v=3f7e10221fac81e59a4a000cd97c8fc8), [contacts](https://app.notion.com/p/cbb3d68681d64b88a6efacdf90aa0b02?v=3f7e10221fac8147a93e000c86f6fd4a), [run log](https://app.notion.com/p/cbb3d68681d64b88a6efacdf90aa0b02?v=3f7e10221fac813eba46000c1766ac00), [exceptions](https://app.notion.com/p/cbb3d68681d64b88a6efacdf90aa0b02?v=3f7e10221fac815b8a6b000cce385ce4), and [funnel/experiments](https://app.notion.com/p/cbb3d68681d64b88a6efacdf90aa0b02?v=3f7e10221fac81e5891e000c4837db6b).
+
+## Implemented and verified
+
+Notion is the sole operational record system after cutover. One GitHub Actions writer coordinates accepted relationships, discovery/first touch, applications, reporting and authenticated backups. Immutable IDs, fresh dedup, exact readback, human-owned property observation, API pagination, bounded retries, durable run markers and failed-writer reconciliation prevent silent competing state. Notion has no transactional unique constraint; no exactly-once guarantee is claimed.
+
+[Hosted CI 38193278633](https://github.com/narendranathe/apply/actions/runs/38193278633) verified the earlier engineering commit: 121 tests without skips, 85 preserved legacy tests, real two-page master PDF compilation/layout QA, security checks, DST/schedule checks, and restoration of the actual encrypted baseline. Later pacing, reporting and delta changes require their own final CI run before bootstrap deployment.
+
+The frozen master, preamble and original QA script remain intact. The hosted Latin Modern dependency fixed a demonstrated font-environment failure without changing content or QA thresholds. The newly merged ground-truth paragraph is preserved; all existing evidence rows and all 23 mapped resume claims remain unchanged. New tooling statements have not been expanded into employer, project or production claims. See [source provenance](RESUME_SOURCE_PROVENANCE.md).
+
+Both original outreach configurations and their associated workflow files were inspected and archived. The current [JobScout feed and scraper workflow](https://github.com/narendranathe/job-scout/blob/main/.github/workflows/scrape-and-deploy.yml) are reused, with freshness checks and separate official-role verification. No scraper was rebuilt. Latest audited coverage was 377 jobs across 19 companies, including Greenhouse, Lever, Ashby, Workday and custom sites; those are source-dated audit counts, not guaranteed present inventory.
+
+## Historical fidelity and application delta
+
+The October 11 baseline contains 354 SQLite events, 28 historical claims, both full logs, original automation prompts/configurations, workflow files, JobScout recovery state and full Notion exports. All 592 original Notion bodies were read; all 354 event payloads were verified: 352 exact matches and two explicitly authorized metadata variants. Zero unresolved event conflicts remained. The 214 display-property differences are retained as observations and never upgraded into delivery evidence.
+
+The baseline normalized import has 703 records. Two application deltas and the user-confirmed Goldman evidence add sixteen append-only records for **719 combined records**. An offline dry-run against the audited Notion snapshot produced **imported 0, unchanged 354, would-import 365, conflicted 0, blocked 0**. The 717 upstream records passed the simulated Notion request-size boundary; the largest generated request was 363,397 bytes. The two additional human-confirmation records use the same tested envelope. This is an offline comparison, not a live runner import. New operational imports remain **0**. A fresh final delta is required when the old actors stop.
+
+The baseline AES-256-GCM archive contains **682 files / 22,615,298 plaintext bytes**. Every restored member hash matched locally and on GitHub. Ciphertext SHA-256 is `c98be96dc71d26b11ae26ad53e5476c89819ff22b2c6d2c1f0d6fa78686976d1`. Key custody is outside Git in macOS Keychain and the `MIGRATION_BACKUP_KEY` Actions secret. [Inventory](MIGRATION_INVENTORY.md), [backup/restore](BACKUP_RESTORE.md) and archive receipts describe exact classifications, original timestamp precision, aliases and recovery evidence.
+
+Main independently advanced to `c9530f2` with three `draft_ready` packets and a registry attributed to Milo variants. They have `applied_at=null` and no submission proof. They use an older resume baseline and include unresolved claims; they are historical prepared drafts, **not QA-ready or submission-eligible packets**. Their complete originals and an identity observation are preserved in a separate **41-file authenticated encrypted delta**, independently restored with every hash matching before removing plaintext application state from the migration tree. Delta SHA-256: `8fad0aadbf02d9ad74e7d4cd788479a4c142e419dce96356ec969b6efbcdd78d`. Commit authorship alone does not prove the executor or schedule. The bounded local Codex/crontab/LaunchAgent/OpenClaw audit has not located their actual controller; that actor must be reconciled at cutover.
+
+Main then advanced to `16de4ac` with changed draft materials, a reverse-chronological resume rule, QA source and a Goldman Sachs `applied` registry entry containing a reported confirmation string. Its folder remains `draft_ready`; no independent portal/receipt evidence was supplied. The later **44-file encrypted delta** preserves every source, including both contradictory statuses, and appends the application revisions. Goldman is `submission_unknown`, suppressing another attempt. The other two latest states remain historical `prepared`, with fresh QA false. All source archives independently restored with exact hashes. Latest delta SHA-256: `c383cbfe52ca32e0cd55bdccd9b78728046a22d6119a19e318d54b03e93b0a66`.
+
+Migration-created prepared applications: **0**. Historical prepared draft identities: **3**; latest states are **2 prepared / 1 human-confirmed applied**. Real submission attempts by this migration: **0**. Verified auto-submissions by this migration: **0**. Naren directly confirmed the Goldman submission, corroborated by its authenticated acknowledgement email. One human-confirmed manual submission is preserved separately from provider receipt and cloud auto-submission counts; the email does not itself identify the requisition. Synthetic ATS tests are excluded from these counts. The JobScout local removed application is an exact test fixture, not a real Anthropic application.
+
+## Schedules, policy and capability
+
+| Lane | Target cadence | Activation |
+| --- | --- | --- |
+| Accepted relationships / replies | 06:00 daily, America/Chicago | Guarded; production disabled |
+| First touch / discovery | 06:30 daily, America/Chicago | Guarded; production disabled |
+| Applications | Distinct phase after 06:30 | Prior Milo cadence unresolved; production disabled |
+
+Native IANA timezone schedules and winter/summer DST behavior are validated. Originating cron selects the lane; durable Chicago-date markers suppress reruns. Production wakes recover due slots because GitHub can replace pending runs. Missed old slots never replay effects. Both desktop outreach automations remain **ACTIVE at 09:00 / 09:30**; neither was retired early. Full Mac-off operational validation has not passed.
+
+[AGENTS.md](../AGENTS.md) and [pipeline.md](../pipeline.md) now implement V2 standing authorization for routine truthful applications. There is no blanket per-application approval state. Unknown facts, site permission, material legal questions and paid credentials become exceptions. Dedup, exact artifacts/answers, permission and receipt gates remain mandatory.
+
+| ATS | Implemented production path | Current access |
+| --- | --- | --- |
+| Greenhouse | Official read/form validation; one permitted employer-key POST; unknown receipt means `submission_unknown` | Employer credential/permission absent |
+| Lever | Official metadata plus authenticated full-form read; permitted scoped POST with documented application ID receipt | Employer credential/permission absent |
+| Ashby, Workday, SmartRecruiters, BambooHR, custom | Source research and durable blocked/manual exception | No verified cloud submission method configured |
+
+[ATS capability details and primary sources](ATS_CAPABILITIES.md) distinguish public job reading from submission permission. No browser profiles, cookies or desktop sessions are migrated. LinkedIn has no automated sending adapter; inbox access is **not checked**, and invitations/messages require human execution absent a specifically permitted integration.
+
+## Remaining direct actions and expenses
+
+1. Save a limited-scope Notion integration token as `NOTION_TOKEN` in [Actions secrets](https://github.com/narendranathe/apply/settings/secrets/actions), granting read/insert/update access to the existing Hiring & Outreach database. Do not paste it in chat. Only `MIGRATION_BACKUP_KEY` is currently present.
+2. Identify the controller/cadence behind the new Milo application commits and how to stop that writer at the cutover boundary. Existing working automations stay active until replacements validate.
+3. For actual auto-submission, provide employer-authorized ATS integration credentials/permission where available. Unsupported sites remain explicit manual exceptions while research continues.
+
+After credentials arrive: validate hosted Notion reads/writes/readback and idempotent import; preserve final source delta; reconcile in-flight/unknown outcomes; retire the old writers once; append evidenced cutover flags; activate the default-branch schedules; run all three lanes on hosted runners and verify backup/receipt behavior. [Cutover and rollback runbook](runbooks/CUTOVER.md) contains the sequence. Credential absence is not approval to bypass these gates.
+
+The repository is currently private, with zero observed forks. Previously public documents and the new actor's already-committed plaintext packets may persist in existing history/copies. Current-tree guards and encryption prevent new raw operational state commits; shared history has not been rewritten. No detected credential compromise was found in the audited content.
+
+No paid database, model or new service was provisioned. Two daily runs at 2–10 minutes project **120–600 runner minutes/month**, before CI/imports and existing JobScout usage; the configured timeouts could consume more. Verify the account's included allowance and billing controls before paid overage. Aggregate artifacts retain 14 days, encrypted failed-build diagnostics 7 days, and baseline/delta encrypted archives are retained for recovery. Notion access and archive retention should be reviewed quarterly. Failures surface through private Actions and Notion exception/run records; no unsolicited email or external message is sent.
