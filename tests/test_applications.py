@@ -7,7 +7,7 @@ import unittest
 from unittest.mock import patch
 
 from cloud.applications import (StateConflict, application_key, canonical_url, fold_applications,
-                                matching_application, run_applications, transition)
+                                matching_application, run_applications, transition, daily_attempt_count)
 from cloud.notion import AmbiguousWriteError
 from cloud.orchestrator import ShadowStore
 from cloud.preparation import digest
@@ -90,6 +90,33 @@ class ApplicationTests(unittest.TestCase):
         self.assertEqual(canonical_url('https://job-boards.greenhouse.io/acme/jobs/100?gh_src=campaign'),
                          canonical_url('https://boards.greenhouse.io/acme/jobs/100'))
         self.assertNotEqual(canonical_url('https://acme.test/careers?gh_jid=1'), canonical_url('https://acme.test/careers?gh_jid=2'))
+
+    def test_daily_pacing_uses_one_chicago_day_across_utc_midnight(self):
+        records = {
+            'earlier': {'payload': {'attempt': {'started_at': '2026-10-11T23:30:00Z'}}, 'status': 'applied_verified'},
+            'later': {'payload': {'attempt': {'started_at': '2026-10-12T00:30:00Z'}}, 'status': 'submission_unknown'},
+            'prior_day': {'payload': {'attempt': {'started_at': '2026-10-11T04:30:00Z'}}, 'status': 'applied_verified'},
+        }
+        self.assertEqual(daily_attempt_count(records, datetime(2026, 10, 12, 1, tzinfo=timezone.utc)), 2)
+        self.assertEqual(daily_attempt_count(records, datetime(2026, 10, 12, 6, tzinfo=timezone.utc)), 0)
+
+    def test_daily_pacing_handles_chicago_winter_boundary_and_unknown_dates(self):
+        records = {'attempt': {'payload': {'attempt': {'started_at': '2026-11-03T05:30:00Z'}}, 'status': 'submission_unknown'}}
+        self.assertEqual(daily_attempt_count(records, datetime(2026, 11, 3, 5, 45, tzinfo=timezone.utc)), 1)
+        self.assertEqual(daily_attempt_count(records, datetime(2026, 11, 3, 6, 15, tzinfo=timezone.utc)), 0)
+        records['attempt']['payload']['attempt']['started_at'] = 'unknown'
+        with self.assertRaises(StateConflict):
+            daily_attempt_count(records, datetime(2026, 11, 3, 6, tzinfo=timezone.utc))
+
+    def test_renamed_role_cannot_evade_unknown_employer_application_history(self):
+        for status in ('applied', 'submission_unknown', 'applied_verified'):
+            old = {'payload': {'company': 'Acme', 'role': 'Data Engineer', 'url': 'https://acme.test/old'}, 'status': status}
+            self.assertIs(matching_application({'legacy': old}, 'Acme', 'new-req', ['https://acme.test/new'], 'AI Platform Engineer'), old)
+
+    def test_verified_distinct_requisition_is_allowed(self):
+        old = {'payload': {'company': 'Acme', 'role': 'Data Engineer', 'requisition_id': 'req-1'}, 'status': 'applied_verified'}
+        self.assertIsNone(matching_application({'known': old}, 'Acme', 'req-2', ['https://acme.test/new'], 'AI Platform Engineer'))
+        self.assertIs(matching_application({'known': old}, 'Acme', 'req-1', ['https://acme.test/alias'], 'Renamed Role'), old)
 
     def test_happy_path_requires_receipt_and_no_manual_approval_state(self):
         store, transport = ShadowStore(), ATSTransport()

@@ -33,7 +33,11 @@ def verify_previous_writers(store, transport=None):
         def resolved(identity):
             marker = store.get('writer-resolution:' + identity)
             return bool(marker and marker.get('payload', {}).get('external_effects_reconciled') is True and marker.get('payload', {}).get('evidence'))
-        if unresolved_writers(runs, current_id, resolved):
+        failures = unresolved_writers(runs, current_id, resolved)
+        if failures:
+            from cloud.outreach import record
+            identity = failures[0]
+            store.put(record('writer-failure:' + identity, 'audit_events', {'github_run_id': identity, 'reason': 'failed_writer_requires_reconciliation', 'retry_external_effects': False}, 'needs_reconciliation'))
             raise Blocked('previous_failed_writer_requires_reconciliation')
         if len(runs) < 100:
             return

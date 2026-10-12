@@ -76,7 +76,12 @@ def live_gate(store, config):
         raise Blocked('cutover_evidence_required')
     started = {x['id'].removesuffix(':started'): x for x in store.query(kind='agent_runs') if x['id'].endswith(':started')}
     for identity in started:
-        if not store.get(identity + ':completed') and not store.get(identity + ':reconciled'):
+        resolution = store.get(identity + ':reconciled')
+        cleared = bool(resolution and resolution.get('payload', {}).get('run_id') == identity
+                       and resolution.get('payload', {}).get('external_effects_reconciled') is True
+                       and resolution.get('payload', {}).get('evidence'))
+        if not store.get(identity + ':completed') and not cleared:
+            store.put(record(identity + ':dead_letter', 'audit_events', {'run_id': identity, 'reason': 'unfinished_run_requires_reconciliation', 'retry_external_effects': False}, 'needs_reconciliation'))
             raise Blocked('unresolved_previous_writer_run')
 
 
@@ -158,5 +163,5 @@ if __name__ == '__main__':
         main()
     except Exception as error:
         # Upstream errors may contain URLs or payloads; emit class only to runner logs.
-        print(json.dumps({'status': 'blocked', 'error_type': type(error).__name__, 'details': 'see private reconciliation records'}))
+        print(json.dumps({'status': 'blocked', 'error_type': type(error).__name__, 'reason': str(error) if isinstance(error, Blocked) else 'inspect_private_reconciliation_records'}))
         raise SystemExit(1)

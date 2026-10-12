@@ -13,6 +13,7 @@ import json
 import os
 import re
 import urllib.parse
+from zoneinfo import ZoneInfo
 
 from scripts.jobscout_feed import candidates, fetch_feed, parse_dt, feed_metadata
 from .preparation import digest, grade_job, prepare_packet
@@ -101,12 +102,29 @@ def matching_application(records, company, requisition_id=None, urls=(), role=No
                 return record
             if payload.get("employer_history_unresolved"):
                 return record
-            if not old_req and record.get("status") in {"submitting", "submission_unknown", "applied_verified", "interview", "rejected", "withdrawn"}:
-                return record
-            # Legacy employer-only entries cannot safely be assumed unrelated.
-            if not old_req and (not role or not payload.get("role") or normalize(payload.get("role")) == normalize(role)):
+            # A changed title does not establish a distinct requisition.
+            # Employer-level legacy identity must be reconciled first.
+            if not old_req:
                 return record
     return None
+
+
+def daily_attempt_count(records, now, timezone_name="America/Chicago"):
+    """Count attempts on the scheduler's local day, including unknown effects."""
+    zone = ZoneInfo(timezone_name)
+    if now.tzinfo is None:
+        raise StateConflict("application_pacing_timezone_unverified")
+    local_day = now.astimezone(zone).date()
+    total = 0
+    for record in records.values():
+        attempt = record["payload"].get("attempt")
+        if not attempt:
+            continue
+        started = timestamp(attempt.get("started_at"))
+        if started is None:
+            raise StateConflict("application_attempt_date_unverified")
+        total += started.astimezone(zone).date() == local_day
+    return total
 
 
 def _make(kind, payload, status, record_id):
@@ -310,9 +328,6 @@ def run_applications(store, config, dry_run=True, *, feed=None, transport=None, 
     except Exception:
         count("feed_or_state_unavailable")
         return summary
-    today = now.date().isoformat()
-    # Count attempts, not just confirmed outcomes, against daily pacing.
-    attempted_today = sum(bool(r["payload"].get("attempt")) and str(r["payload"]["attempt"].get("started_at", "")).startswith(today) for r in records.values())
     maximum = settings.get("max_submissions_per_day", 3)
     leads = candidates(feed, settings.get("min_score", 0.51), settings.get("max_age_days", 7), now)
     for lead in leads[:settings.get("max_candidates", 25)]:
@@ -377,7 +392,7 @@ def run_applications(store, config, dry_run=True, *, feed=None, transport=None, 
                 raise SubmissionBlocked("packet_verification_evidence_missing")
             if not os.environ.get(employer.get("credential_env", "")):
                 raise SubmissionBlocked("employer_scoped_credential_missing")
-            if attempted_today >= maximum:
+            if daily_attempt_count(records, dt.datetime.now(dt.timezone.utc)) >= maximum:
                 raise SubmissionBlocked("daily_application_pacing_reached")
             if dry_run:
                 summary["statuses"]["submission_eligible"] = summary["statuses"].get("submission_eligible", 0) + 1
@@ -401,11 +416,13 @@ def run_applications(store, config, dry_run=True, *, feed=None, transport=None, 
             duplicate = matching_application(fresh_records, job["company"], job["requisition_id"], job["aliases"], job["title"])
             if not duplicate or duplicate["id"] != current["id"]:
                 raise StateConflict("application_claim_changed")
-            attempt = {"started_at": dt.datetime.now(dt.timezone.utc).isoformat(), "idempotency_key": application_id,
+            action_time = dt.datetime.now(dt.timezone.utc)
+            if daily_attempt_count(fresh_records, action_time) >= maximum:
+                raise SubmissionBlocked("daily_application_pacing_reached")
+            attempt = {"started_at": action_time.isoformat(), "idempotency_key": application_id,
                        "resume_hash": packet["resume_sha256"], "answers_hash": packet["answers_hash"],
                        "payload_hash": digest({"fields": packet["fields"], "resume_hash": packet["resume_sha256"], "posting_id": job["posting_id"]})}
             current = transition(store, application_id, "submitting", {"attempt": attempt}, current)
-            attempted_today += 1
             summary["submission_attempts"] += 1
             result = adapter.submit(job, packet)
             outcome = result.get("status", "submission_unknown")

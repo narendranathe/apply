@@ -41,6 +41,7 @@ class OrchestrationTests(unittest.TestCase):
             with self.assertRaises(Blocked):
                 execute(store, config, datetime(2026, 10, 12, 11, 10, tzinfo=timezone.utc), dry_run=False)
             outreach.assert_not_called()
+        self.assertEqual(store.get('run:2026-10-12:accepted:dead_letter')['status'], 'needs_reconciliation')
 
     def test_github_failure_witness_needs_explicit_resolution(self):
         from cloud.runtime_guard import unresolved_writers
