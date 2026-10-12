@@ -65,6 +65,10 @@ NetworkX join resolver · Claude query planner · DAX.
 **Honest gaps, named not papered over:** AWS (32.9% of the cloud AI market — a real gap) · Snowflake ·
 dbt · production Airflow · GCP.
 
+**Tooling `[STATED]`, Oct. 12, 2026:** solid hands-on experience with Retool and Figma (user's direct
+statement). Usable in Technical Skills rows and as JD keyword evidence for frontend/design-tool
+requirements. Do not invent specific deliverables, employers, or timelines for this work.
+
 ---
 
 ## ExponentHR — Data Engineer · July 2024 – Present · Dallas, TX

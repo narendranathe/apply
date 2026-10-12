@@ -1,0 +1,96 @@
+% Goldman Sachs - Product Manager Analyst - API (Programmatic Channels, Transaction Banking), Dallas
+% higher.gs.com/roles/185198 - tailored variant of master. Arc F primary (product-facing) + Arc F page 2.
+% Thesis: builds APIs and the developer tooling around them, writes the docs developers onboard
+% with, and has already done product-requirements work inside a B2B fintech.
+% Mode: 2-page. Gate: PASS (see changelog.md). Titles HR-verifiable, never adjusted.
+\documentclass[letterpaper,10pt]{article}
+\input{v8preamble}
+\begin{document}
+\resumeheader\multipage
+\summary{AI Engineer and API builder with a data-platform foundation: shipped a FastAPI fraud-scoring API with OpenAPI documentation, built a context harness that helps coding agents write correct SQL, and wrote the onboarding docs new hires actually read. Six years split between owning business outcomes and engineering the systems behind them, now aimed at API product work in transaction banking.}
+
+\section{Technical Skills}
+\skillrow{APIs \& Developer Platforms}{FastAPI, REST APIs, JSON, OpenAPI documentation, API testing, pgvector, SDK integration}
+\skillrow{AI \& ML}{Python, LLM APIs, retrieval-augmented generation (RAG), prompt engineering, QLoRA fine-tuning, MLflow, LightGBM}
+\skillrow{Data \& Streaming}{SQL, T-SQL, PySpark, Kafka, Spark Structured Streaming, CDC, Delta Lake, data validation, Elasticsearch}
+\skillrow{Cloud, Tools \& Design}{Azure (AKS, DevOps, Data Factory), Microsoft Fabric, Docker, Retool, Figma, CI/CD, Grafana}
+
+\section{Experience}
+\roleheader{Data Engineer}{ExponentHR}{July 2024 - Present}{Dallas, TX}
+\rolecontext{Payroll platform: 400 databases, 70 TB, 10 servers, 15-minute refresh. Owns ingestion, releases, recovery, and AI layer on top.}
+\begin{itemize}
+\item Wrote the GitHub Codespaces, git branching, and work-item resolution docs new hires read instead of asking questions, converting tribal setup knowledge into \textbf{onboarding docs} the team now relies on instead of shoulder-taps.
+\item Built a business-context harness, internal \textbf{developer tooling} for the team's Claude Code agents: table relationships and grain from schema metadata plus hand-written business annotations, so agents write correct SQL joins and fix defects faster.
+\item Migrated SQL Server reporting onto Microsoft Fabric semantic models with natural-language-to-SQL agent access, cutting query time from 12 seconds to under 4 seconds and client support tickets \textbf{40 percent}, worth \$243K a year in analyst capacity.
+\item Reengineered CDC (change-data-capture) ETL from full-table reloads to idempotent incremental merge-upserts, cutting runtime from 30 minutes to \textbf{under 8 minutes} and compute cost 67 percent, with failed runs rerunning clean.
+\item Compressed release cycles from 3 months to 14 days by owning CI/CD through Azure DevOps and aligning dev, test, IT, and business on Scrum, removing about 11 weeks of idle handoff time from every release.
+\item Automated Git and Azure DevOps \textbf{API workflows} in Python, giving the team real-time delivery visibility; the automation saves 15-plus hours every sprint, about 390 hours or \$23K a year, time the team now spends shipping instead of reporting.
+\item Hardened the database copy-and-restore pipeline into a fully idempotent process, closing four latent failure modes including orphaned CDC cleanup jobs and replication races, freeing 5,000 engineering hours a year worth about \textbf{\$300K}.
+\item Shipped proactive monitoring and self-healing recovery for production SQL Agent jobs across three failure modes (missed, stuck, silent), closing a detection gap before CDC log retention could make a late-caught failure unrecoverable.
+\end{itemize}
+
+\roleheader{Data Engineer}{Missouri S\&T}{Aug. 2023 - July 2024}{Rolla, MO}
+\rolecontext{Research and platform infrastructure: anomaly-detection pipelines, alert tuning, and the Kubernetes migration.}
+\begin{itemize}
+\item Delivered Azure AI Anomaly Detector pipelines that select an algorithm per time-series profile, reaching 95 percent accuracy and catching a production memory leak 4 hours before it would have caused an outage.
+\item Coauthored a peer-reviewed NLP study comparing VADER (lexicon-based) and RoBERTa (transformer-based) sentiment analysis on museum reviews, validating machine-labeled sentiment against visitor ratings; published 2025.
+\item Optimized anomaly-detection hosting by migrating from static VMs to AKS (Azure Kubernetes Service) with pod autoscaling, consolidating 20 nodes to 4-8 autoscaled and lifting CPU use from 12 to 64 percent, cutting spend \$3,200 a month.
+\end{itemize}
+
+\roleheader{Product Intern}{C2FO}{June 2023 - Aug. 2023}{Kansas City, KS}
+\rolecontext{B2B fintech working-capital platform: SQL product analytics and requirement definition for a preferred-offers tool.}
+\begin{itemize}
+\item Standardized requirements for a preferred-offers tool in \textbf{product requirement documents} built from stakeholder interviews across product and operations, cutting resource-allocation time for the feature roughly in half.
+\item Traced offer-acceptance drops with SQL-driven behavior analysis across the platform's working-capital transaction data, turning findings into product decisions with the owning team and shaping the preferred-offers roadmap.
+\end{itemize}
+
+
+\roleheader{Business Intelligence Analyst}{Udaan}{Sept. 2020 - Mar. 2021}{Nashik, India}
+\rolecontext{Business intelligence for a new-city B2B marketplace launch: demand forecasting, GMV tracking, and category penetration.}
+\begin{itemize}
+\item Built demand-forecasting and inventory models in Power BI, with Excel macros for daily inventory reporting and Data Studio for market-penetration planning, lifting ROI 7 percent for the launch city in the launch quarter.
+\item Delivered 400 percentage points of city GMV growth to Rs. 5 Cr a month for a new-city B2B launch, matching the incumbent competitor, with Rs. 3.9 Cr in December at 1.3x month-on-month three months after launch.
+\item Root-caused recurring value-chain failures and rewrote the process flows behind them, cutting vendor onboarding time and stock-outs for the launch city's supplier network, the same root-cause discipline now applied to production pipelines.
+\end{itemize}
+
+\pagebreak
+\roleheader{Business Analyst}{Zomato}{Mar. 2018 - Sept. 2020}{Hyderabad, India}
+\rolecontext{Marketplace analytics across South India: competitive intelligence, search relevance, and a 300-restaurant partner portfolio.}
+\begin{itemize}
+\item Automated real-time competitor tracking across pricing, delivery times, and coverage, setting the refresh cadence so pricing decisions ran on current signals and contributing to a 9 percent share gain.
+\item Indexed 100K+ internal documents in Elasticsearch for self-serve search, cutting support desk volume \textbf{80 percent} and turning the support queue into a self-serve search box, freeing the support team for work that actually needed a human.
+\item Owned contextual search signals (time, location, cuisine affinity) feeding ranking across millions of daily queries, evaluating signal quality to lift search-to-conversion; analyst scope, never model training.
+\item Ran campaign analytics with funnel instrumentation and A/B tests on discount strategy, reallocating spend to what converted for 200 percent campaign revenue growth; Tableau dashboards tracked menu-to-cart and cart-to-order conversion.
+\end{itemize}
+
+\section{Projects}
+\projheader{Real-Time Fraud Detection}{Kafka, LightGBM, MLflow, FastAPI, Docker}{2026}
+\begin{itemize}
+\item Built a FastAPI \textbf{REST API} scoring Kafka-streamed events with an MLflow-tracked LightGBM classifier and idempotent writes that make replays safe no-ops; per-request P99 scoring latency of 1.12 ms under Prometheus and Grafana observability.
+\item Trained and evaluated on 100K synthetic transactions at a 2 percent fraud rate, then containerized the full pipeline end to end with Docker for reproducible evaluation runs, with the synthetic data labeled plainly wherever the work is shown.
+\end{itemize}
+\projheader{AutoApply AI}{Chrome MV3, FastAPI, pgvector, React}{2026}
+\begin{itemize}
+\item Shipped a Chrome extension plus FastAPI backend with \textbf{40+ REST endpoints} and a nine-page React dashboard, grounding answers in prior work history through pgvector vector-database retrieval; backed by 355 backend tests.
+\item Delivered 11 ATS adapters handling shadow-DOM isolation and offline queuing across a six-provider LLM routing cascade, so applications keep tracking even when the network drops, syncing the queue when connectivity returns.
+\end{itemize}
+\projheader{FinTune}{Mistral-7B, QLoRA, FastAPI, PyTorch}{2026}
+\begin{itemize}
+\item Fine-tuned Mistral-7B with QLoRA for financial sentiment, serving it behind FastAPI with pre-inference PII guardrails and KL-divergence drift monitoring; 35+ tests across data, model, guardrails, serving, and recovery.
+\item Hardened serving with a three-state circuit breaker that reloads the model, sheds batch size under memory pressure, or falls back to a quantized model, keeping the API responsive under load instead of failing.
+\end{itemize}
+\projheader{repo-context-hooks}{Python, GitHub Actions, Sigstore, CodeQL}{PyPI}
+\begin{itemize}
+\item Published a zero-dependency public Python package on PyPI snapshotting repository context for LLM coding agents between sessions; Sigstore-signed releases, CodeQL on every pull request, \textbf{330+ passing tests}.
+\item Runs on the standard library alone at runtime, so it installs cleanly anywhere with zero dependency conflicts; that single decision lets any reviewer verify the Python in one pip install, which is exactly the bar for developer trust.
+\end{itemize}
+\projheader{JobScout}{Python, SQLite, GitHub Actions, TF-IDF}{2025}
+\begin{itemize}
+\item Monitors 109 career pages with TF-IDF matching against 95+ resume variants, sending Discord and Telegram alerts; zero-cost GitHub Actions on SQLite WAL with circuit breakers isolating failing scrapers.
+\end{itemize}
+
+\section{Education \& Certifications}
+\eduline{\textbf{Missouri S\&T} - MS Information Science and Technology, GPA 4.0 \hfill Jan. 2022 - Dec. 2023}
+\eduline{\textbf{GVP College of Engineering} - B.Tech Mechanical Engineering \hfill 2017}
+\eduline{DP-700 Microsoft Certified Fabric Data Engineer Associate $|$ CSPO $|$ Publication DOI 10.1080/10495142.2025.2525123}
+\end{document}

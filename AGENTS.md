@@ -5,7 +5,16 @@ Naren owns all approvals. Agents prepare; he decides.
 
 ## 1. Sync discipline
 
-- `git pull` before starting any work. Push when you finish a unit of work.
+The GitHub repo (`narendranathe/apply`) is the shared source of truth for text files.
+
+- **Before starting work:** get the latest. If you have git credentials, `git pull`.
+  If you work through the GitHub API (no git auth), read via `get_file_contents` —
+  never assume your copy is current.
+- **After finishing a unit of work:** sync it back. With git credentials, commit + push.
+  Via API: `push_files` for batches, `create_or_update_file` for single files.
+- **PDFs never go to GitHub.** The API push path is text-only and `*.pdf` is gitignored.
+  PDFs are local build artifacts — compile from the `.tex` with the preamble documented
+  in `docs/resume-instructions.md`. The `.tex` is the source of truth.
 - Never force-push. Never rebase shared history.
 
 ## 2. Dedup is mandatory, not optional
