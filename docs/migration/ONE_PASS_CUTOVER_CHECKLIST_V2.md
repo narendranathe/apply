@@ -31,3 +31,21 @@
 - [ ] Document rollback, alerting, restoration, retention, monthly usage and a clear list of remaining exceptions.
 
 **Run instructions:** Paste the ENTIRE `ONE_PASS_CLOUD_MIGRATION_PROMPT_V2.md` into ONE new interactive Codex chat opened on the local `narendranathe/apply` checkout. Do not paste the original Codex prompts or the two individual cloud task prompts again; Codex will read them from local files. Do not treat a plan alone as deployment.
+
+## Execution evidence, October 12, 2026
+
+The original checklist remains the deployment contract. This status records what actually passed; registration is separate from activation.
+
+| Gate | Evidence / current result |
+| --- | --- |
+| Private destination and source audit | PASS; repository private, original workflows/repositories/Notion/source bodies audited |
+| Historical preservation and offline comparison | PASS; 719 normalized records, 769 exact restored archive members; offline unchanged354/would-import365/conflicted0/blocked0 |
+| Application and outreach engineering | PASS; V2 policy, permitted adapters, fresh dedup, truthful QA, human/manual evidence, suppression and no uncertain retry |
+| Hosted engineering tests | PASS;165 tests without skips plus85 legacy; real PDF QA and four-archive restore |
+| Default-branch workflow registration | PASS; merged PR1,06:00/06:30 America/Chicago, explicit CLOUD_ENABLED=false |
+| Runner Notion credential/read-write/shadow/import | BLOCKED; NOTION_TOKEN absent, operational imports0 |
+| Old actors retired / final delta / activation | BLOCKED; both outreach schedules remain ACTIVE; Milo application controller unresolved |
+| Provider-permitted application writes | Credential/permission exceptions;0 cloud auto-submissions,1 human-confirmed Goldman submission |
+| Fully cloud-hosted while Mac is off | FAIL until hosted Notion validation and the single cutover pass |
+
+See [full migration report](../MIGRATION_REPORT.md) and [cutover runbook](../runbooks/CUTOVER.md) for direct evidence links and exact next actions.
