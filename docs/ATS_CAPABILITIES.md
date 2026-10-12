@@ -1,6 +1,6 @@
 # ATS capabilities and permission evidence
 
-Checked against primary official documentation on October 11, 2026. An API's existence is not permission to submit to an employer. No employer-scoped ATS credentials or employer permission records were found in this checkout; default config enables no live writes.
+Checked against primary official documentation on October 11, 2026. Discovery uses `verify(..., require_schema=False)` for live role metadata and JD; that result explicitly has `schema_verified: false` and cannot certify submission eligibility. An API's existence is not permission to submit to an employer. No employer-scoped ATS credentials or employer permission records were found in this checkout; default config enables no live writes.
 
 | ATS | Official read / application path | Implemented behavior |
 |---|---|---|
@@ -17,7 +17,11 @@ Under `applications.employers`, use a normalized employer key with `ats`, exact 
 
 `permission` must contain `permitted: true`, `scope: application_submission`, HTTPS `evidence_url`, timezone-aware `verified_at`, and unexpired `expires_at`. This represents separately verified employer/integration permission; the ATS developer documentation alone cannot fill it. Every external write rechecks it. Revoke configuration immediately when permission ends.
 
-A supported form also needs current sponsorship/authorization/location/compensation screening, exact verified answers, a QA-passed PDF and payload hash, authoritative dedup, action-time verification, and central-writer claim. Missing keys/permissions are credential or manual exceptions, never invented configuration.
+A supported form also needs current sponsorship/authorization/location/compensation screening, exact verified answers, a QA-passed PDF and payload hash, authoritative dedup, action-time verification, and central-writer claim.
+
+`screening.sponsorship_evidence` preserves the existing recent-filings gate: `verified: true`, `recent_h1b_filings: true`, HTTPS `source_url`, timezone-aware `verified_at` within 90 days, and the supported `fiscal_years` from the last two completed fiscal years. Filings remain evidence of past filings, not a guarantee about the employer's current hiring decision; the official JD must not prohibit sponsorship. Feed booleans never supply this gate.
+
+For Dallas/Addison, the documented standing minimum is $175,000 annual base; the official USD annual range must reach it. Elsewhere, configure a reusable location-specific `screening.compensation_policy` with a verified standing source and `minimum_base_salary`. No cost-of-living conversion is invented. Unknown location policy or official salary range is an exception. A compensation screen never fills an unsupported salary answer into a form. Missing keys/permissions are credential or manual exceptions, never invented configuration.
 
 ## Durable manual packets and reconciliation
 

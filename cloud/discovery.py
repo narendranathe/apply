@@ -45,7 +45,7 @@ def run_discovery(store, config, now, feed=None, transport=None):
         result['roles_checked'] += 1
         try:
             employer = _employer(lead, settings)
-            job = adapter_for(employer, transport).verify(lead)
+            job = adapter_for(employer, transport).verify(lead, require_schema=False)
         except SubmissionBlocked as exc:
             error(str(exc))
             continue

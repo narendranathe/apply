@@ -14,7 +14,7 @@ Select the primary arc from the official JD and retain the Arc F earlier-career 
 
 Screening answers come from documented standing records or verified exact-question overrides. Sponsorship stays truthful. Compensation and demographic preferences are never invented; legal attestations stay human-only. Compile with shell escape disabled, lint source, check budgets and real PDF text/ordering, page count/fill/margins/overfull boxes, and render previews. Unavailable or failed tooling is a block, not a pass.
 
-Artifacts are ephemeral private runner files. Notion stores source packet material, hashes and evidence; a future run regenerates and verifies a packet before an attempt. Plaintext packets are never committed. Durable artifacts for human-only exceptions need an explicitly configured private storage destination; runner `/tmp` paths are not usable handoff links.
+Artifacts are ephemeral private runner files. Notion stores source packet material, hashes and evidence; a future run regenerates and verifies a packet before an attempt. Plaintext packets are never committed. Immutable private `application_packets` records preserve source, exact answers/changelog and bounded PDF bytes; restore the exact packet with `scripts/registry.py packet`. Packets above the Notion size bound need an approved artifact-storage route. Runner `/tmp` paths are not used as handoff links.
 
 ## Eligibility and submission
 

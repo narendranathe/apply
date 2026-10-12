@@ -22,7 +22,7 @@ jobs:
           python-version: '3.12'
       - run: pip install -r requirements.txt
       - name: Install isolated PDF build tools
-        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends texlive-latex-extra texlive-fonts-recommended poppler-utils
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends texlive-latex-extra texlive-fonts-recommended lmodern poppler-utils
       - name: Validate all lanes against live Notion without writes
         env:
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}

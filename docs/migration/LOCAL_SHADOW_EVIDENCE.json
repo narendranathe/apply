@@ -1,0 +1,67 @@
+{
+  "baseline_records": 703,
+  "cloud_hosted": false,
+  "dry_run": true,
+  "linkedin_inbox": "not checked",
+  "linkedin_sent": 0,
+  "live_notion_credential_verified": false,
+  "production_submission_count": 0,
+  "results": [
+    {
+      "blocked": {
+        "needs_verification": 30
+      },
+      "contacts_available": 154,
+      "contacts_reviewed": 30,
+      "drafts": 0,
+      "inbox": "not checked",
+      "lane": "accepted",
+      "research": 30,
+      "sent": 0
+    },
+    {
+      "blocked": {
+        "needs_verification": 30
+      },
+      "contacts_available": 154,
+      "contacts_reviewed": 30,
+      "discovery": {
+        "duplicates": 0,
+        "exceptions": {
+          "official_employer_mismatch": 1
+        },
+        "feed_exported_at": "2026-10-12T01:26:10.090365+00:00",
+        "official_open": 4,
+        "research_tasks": 4,
+        "roles_checked": 5
+      },
+      "drafts": 0,
+      "inbox": "not checked",
+      "lane": "first_touch",
+      "research": 30,
+      "sent": 0
+    },
+    {
+      "applied_verified": 0,
+      "candidates_seen": 5,
+      "dry_run": true,
+      "duplicates": 0,
+      "exceptions": {
+        "official_application_requirement_ambiguous": 2,
+        "official_employer_mismatch": 1,
+        "requirement_map_unavailable": 2
+      },
+      "feed_checked": true,
+      "feed_exported_at": "2026-10-12T01:26:10.090365+00:00",
+      "feed_fresh": true,
+      "lane": "applications",
+      "prepared": 0,
+      "qualified": 0,
+      "statuses": {},
+      "submission_attempts": 0,
+      "submission_unknown": 0
+    }
+  ],
+  "timezone": "America/Chicago",
+  "validation_environment": "local_snapshot"
+}
