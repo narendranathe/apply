@@ -113,3 +113,10 @@ metrics, max 1 per bullet, max 3 words each.
 - No consumer-product metrics evidence: his metrics work is payroll/B2B; framing translates.
 - Salary band ($320K-$405K) far exceeds his $175K-Dallas target — no conflict, but level
   mapping is Anthropic's call.
+
+## 2026-10-12 fix — Experience reordered to strict reverse-chronological
+Naren flagged the page-2 order as wrong (his rule: latest to oldest, no exceptions).
+Moved the C2FO block (Product Intern, Jun–Aug 2023) ahead of Udaan and Zomato.
+Order is now ExponentHR → Missouri S&T → C2FO → Udaan → Zomato, matching the
+corrected master. Recompiled: 2 pages, 0 overfull, `resume_qa.py order` PASS.
+No bullet text changed — pure block move.

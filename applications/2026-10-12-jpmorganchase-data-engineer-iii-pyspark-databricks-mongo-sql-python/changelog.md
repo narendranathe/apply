@@ -99,3 +99,10 @@ Page 2 (5): plus 2 rupees (metric), 80 percent (metric), 1.12 ms (metric), PII g
 (controls-adjacent), pgvector (NoSQL-adjacent evidence).
 All <=3 words, max 1 per bullet.
 QA: LINT PASS, BUDGET PASS, LAYOUT PASS — 2 pages, 100.3%/63.3% fill, 31 bullets, 0 overfull, 1274 words.
+
+## 2026-10-12 fix — Experience reordered to strict reverse-chronological
+Naren flagged the page-2 order as wrong (his rule: latest to oldest, no exceptions).
+Moved the C2FO block (Product Intern, Jun–Aug 2023) ahead of Udaan and Zomato.
+Order is now ExponentHR → Missouri S&T → C2FO → Udaan → Zomato, matching the
+corrected master. Recompiled: 2 pages, 0 overfull, `resume_qa.py order` PASS.
+No bullet text changed — pure block move.

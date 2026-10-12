@@ -41,6 +41,9 @@ Duplicate applications to the same employer get candidates blacklisted. The regi
 ## 4. Resume tailoring
 
 - One JD per application folder. Tailor from `resumes/master/`, never edit the master in place.
+- **Experience is strict reverse-chronological, always** (Naren's rule, 2026-10-12): ExponentHR →
+  Missouri S&T → C2FO → Udaan → Zomato. Verify in the `.tex` and in the compiled PDF's text
+  extraction before any draft leaves `draft_ready`.
 - Follow the arc system in `docs/arcs.md`: pick the primary arc from the JD's own language.
 - Every tailored resume ships with `changelog.md`: each bullet changed/added/removed vs master,
   with the JD requirement it maps to. Naren approves the changelog, not just the PDF.

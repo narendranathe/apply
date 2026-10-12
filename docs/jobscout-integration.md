@@ -26,20 +26,31 @@ flag (1 = positive signal), salary, matched skills.
 - Scores top out ~0.62. The keyword/heuristic component works with no resume loaded;
   the TF-IDF refinement only applies when a resume version is in the vault.
 
-## Resume vault sync (PENDING — do after he approves the master resume)
+## Resume vault sync (MASTER APPROVED 2026-10-12 — sync BLOCKED, backend down)
 
-JobScout scores jobs against resume versions in its vault (`POST /api/resume`
-`{"resume_text": "...", "version": "_AI"}`). The current vault resume predates the
-AI-engineer rewrite, so scores still skew toward the old data-engineer framing.
+JobScout scores jobs against resume versions in its vault. The real endpoint (per
+`narendranathe/job-scout:backend/routes/resume_version_routes.py`) is
+`POST /api/resume/versions` with `{"version_key": "_AI", "resume_text": "..."}` —
+NOT `POST /api/resume` (that path never existed; corrected 2026-10-12). It keeps
+old versions — nothing is overwritten.
 
-When the master resume is approved:
-1. Extract plain text from `resumes/master/Narendranath-Edara-Resume.pdf`.
-2. If the Render backend is awake, `POST` it as a new `_AI` version (it keeps old
-   versions — nothing is overwritten).
-3. If the backend is unreachable (free tier sleeps), do it from his browser via
-   the JobScout dashboard's resume upload, or wait for the next deploy.
+**2026-10-12: the sync is blocked.** The Render backend (`jobscout-api.onrender.com`)
+responds but serves NO routes — `/`, `/api/resume/versions`, `/docs`, `/health` all
+return empty 404s. The Flask app in the repo is not running on the live service
+(failed/stale deploy or suspended service). Three sync attempts failed (timeout,
+then 404 on the documented path, then 404 on the real path). Until the service is
+redeployed, the vault still holds the pre-AI-framing resume.
 
-Do NOT sync the unreviewed master — scoring against a draft bakes the draft's
+Workarounds, in order:
+1. Naren redeploys/fixes the Render service, then re-run the POST.
+2. Upload the master text via the JobScout dashboard's resume upload.
+3. Otherwise, the daily cron keeps scoring with the old vault resume — keyword
+   scoring still works; only the TF-IDF refinement misses the new framing.
+
+Plain text of the approved master is staged at
+`workspace/goals/standout-master-resume-for-ai-engineer-transition/hidden_files/master-resume-plain-text-2026-10-12.txt`.
+
+Do NOT sync an unreviewed master — scoring against a draft bakes the draft's
 framing into every future candidate ranking.
 
 ## AutoApply AI handoff
