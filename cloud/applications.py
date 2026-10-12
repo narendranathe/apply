@@ -44,6 +44,13 @@ class StateConflict(Exception):
     pass
 
 
+def employer_identity(company):
+    # Explicit brand/legal-name equivalence, not generic suffix stripping.
+    # Primary source: https://www.jpmorganchase.com/legal
+    identity = normalize(company)
+    return {'jpmorganchaseco': 'jpmorganchase'}.get(identity, identity)
+
+
 def canonical_url(value):
     parsed = urllib.parse.urlsplit(value or "")
     if parsed.scheme not in {"http", "https"} or not parsed.hostname:
@@ -56,7 +63,7 @@ def canonical_url(value):
 
 def application_key(company, requisition_id=None, url=None, role=None, location=None):
     if requisition_id:
-        return normalize(company) + ":" + normalize(requisition_id)
+        return employer_identity(company) + ":" + normalize(requisition_id)
     if url:
         return canonical_url(url)
     return ":".join(normalize(value) for value in (company, role, location))
@@ -96,7 +103,7 @@ def matching_application(records, company, requisition_id=None, urls=(), role=No
         old_urls = [payload.get("url"), payload.get("posting_url"), *payload.get("url_aliases", []), *payload.get("aliases", [])]
         if aliases & {canonical_url(url) for url in old_urls if url}:
             return record
-        if normalize(payload.get("company")) == normalize(company):
+        if employer_identity(payload.get("company")) == employer_identity(company):
             old_req = payload.get("requisition_id") or payload.get("job_id")
             if old_req and requisition_id and normalize(old_req) == normalize(requisition_id):
                 return record

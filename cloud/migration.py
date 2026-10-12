@@ -11,6 +11,7 @@ import json
 import re
 import sqlite3
 from pathlib import Path
+from urllib.parse import urlsplit
 from typing import Any, Iterable, Protocol
 
 SCHEMA = "apply-historical-export/v1"
@@ -341,6 +342,137 @@ def merge_history(local: dict, notion_records: list[dict], notion_events: list[d
             "metadata_variants": variants, "remote_event_comparison": {"exact": exact,
              "approved_metadata_variants": len(variants), "remote_only_events": added, "unresolved_conflicts": 0},
             "cloud_authoritative": False}
+
+
+def application_delta(source_files: dict[str, bytes], *, source_commit: str, base_commit: str, previous_records=()) -> dict:
+    """Preserve source drafts as historical preparations, never QA-ready packets.
+
+    Exact text files, including local style dependencies, are portable inside
+    private packet records. Observed URL IDs are source identities; this does
+    not verify an employer opening, source claims, answers, PDF or permission.
+    """
+    from .applications import application_key, canonical_url, fold_applications
+    from .records import application_aliases
+    registry_bytes = source_files["applications/registry.json"]
+    registry = json.loads(registry_bytes)
+    observations = json.loads(source_files.get("audit/identity-observations.json", b"{}"))
+    manifest = [{"path": path, "bytes": len(body), "sha256": hashlib.sha256(body).hexdigest()}
+                for path, body in sorted(source_files.items())]
+    manifest_hash = digest(manifest)
+    records, provenance = [], {}
+    previous = fold_applications([row for row in previous_records if row['kind'] == 'applications'])
+    for original_key, original in sorted(registry.items()):
+        folder = original["folder"]
+        if not folder or "/" in folder or "\\" in folder or folder in (".", ".."):
+            raise ValueError("Unsafe source application folder")
+        status_path = "applications/" + folder + "/status.json"
+        source_status = json.loads(source_files[status_path])
+        status_conflict = source_status.get('status') != original.get('status')
+        if status_conflict and not (original.get('applied_at') or original.get('status') in {'applied', 'submitting', 'submission_unknown'}):
+            raise ValueError("Registry/folder source status conflict")
+        url = original.get("url") or original_key
+        normalized_url = canonical_url(url)
+        parts = urlsplit(normalized_url)
+        req = None
+        if parts.hostname in ("boards.greenhouse.io", "job-boards.greenhouse.io"):
+            found = re.search(r"/jobs/(\d+)$", parts.path)
+            req = found.group(1) if found else None
+        elif parts.hostname == "higher.gs.com":
+            found = re.search(r"/roles/(\d+)$", parts.path)
+            req = found.group(1) if found else None
+        elif parts.hostname == "jpmorganchase.veteran-hiring.com":
+            found = re.search(r"-(\d{8,12})$", parts.path)
+            req = found.group(1) if found else None
+        key = application_key(original["company"], req, normalized_url, original.get("role"))
+        identity = "application:" + digest(key)
+        old = previous.get(identity)
+        if old and old['payload'].get('source_commit') == source_commit:
+            raise ValueError('Source commit already captured; reuse the authenticated existing export')
+        raw_state = original["status"]
+        status = {"draft_ready": "prepared", "approved": "prepared", "sourced": "discovered"}.get(raw_state, "historical_observation")
+        if raw_state in ("applied", "submitting", "submission_unknown") or original.get("applied_at"):
+            status = "submission_unknown"
+        relevant = [entry for entry in manifest if entry["path"].startswith("applications/" + folder + "/")
+                    or entry["path"] == "resumes/variants/" + folder + ".tex"]
+        if not relevant:
+            raise ValueError("Application has no recoverable source files")
+        common = {"application_id": identity, "company": original["company"], "role": original["role"],
+                  "requisition_id": req, "requisition_id_source": "observed_source_url_path" if req else "unknown",
+                  "url": normalized_url, "url_aliases": sorted({canonical_url(original_key), normalized_url}),
+                  "identity_aliases": application_aliases(original["company"], req, normalized_url),
+                  "dedup_key": key, "source_commit": source_commit, "source_folder": folder,
+                  "source_manifest_sha256": manifest_hash, "source_status": raw_state,
+                  "actor": original.get("claimed_by"), "occurred_at": original.get("claimed_at"),
+                  "timestamp_precision": precision(original.get("claimed_at")), "historical_only": True,
+                  "official_verified": False, "receipt_verified": False, "qa_verified": False,
+                  "answers_verified": False, "runtime_fact_lock_reviewed": False, "replay_allowed": False}
+        common['source_status_conflict'] = status_conflict
+        observed = observations.get(original_key, {})
+        mirror = parts.hostname == "jpmorganchase.veteran-hiring.com"
+        common.update({"employer_history_unresolved": mirror,
+                       "observed_job_id": observed.get("job_id") or req,
+                       "observed_requisition_id": observed.get("requisition_id"),
+                       "identity_observation": observed, "identity_observation_verified": False})
+        if observed.get("requisition_id"):
+            common["identity_aliases"] = sorted(set(common["identity_aliases"] +
+                application_aliases(original["company"], str(observed["requisition_id"]), normalized_url)))
+        files = [{**entry, "content_utf8": source_files[entry["path"]].decode("utf-8")}
+                 for entry in relevant]
+        packet_payload = {**common, "source_files": files, "source_registry_row": original,
+                          "source_status_document": source_status, "ready": False,
+                          "source_pdf_present": any(entry["path"].endswith(".pdf") for entry in relevant),
+                          "requires_fresh_packet": True}
+        packet_id = "application-packet:" + digest(packet_payload)
+        packet_record = record(packet_id, "application_packets", packet_payload, "incomplete")
+        if len(canonical(packet_record).encode("utf-8")) > 190_000:
+            raise ValueError("Recoverable source packet exceeds portable Notion storage limit")
+        app_payload = {**common, "revision": old['payload'].get('revision', 0) + 1 if old else 0,
+                       "previous_record_id": old['id'] if old else None, "source_registry_key": original_key,
+                       "source_registry_row": original, "source_status_document": source_status,
+                       "packet": {"record_id": packet_id, "ready": False, "qa_verified": False,
+                                  "requires_fresh_packet": True}, "source_files": relevant}
+        app_record = record(identity + ":historical-source:" + digest([source_commit, original_key])[:24],
+                            "applications", app_payload, status)
+        records.extend((app_record, packet_record))
+        for item in (app_record, packet_record):
+            provenance[item["id"]] = [{"git_commit": source_commit, "registry_path": "applications/registry.json",
+                                      "registry_sha256": hashlib.sha256(registry_bytes).hexdigest(),
+                                      "source_folder": folder, "historical_only": True, "replay_allowed": False}]
+    fact_patch = source_files.get("audit/ground-truth.diff", b"")
+    audit_payload = {"source_commit": source_commit, "base_commit": base_commit,
+                     "source_manifest": manifest, "source_manifest_sha256": manifest_hash,
+                     "ground_truth_patch_utf8": fact_patch.decode("utf-8"),
+                     "runtime_fact_lock_reviewed": False, "historical_only": True, "replay_allowed": False}
+    audit_record = record("application-source-delta:" + digest([source_commit, manifest_hash]),
+                          "audit_events", audit_payload, "requires_fact_lock_review")
+    records.append(audit_record)
+    provenance[audit_record["id"]] = [{"git_commit": source_commit, "base_commit": base_commit,
+                                      "historical_only": True, "replay_allowed": False}]
+    return {"schema": SCHEMA, "records": sorted(records, key=lambda item: item["id"]),
+            "provenance": provenance, "source_manifest": manifest, "source_commit": source_commit,
+            "base_commit": base_commit, "blocked": [], "historical_only": True,
+            "cloud_authoritative": False, "replay_allowed": False}
+
+
+def combine_exports(exports: list[dict]) -> dict:
+    """Fail closed on identities that differ; preserve every input unchanged."""
+    records, provenance, manifests = {}, {}, []
+    for export in exports:
+        if export.get("schema") != SCHEMA or export.get("blocked"):
+            raise ValueError("Unsupported/conflicted migration source")
+        for item in export["records"]:
+            if item.get("hash") != digest(item.get("payload")):
+                raise ValueError("Migration input hash mismatch")
+            existing = records.get(item["id"])
+            if existing and any(canonical(existing[field]) != canonical(item[field]) for field in ("id", "kind", "status", "payload", "hash")):
+                raise ValueError("Migration source identity conflict")
+            records[item["id"]] = item
+        for key, values in export.get("provenance", {}).items():
+            provenance.setdefault(key, []).extend(values)
+        manifests.extend(export.get("source_manifest", []))
+    return {"schema": SCHEMA, "records": sorted(records.values(), key=lambda item: item["id"]),
+            "provenance": provenance, "source_manifest": manifests, "blocked": [],
+            "historical_only": True, "cloud_authoritative": False, "replay_allowed": False}
 
 
 def reconcile_records(records: Iterable[dict], store: RecordStore, *, dry_run: bool = True,

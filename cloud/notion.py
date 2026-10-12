@@ -364,13 +364,26 @@ class NotionStore:
         return self._decode_legacy(legacy[0]) if legacy else None
 
     def query(self, kind: str | None = None) -> list[dict]:
-        filters = {"property": "Cloud ID", "rich_text": {"is_not_empty": True}}
+        # A cleared/edited identity or kind must not hide applied history from
+        # dedup. Query both independent identity projections and malformed Cloud
+        # rows, then validate before filtering the decoded record family.
+        filters = {"or": [{"property": "Section", "select": {"equals": "Cloud"}},
+                          {"property": "Cloud ID", "rich_text": {"is_not_empty": True}},
+                          {"property": "Cloud Envelope", "rich_text": {"is_not_empty": True}}]}
         if kind:
-            filters = {"and": [filters, {"property": "Cloud Kind", "rich_text": {"equals": kind}}]}
+            fragment = canonical_json({"kind": kind})[1:-1]
+            invalid_identity = {"and": [{"property": "Section", "select": {"equals": "Cloud"}},
+                                       {"or": [{"property": field, "rich_text": {"is_empty": True}}
+                                               for field in ("Cloud ID", "Cloud Kind", "Cloud Envelope")]}]}
+            filters = {"and": [filters, {"or": [{"property": "Cloud Kind", "rich_text": {"equals": kind}},
+                                                {"property": "Cloud Envelope", "rich_text": {"contains": fragment}},
+                                                invalid_identity]}]}
         pages = self._pages(filters)
         records, seen = [], set()
         for page in pages:
             record = self._decode_cloud(page)
+            if kind is not None and record['kind'] != kind:
+                raise ConflictError('Cloud kind query disagrees with the immutable envelope')
             if record["id"] in seen:
                 raise ConflictError("Duplicate Cloud ID in query")
             seen.add(record["id"])

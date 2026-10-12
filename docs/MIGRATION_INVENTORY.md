@@ -133,6 +133,44 @@ or provider authentication files were selected.
 
 ## Remaining cutover gates
 
+### October 12 application delta
+
+Main advanced independently to `c9530f2dfc240e712113d9e43dcde01eb7e53953`
+with three `draft_ready` folders, three TeX variants and a registry. Every
+`applied_at` is null; no receipt or exact PDF is present. Claimed actor labels
+are preserved as source observations, not independently verified executors or
+cadences. The local scheduler stores still show no corresponding application
+job. Its controller must be identified and reconciled before cloud activation.
+
+The original 38 Git source files and one separate unverified identity
+observation are preserved in `2026-10-12-c9530f2-application-delta.aesgcm`,
+with two normalized inputs: **41 restored members**, every hash matched.
+Ciphertext SHA-256 is
+`8fad0aadbf02d9ad74e7d4cd788479a4c142e419dce96356ec969b6efbcdd78d`.
+The seven additional records are three historical preparations, three incomplete
+recoverable source packets, and one fact-source change audit. Combined import
+input contains **710 records**, with no source conflicts. The original 703-record
+archive is unchanged. Plaintext packets were removed from Git tracking only
+after an independent authenticated restore; local ignored copies remain.
+
+The drafts use the older resume and unresolved scale claims. Their self-reported
+PASS/QA prose is not a verified artifact or screening result. JPMorganChase's
+third-party mirror IDs are source-observed, with `employer_history_unresolved`
+holding the employer until official identity reconciliation. Explicit legal-name
+and brand dedup follows the [official company source](https://www.jpmorganchase.com/legal);
+generic Inc/Co suffix stripping is not used. These records authorize no replay
+and require fresh truthful packets before any submission.
+
+Main subsequently advanced to `16de4acc4e66c6b7e09502ff5f4dfb8d3ec873ba`.
+Goldman Sachs is reported `applied` in the registry, with a confirmation string
+in notes, while its folder remains `draft_ready`. Both exact sources are retained;
+no independent receipt was verified. Its next immutable revision is
+`submission_unknown`, preventing repeat submission. Two other latest states
+remain historical prepared drafts. The additional 42 source files and two
+normalized inputs restored as **44 exact members** from a separate archive,
+SHA-256 `c383cbfe52ca32e0cd55bdccd9b78728046a22d6119a19e318d54b03e93b0a66`.
+Combined input now has **717 records**, preserving every earlier version.
+
 Runner secrets, complete remote payload reconciliation, actual application actor
 and cadence, cloud shadow runs, final source delta and a proven single writer
 must pass before local task retirement. Both desktop tasks remain ACTIVE. The

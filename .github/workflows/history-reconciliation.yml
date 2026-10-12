@@ -35,7 +35,7 @@ jobs:
           python - <<'PY'
           import base64, os
           from pathlib import Path
-          from scripts.encrypted_backup import restore_archive
+          from scripts.verify_migration_archive import restore_all
           root = Path('.migration-private')
           root.mkdir(mode=0o700, exist_ok=True)
           key = Path('/tmp/apply-runner-recovery-key.bin')
@@ -43,7 +43,7 @@ jobs:
               fd = os.open(key, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
               with os.fdopen(fd, 'wb') as stream:
                   stream.write(base64.b64decode(os.environ['MIGRATION_BACKUP_KEY'], validate=True))
-              restore_archive(Path('migration-archives/2026-10-11-v2-history.aesgcm'), root / 'restored', key_path=key)
+              restore_all(root / 'restored', key)
           finally:
               key.unlink(missing_ok=True)
           PY
@@ -54,9 +54,9 @@ jobs:
           IMPORT_MODE: ${{ inputs.mode }}
         run: |
           if [ "$IMPORT_MODE" = 'import' ]; then
-            python scripts/migrate_history.py --input .migration-private/restored/normalized/merged-historical-records.json --write --private-destination-verified
+            python scripts/migrate_history.py --input .migration-private/restored/combined-historical-records.json --write --private-destination-verified
           else
-            python scripts/migrate_history.py --input .migration-private/restored/normalized/merged-historical-records.json
+            python scripts/migrate_history.py --input .migration-private/restored/combined-historical-records.json
           fi
       - name: Remove plaintext staging
         if: always()

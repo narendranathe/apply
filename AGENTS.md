@@ -4,10 +4,11 @@ Applies to every agent in this private repository. The October 11, 2026 [V2 migr
 
 ## Sync and one writer
 
-- Pull before work; push a completed unit. Never force-push or rebase shared history.
+- GitHub is the shared source for code and safe configuration. Pull before work and push a completed unit. API-only agents must read current files before editing and sync their completed changes through the GitHub API. Never force-push or rebase shared history.
 - The GitHub Actions orchestrator is the only operational cloud writer. Every business lane uses its common concurrency group. Do not run independent live writers or submitters.
 - Notion is authoritative. Application records and audit events are immutable; append transitions, verify fresh state and post-write readback. Conflicts or uncertain writes stop the run for reconciliation.
 - `applications/registry.json` is an ignored compatibility import/export view. `scripts/registry.py check` reads Notion and fails closed when unavailable. Local `claim`/`set` and `new_application.py` mutations are retired.
+- Plaintext application packets, answers, PDFs and per-application resume variants are never committed. Recoverable packets belong in the access-controlled Notion record and authenticated encrypted archives; render PDFs in private ephemeral staging.
 
 ## Dedup before preparation and submission
 
@@ -20,6 +21,7 @@ Applies to every agent in this private repository. The October 11, 2026 [V2 migr
 - `docs/ground-truth.md` is the only resume fact source. Exclude unresolved `[VERIFY]` and `[BLOCKED]` claims; a specifically documented corrected fragment can ship only through its reviewed claim manifest.
 - Keep HR titles and employment dates unchanged. Independent AI projects stay in Projects, and incomplete work stays labeled in progress.
 - Tailor from `resumes/master/` into private ephemeral packets; never tailor the master in place. Follow `docs/arcs.md` and preserve the frozen preamble.
+- Experience must remain strict reverse-chronological: ExponentHR, Missouri S&T, C2FO, Udaan, Zomato. Verify both source dates/order and compiled PDF text before eligibility.
 - Keep the exact official JD snapshot, requirement-to-fact map, every changed/removed/reordered bullet in the changelog, screening answer provenance, source and artifact hashes, and meaningful compile/text/layout/render QA. A changed master or fact source requires a new manifest review.
 - Use only documented standing answers or exact question-specific verified answers. Unknown compensation, sponsorship, location commitments, demographic/EEO facts, legal attestations, or other material facts become exceptions. Never guess or select a convenient answer.
 

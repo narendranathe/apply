@@ -25,4 +25,4 @@ python3 scripts/check_workflows.py
 
 Actions manual dry-run provides cloud shadow validation, with writes in memory and no sends/submissions. Schedules remain guarded by CLOUD_ENABLED and verified Notion cutover evidence until history comparison, restored backups, shadow tests and retirement of local writers all pass.
 
-See [cutover and rollback](docs/runbooks/CUTOVER.md), [Notion schema](docs/NOTION_SCHEMA.md), [submission capabilities](docs/ATS_CAPABILITIES.md), and [inventory](docs/MIGRATION_INVENTORY.md).
+See [migration report](docs/MIGRATION_REPORT.md), [cutover and rollback](docs/runbooks/CUTOVER.md), [Notion schema](docs/NOTION_SCHEMA.md), [submission capabilities](docs/ATS_CAPABILITIES.md), [evidence-only funnel reporting](docs/REPORTING.md), and [inventory](docs/MIGRATION_INVENTORY.md).

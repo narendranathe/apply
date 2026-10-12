@@ -83,6 +83,21 @@ restored SQLite with read-only connections and `PRAGMA quick_check`.
 
 ## Historical import and rollback
 
+`scripts/verify_migration_archive.py` now verifies every committed archive and
+receipt, restores each into separate private directories and combines only
+identical immutable identities. The hosted importer uses
+`combined-historical-records.json`. The October 12 application delta adds seven
+records to the unchanged 703-record baseline, for 710 combined records. Its
+41 members independently restored with exact hashes; its receipt uses opaque
+member IDs so private source paths remain inside authenticated ciphertext.
+Historical packet export through `scripts/registry.py packet` verifies every
+source byte/hash and preserves dependency files, without certifying fresh QA.
+The subsequent `16de4ac` delta adds seven more immutable revisions for 717
+combined records. Its 44 members preserve the externally reported Goldman
+submission and contradictory draft folder, which normalize to uncertainty
+rather than a verified receipt. The three-archive restore verifies 682 + 41 + 44
+members and fails on changed immutable identities.
+
 `scripts/migrate_history.py` exports only beneath `.migration-private/` and prints
 counts, never personal payloads. The export retains raw source provenance beside
 unchanged canonical event bodies. A reconciliation run is read-only by default;

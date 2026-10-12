@@ -18,7 +18,7 @@ The following properties were added and read back through the connected Notion i
 
 New managed rows also use existing `Type=Reference` and `Status=Done`. These keep machine records out of the action Queue, while preserving visibility in History. `Name` is a deterministic readable title derived from the immutable envelope: person/role/company/status, lane/date/status, or kind/short ID/status. A JSON code block contains the same envelope for complete inspection.
 
-The existing database has new tabs for Cloud operations, applications, jobs, contacts, run log, and exceptions. These are filters on this same data source. Application rows are immutable transitions; the latest state is derived by application ID and revision. Views show historical transitions as well as the newest one and do not claim to be transactional materialized current-state tables.
+The existing database has new tabs for Cloud operations, applications, jobs, contacts, run log, exceptions, and [funnel/experiments](https://app.notion.com/p/cbb3d68681d64b88a6efacdf90aa0b02?v=3f7e10221fac81e5891e000c4837db6b). These are filters on this same data source. The exception filter includes `needs_reconciliation` writer failures. Application rows are immutable transitions; the latest state is derived by application ID and revision. Views show historical transitions as well as the newest one and do not claim to be transactional materialized current-state tables.
 
 ## Client interface
 

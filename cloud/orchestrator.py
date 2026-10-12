@@ -90,6 +90,9 @@ def execute(store, config, now=None, cron='', requested='all', dry_run=True, rec
     if not dry_run:
         live_gate(store, config)
     working = ShadowStore(store) if dry_run else store
+    from cloud.reporting import effective_research_share
+    config = {**config, 'outreach': dict(config.get('outreach', {}))}
+    config['outreach']['research_ai_share'] = effective_research_share(working, config, now)
     lanes = selected_lanes(cron, requested)
     # Every production wake checks all due lanes: GitHub can replace a pending run.
     if not dry_run:
@@ -122,7 +125,9 @@ def execute(store, config, now=None, cron='', requested='all', dry_run=True, rec
                 summary['discovery'] = run_discovery(working, config, now)
         working.put(record(run_id + ':completed', 'agent_runs', {'date': day, 'lane': lane, 'summary': summary}, 'completed'))
         results.append(summary)
-    return {'dry_run': dry_run, 'timezone': str(ZONE), 'results': results, 'cloud_hosted': os.environ.get('GITHUB_ACTIONS') == 'true',
+    from cloud.reporting import run_reporting
+    reporting = run_reporting(working, config, now, dry_run=dry_run)
+    return {'dry_run': dry_run, 'timezone': str(ZONE), 'results': results, 'reporting': reporting, 'cloud_hosted': os.environ.get('GITHUB_ACTIONS') == 'true',
             'linkedin_inbox': 'not checked', 'linkedin_sent': 0}
 
 

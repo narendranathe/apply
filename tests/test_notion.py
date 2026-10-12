@@ -176,6 +176,24 @@ class NotionTests(unittest.TestCase):
         self.assertEqual(len(self.store.query("contacts")), 5)
         self.assertEqual(len(self.store.query()), 6)
 
+    def test_application_query_cannot_hide_cleared_or_edited_identity(self):
+        for field, replacement in (('Cloud ID', ''), ('Cloud Kind', 'contacts'), ('Cloud Envelope', '')):
+            with self.subTest(field=field):
+                api = FakeNotion()
+                store = NotionStore('test-token', transport=api)
+                store.put(make_record('applications', {'application_id': 'a', 'receipt': 'historical'}, 'app:a', 'applied_verified'))
+                api.pages[0]['properties'][field] = {'rich_text': _rich_text(replacement)}
+                with self.assertRaises(ConflictError):
+                    store.query('applications')
+                self.assertEqual(len(api.writes()), 1)
+
+    def test_completely_cleared_cloud_identity_blocks_every_family_query(self):
+        self.store.put(make_record('applications', {'application_id': 'a'}, 'app:a', 'submission_unknown'))
+        for field in ('Cloud ID', 'Cloud Kind', 'Cloud Envelope'):
+            self.api.pages[0]['properties'][field] = {'rich_text': []}
+        with self.assertRaises(ConflictError):
+            self.store.query('contacts')
+
     def test_empty_result_page_with_cursor_is_followed(self):
         self.api.faults = [("POST", "/query", {"results": [], "has_more": True, "next_cursor": "2"}),
                            ("POST", "/query", page_list([]))]

@@ -8,12 +8,13 @@ Import existing JSON through the centrally serialized migration workflow.
 import argparse
 import base64
 import json
+import os
 from pathlib import Path
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from cloud.applications import canonical_url, fold_applications
+from cloud.applications import canonical_url, fold_applications, matching_application
 from cloud.preparation import digest
 from cloud.notion import NotionStore
 
@@ -26,6 +27,10 @@ def compatibility_view(store):
 
 
 def key_matches(key, record):
+    if '://' not in key:
+        pieces = key.removeprefix('requisition:').split(':')
+        if len(pieces) == 2 and matching_application({'candidate': {'payload': record}}, pieces[0], pieces[1]):
+            return True
     return key == record.get("dedup_key") or canonical_url(key) in {
         canonical_url(url) for url in [record.get("url"), record.get("posting_url"), *record.get("url_aliases", [])] if url}
 
@@ -60,8 +65,34 @@ def main(argv=None, *, store=None):
             if not material:
                 raise ValueError("recoverable_packet_unavailable")
             payload = material["payload"]
+            if material['kind'] != 'application_packets' or payload.get('application_id') != args.application_id:
+                raise ValueError('packet_application_identity_mismatch')
             destination = Path(args.output)
-            destination.mkdir(mode=0o700, parents=True, exist_ok=True)
+            if payload.get('historical_only') and 'source_files' in payload:
+                files = {}
+                for source in payload['source_files']:
+                    path = Path(source['path'])
+                    if (path.is_absolute() or '..' in path.parts or '\\' in source['path']
+                            or not source['path'].startswith(('applications/', 'resumes/variants/'))
+                            or source['path'] in files):
+                        raise ValueError('unsafe_historical_packet_path')
+                    raw = source['content_utf8'].encode('utf-8')
+                    if len(raw) != source['bytes'] or digest(raw) != source['sha256']:
+                        raise ValueError('historical_source_hash_mismatch')
+                    files[source['path']] = raw
+                if not files:
+                    raise ValueError('historical_source_packet_empty')
+                destination.mkdir(mode=0o700, parents=True, exist_ok=True)
+                for name, raw in files.items():
+                    target = destination / name
+                    target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+                    if not target.resolve().is_relative_to(destination.resolve()):
+                        raise ValueError('unsafe_historical_packet_destination')
+                    fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+                    with os.fdopen(fd, 'wb') as stream:
+                        stream.write(raw)
+                print('Restored exact historical sources with verified hashes. Fresh QA and answers are required before submission.')
+                return 0
             files = {"jd.md": payload["jd"].encode(),
                      "answers.json": (json.dumps({"fields": payload["answers"], "evidence": payload["answer_evidence"], "missing": payload["missing"]}, indent=2) + "\n").encode(),
                      "changelog.md": ("# Changelog vs master\n\n" + json.dumps(payload["changelog"], indent=2) + "\n").encode()}
@@ -76,6 +107,7 @@ def main(argv=None, *, store=None):
                     raise ValueError("pdf_hash_mismatch")
             if digest(payload["answers"]) != payload["answers_hash"]:
                 raise ValueError("answers_hash_mismatch")
+            destination.mkdir(mode=0o700, parents=True, exist_ok=True)
             for name, content in files.items():
                 target = destination / name
                 target.write_bytes(content)

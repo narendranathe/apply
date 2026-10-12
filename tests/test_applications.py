@@ -118,6 +118,43 @@ class ApplicationTests(unittest.TestCase):
         self.assertIsNone(matching_application({'known': old}, 'Acme', 'req-2', ['https://acme.test/new'], 'AI Platform Engineer'))
         self.assertIs(matching_application({'known': old}, 'Acme', 'req-1', ['https://acme.test/alias'], 'Renamed Role'), old)
 
+    def test_explicit_jpmc_brand_alias_preserves_unknown_employer_hold(self):
+        old = {'payload': {'company': 'JPMorganChase', 'requisition_id': 'mirror-id', 'employer_history_unresolved': True}, 'status': 'prepared'}
+        self.assertIs(matching_application({'old': old}, 'JPMorgan Chase & Co.', 'official-id', ['https://jpmc.test/new']), old)
+        self.assertEqual(application_key('JPMorgan Chase & Co.', 'req-1'), application_key('JPMorganChase', 'req-1'))
+        self.assertNotEqual(application_key('Acme, Inc.', 'one'), application_key('Acme', 'one'))
+
+    def test_historical_delta_packet_restores_exact_sources_without_certifying_qa(self):
+        from cloud.migration import application_delta
+        from tests.test_application_delta import source_fixture
+        source = source_fixture()
+        delta = application_delta(source, source_commit='c', base_commit='b')
+        store = ShadowStore()
+        for row in delta['records']:
+            store.put(row)
+        app = next(x for x in delta['records'] if x['kind'] == 'applications')
+        destination = self.path / 'historical'
+        self.assertEqual(registry_main(['packet', '--application-id', app['payload']['application_id'], '--output', str(destination)], store=store), 0)
+        packet = store.get(app['payload']['packet']['record_id'])
+        for entry in packet['payload']['source_files']:
+            self.assertEqual((destination / entry['path']).read_bytes(), source[entry['path']])
+        self.assertFalse(packet['payload']['ready'])
+
+    def test_corrupt_historical_packet_is_blocked_before_writing_files(self):
+        from cloud.migration import application_delta
+        from tests.test_application_delta import source_fixture
+        delta = application_delta(source_fixture(), source_commit='c', base_commit='b')
+        store = ShadowStore()
+        app = next(x for x in delta['records'] if x['kind'] == 'applications')
+        for row in delta['records']:
+            if row['kind'] == 'application_packets':
+                payload = copy.deepcopy(row['payload']); payload['source_files'][0]['sha256'] = '0'*64
+                row = make_record(row['kind'], payload, row['id'], row['status'])
+            store.put(row)
+        destination = self.path / 'corrupt'
+        self.assertEqual(registry_main(['packet', '--application-id', app['payload']['application_id'], '--output', str(destination)], store=store), 2)
+        self.assertFalse(destination.exists())
+
     def test_happy_path_requires_receipt_and_no_manual_approval_state(self):
         store, transport = ShadowStore(), ATSTransport()
         summary = self.run_fixture(store, transport)

@@ -1,9 +1,11 @@
 # JobScout integration
 
-JobScout (`narendranathe/job-scout`) is the pipeline's sourcing feed. It scrapes
-130+ company career pages across 6 ATS APIs (Greenhouse, Ashby, Workday, Lever,
-SmartRecruiters, BambooHR) and exports `frontend/public/api-data.json` ~9x/day
-via GitHub Actions. The export is public — no auth needed.
+JobScout (`narendranathe/job-scout`) is the pipeline's sourcing feed. Its existing
+GitHub Actions workflow exports `frontend/public/api-data.json` nine times daily.
+The export is public and needs no authentication. The October 11 audit found
+377 jobs across 19 companies: Greenhouse 316, custom 19, Ashby 9, Lever 7 and
+Workday 26. Configured coverage is broader than the actual exported subset;
+never report template counts as live coverage. The migration reuses this feed.
 
 ## Consuming the feed
 
@@ -12,8 +14,9 @@ python3 scripts/jobscout_feed.py [--min-score 0.51] [--max-age-days 7] [--json]
 ```
 
 Defaults mirror the export's own `high_match` threshold (0.511) and a 7-day window.
-Output is Gate-ready: title, company, location, URL, ATS, score, age, sponsorship
-flag (1 = positive signal), salary, matched skills.
+Output is a research candidate: title, company, location, URL, ATS, score, age,
+sponsorship signal, salary and matched skills. Official role, sponsorship,
+compensation and form verification still precede submission eligibility.
 
 ## Known feed quirks (checked 2026-10-11)
 
@@ -26,21 +29,14 @@ flag (1 = positive signal), salary, matched skills.
 - Scores top out ~0.62. The keyword/heuristic component works with no resume loaded;
   the TF-IDF refinement only applies when a resume version is in the vault.
 
-## Resume vault sync (PENDING — do after he approves the master resume)
+## Candidate facts and scoring
 
-JobScout scores jobs against resume versions in its vault (`POST /api/resume`
-`{"resume_text": "...", "version": "_AI"}`). The current vault resume predates the
-AI-engineer rewrite, so scores still skew toward the old data-engineer framing.
-
-When the master resume is approved:
-1. Extract plain text from `resumes/master/Narendranath-Edara-Resume.pdf`.
-2. If the Render backend is awake, `POST` it as a new `_AI` version (it keeps old
-   versions — nothing is overwritten).
-3. If the backend is unreachable (free tier sleeps), do it from his browser via
-   the JobScout dashboard's resume upload, or wait for the next deploy.
-
-Do NOT sync the unreviewed master — scoring against a draft bakes the draft's
-framing into every future candidate ranking.
+The cloud lane grades current official requirements against the reviewed private
+master and ground-truth evidence, independently of the public feed's heuristic
+score. The audited local JobScout database contained no resume versions; the live
+hosted vault's contents and access controls were not established. This migration
+does not upload candidate facts or private resume text to that backend. A future
+vault integration requires verified private access and a reviewed exact source.
 
 ## Cloud application handoff (V2)
 

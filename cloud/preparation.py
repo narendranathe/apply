@@ -68,7 +68,7 @@ SUMMARIES = {
 }
 # Positional mapping is guarded by the exact item count and source snippets.
 EXPECTED_MASTER_SHA256 = "950b228677940e27d2295b096288253d64659d9dcbe26086b96b68b3e3ff9e47"
-EXPECTED_GROUND_TRUTH_SHA256 = "fb9e7ff40036f3a061226c1839fc52c0ef42e843e60e586fa52968699674bb09"
+EXPECTED_GROUND_TRUTH_SHA256 = "e09e1bb05ea9c164e5f543903d1d1c70bc90727361f6d5fff71fd47213add74f"
 MASTER_IDS = ["E1-CDC", "E-IDEM", "E3-FABRIC", "E-AICTX", "E2-CICD", "E-OBS", "E-REPORTAUTO",
               "M1", "M3", "M4-PAPER", "C-SQL", "C-PRD", "U-GMV", "U-TEAM",
               "Z-PNL", "Z-COMP", "Z-ES", "P-HOOKS", "P-HOOKS", "P-FINTUNE", "P-FINTUNE", "P-AUTOAPPLY", "P-RISK"]
@@ -247,11 +247,36 @@ def tailor_source(master, grade, ground_truth_path=FACTS):
     return source, selected, changes
 
 
+def experience_order(source, pdf_text=None):
+    roles = re.findall(r'\\roleheader\{[^}]*\}\{([^}]*)\}\{([^}]*)\}', source)
+    employers = [employer.replace(r'\&', '&') for employer, _ in roles]
+    expected = ['ExponentHR', 'Missouri S&T', 'C2FO', 'Udaan', 'Zomato']
+    months = {name: i for i, name in enumerate(('jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'), 1)}
+    starts = []
+    for _, dates in roles:
+        match = re.match(r'\s*([A-Za-z]+)\.?\s+(\d{4})', dates)
+        if not match or match[1][:3].lower() not in months:
+            return False
+        starts.append((int(match[2]), months[match[1][:3].lower()]))
+    if employers != expected or any(a <= b for a, b in zip(starts, starts[1:])):
+        return False
+    if pdf_text is None:
+        return True
+    try:
+        section = pdf_text.split('Experience', 1)[1].split('Projects', 1)[0]
+        positions = [section.index(employer) for employer in employers]
+        return positions == sorted(positions)
+    except (ValueError, IndexError):
+        return False
+
+
 def verify_resume(tex_path, pdf_path, expected_pages=2):
     """Checks use a real PDF parser; missing tooling cannot become a pass."""
     tex_path, pdf_path = Path(tex_path), Path(pdf_path)
     result = {"verified": False, "checks": {}, "reasons": []}
     source = tex_path.read_text()
+    result['checks']['experience_order_source'] = experience_order(source)
+    result['checks']['experience_order_pdf'] = False
     from scripts import resume_qa as strict_qa
     # Capture diagnostics because they can contain private resume text. Persist
     # check names and hashes, not full content in GitHub Actions logs.
@@ -269,6 +294,7 @@ def verify_resume(tex_path, pdf_path, expected_pages=2):
                 fills.append((max((w["bottom"] for w in words), default=0) - 20.16) / 750.24 * 100)
                 margins = margins and bool(words) and min(w["x0"] for w in words) >= 20.76 and max(w["x1"] for w in words) <= 591.24
             text = "\n".join(texts)
+            result['checks']['experience_order_pdf'] = experience_order(source, text)
             result["checks"].update({"pages": len(pdf.pages) == expected_pages,
                 "layout_fill": all(90 <= fill <= 101 for fill in fills[:-1]) and 60 <= fills[-1] <= 101,
                 "margins": margins, "ats_text": len(text.split()) > 300 and "(cid:" not in text and "\ufffd" not in text,

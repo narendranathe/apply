@@ -4,7 +4,7 @@ import unittest
 from unittest.mock import patch
 
 from cloud.preparation import (FACTS, MASTER, digest, grade_job, prepare_packet,
-                               screening_answers, select_arc, tailor_source, verify_resume, requirements_from_jd)
+                               screening_answers, select_arc, tailor_source, verify_resume, requirements_from_jd, experience_order)
 from scripts.jobscout_feed import candidates, feed_metadata
 
 
@@ -93,6 +93,22 @@ class PreparationTests(unittest.TestCase):
     def test_changed_source_cannot_inherit_claim_manifest(self):
         with self.assertRaises(ValueError):
             tailor_source(MASTER.read_text().replace('5,000 engineering hours', '50,000 engineering hours'), grade_job(self.job))
+
+    def test_changed_fact_source_cannot_inherit_claim_manifest(self):
+        with tempfile.TemporaryDirectory() as directory:
+            facts = Path(directory) / 'facts.md'
+            facts.write_text(FACTS.read_text().replace('14 days', '1 day'))
+            self.assertNotEqual(facts.read_bytes(), FACTS.read_bytes())
+            with self.assertRaisesRegex(ValueError, 'master_manifest_requires_review'):
+                tailor_source(MASTER.read_text(), grade_job(self.job), facts)
+
+    def test_reverse_chronology_is_required_in_source_and_pdf_experience(self):
+        source = MASTER.read_text()
+        good = 'Experience\nExponentHR\nMissouri S&T\nC2FO\nUdaan\nZomato\nProjects'
+        bad = 'Experience\nExponentHR\nMissouri S&T\nZomato\nUdaan\nC2FO\nProjects'
+        self.assertTrue(experience_order(source, good))
+        self.assertFalse(experience_order(source, bad))
+        self.assertFalse(experience_order(source.replace('Sept. 2020 - Mar. 2021', 'Sept. 2025 - Mar. 2026'), good))
 
     def test_missing_compiler_is_not_a_verified_resume(self):
         with patch('cloud.preparation.shutil.which', return_value=None):
