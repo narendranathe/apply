@@ -1,61 +1,29 @@
-# Daily application pipeline
+# Coordinated cloud application pipeline
 
-Runs every morning via cron. Agents prepare; Naren approves; only approved applications get submitted.
+The private repository hosts code; GitHub Actions runs the common orchestrator; existing Hiring & Outreach Notion records hold operational state. The V2 standing authorization allows truthful, qualifying applications through permitted reliable methods without routine per-application approval.
 
-## Phase 1 — Source (agents)
+## Source and qualify
 
-1. `git pull`.
-2. Pull the JobScout feed (primary source — his own scraper, 6 ATS APIs, ~9 exports/day):
-   `python3 scripts/jobscout_feed.py --min-score 0.51 --max-age-days 7`
-   Details, quirks, and the resume-vault sync note live in `docs/jobscout-integration.md`.
-   Supplement with targeted web searches for employers JobScout doesn't track
-   (JPMC, Visa, Mastercard, Goldman Sachs career sites).
-   Prioritize:
-   - Companies with H-1B filings in the last two fiscal years (Gate G1).
-   - Postings under 72 hours old; deprioritize anything over 14 days (Gate G4).
-   - US, relocation-open. Naren is open to relocation anywhere in the US.
-3. For each candidate posting, run the Gate:
-   - G2: work-authorization line never goes on the resume (free-text fields only).
-   - G3: at least 70% of must-haves truthfully evidenced in `docs/ground-truth.md`, else skip.
-   - G5: 3 years hands-on data engineering, 6 years professional. "7+ years pipelines" or Staff
-     scope → skip unless referred.
-   - G6: list the knockout questions the posting implies (work auth, years, location).
-4. **Dedup first:** `python3 scripts/new_application.py --company ... --role ... --url ... --agent <you>`.
-   If it says STOP, move on. First claim wins.
+Consume `scripts/jobscout_feed.py` and the existing JobScout public export. Do not rebuild its scraper. Require a fresh export and actual posting date; `first_seen_at` does not prove posting freshness. Import feed-reported applied/unknown history as suppression even for inactive, low-score, or older roles; a feed flag is not a receipt.
 
-## Phase 2 — Draft (agents)
+Deduplicate using employer/requisition and official URL aliases. Verify the exact live official ATS post, employer identity, JD and complete requested question schema. Snapshot source/evidence dates. Extract explicit required qualifications and map them to ground-truth IDs: minimum 70% documented fit, honest production/project boundaries, three hands-on DE years versus six professional years, US location, no unsupported seniority or sponsorship assumptions. Unknown requirement extraction or screening evidence becomes a research exception. Feed scores prioritize research, never certify eligibility.
 
-For each claimed role:
+## Prepare and verify
 
-1. Save the JD snapshot to `jd.md` (postings change; we keep the copy we applied against).
-2. Pick the primary arc from the JD's own language (`docs/arcs.md`).
-3. Tailor the resume from `resumes/master/` into the application folder (`resume.tex` + compiled `resume.pdf`).
-   Copy the variant to `resumes/variants/<folder>.tex/.pdf`.
-4. Write `changelog.md`: every bullet changed/added/removed vs master, each mapped to the JD
-   requirement it serves. This is what Naren reviews.
-5. Draft `answers.md` **and** `answers.json` (schema: `docs/answer-schema.md` — the
-   AutoApply AI extension ingests the JSON into its Answer Vault). Knockout answers start
-   from `docs/knockout-answers.md`. Flag anything ambiguous — never guess on work authorization.
-6. Mark `draft_ready` in the registry.
+Select the primary arc from the official JD and retain the Arc F earlier-career narrative. Tailor a copy of the current master, preserve titles/dates and the frozen preamble, and record every change with the requirement it serves. The reviewed master/fact hashes prevent changed source claims silently inheriting approval. Save JD, TeX, PDF, answer JSON/Markdown, changelog, requirement/fact/claim manifest, and exact hashes.
 
-## Phase 3 — Approve (Naren)
+Screening answers come from documented standing records or verified exact-question overrides. Sponsorship stays truthful. Compensation and demographic preferences are never invented; legal attestations stay human-only. Compile with shell escape disabled, lint source, check budgets and real PDF text/ordering, page count/fill/margins/overfull boxes, and render previews. Unavailable or failed tooling is a block, not a pass.
 
-Naren reviews the changelog + resume PDF + answers for each `draft_ready` application.
-He approves or requests changes. Agents update and re-present. Nothing moves to `approved`
-without his explicit words.
+Artifacts are ephemeral private runner files. Notion stores source packet material, hashes and evidence; a future run regenerates and verifies a packet before an attempt. Plaintext packets are never committed. Durable artifacts for human-only exceptions need an explicitly configured private storage destination; runner `/tmp` paths are not usable handoff links.
 
-## Phase 4 — Submit (Naren, assisted by his AutoApply AI extension)
+## Eligibility and submission
 
-- The approved package (tailored `resume.pdf`, `answers.json`) goes into the extension's
-  Resume Vault / Answer Vault. When **Naren** opens the application in Chrome, the extension
-  fills the fields; he reviews and submits.
-- Submission recorded in the registry immediately (`applied`, date, agent, resume variant).
-- The pipeline never drives the extension and never submits anything itself.
-  No automated/bot submissions, ever.
-- Never re-submit, never duplicate. If a submission fails, record it and tell Naren.
+Check current official post/schema, exact artifact/answer hashes, authoritative history, permission expiry and pacing at action time. The adapter must have independently verified employer-specific submission permission plus a scoped credential. [ATS capabilities](docs/ATS_CAPABILITIES.md) distinguish readable postings from writable application integrations.
 
-## What this pipeline never does
+Append and read back `submission_eligible`, then `submitting` with the exact payload hashes and attempt ID before making one external request. A documented definitive receipt is `applied_verified`; otherwise record `submission_unknown` for reconciliation. Never automatically retry an unknown effect. Per-role exceptions continue research elsewhere. Uncertain Notion writes, identity conflicts, or failed readback stop the entire writer and keep the run incomplete.
 
-- No automated/bot submissions to career sites (blacklist risk).
-- No invented facts, no adjusted job titles, no `[BLOCKED]` claims.
-- No second application to an employer already in the registry without Naren's say-so.
+## Scheduling and reporting
+
+Applications run as a distinct phase of the 06:30 America/Chicago job within the shared orchestrator. No separate application schedule was found in checked-in files or accessible Codex automation definitions; unavailable OS scheduler surfaces remain an audit limitation. The default deployment is shadow-only until the one coordinated cutover succeeds.
+
+Daily pacing counts attempts, including unknown outcomes. Report factual counts for discovered/qualified/prepared/attempted/confirmed and exceptions. A draft, fill, attempted POST, or HTTP success with no known receipt never increments confirmed applications. Manual submission evidence is reconciled through the same authoritative history.

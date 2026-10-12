@@ -1,0 +1,148 @@
+{
+  "version": 4,
+  "updated_at": "2026-09-30",
+  "objective": "Confirmed recruiter screens and interviews, then employment",
+  "role_families": [
+    "applied_ai",
+    "ai_platform",
+    "data"
+  ],
+  "discovery_companies": [
+    "Microsoft",
+    "Datadog",
+    "Capital One",
+    "JPMorgan Chase",
+    "Visa",
+    "Mastercard",
+    "Goldman Sachs",
+    "ServiceNow"
+  ],
+  "fit_bands": [
+    "direct",
+    "credible_stretch"
+  ],
+  "role_mix_ai_share": 0.6,
+  "max_new_requests_per_run": 6,
+  "max_new_requests_per_day": 6,
+  "max_new_contacts_per_company_per_7_days": 3,
+  "company_contact_coverage_target": 4,
+  "research_batch_size": 3,
+  "role_cache_days": 7,
+  "company_cache_days": 14,
+  "max_parallel_research_workers": 2,
+  "worker_model": "gpt-6-luna",
+  "worker_reasoning_effort": "medium",
+  "worker_max_report_words": 400,
+  "new_outreach_days": [
+    "MO",
+    "TU",
+    "WE",
+    "TH"
+  ],
+  "accepted_connection_max_unanswered_messages": 2,
+  "cold_warm_max_unanswered_followups": 1,
+  "min_followup_hours": 24,
+  "review_after_business_days": 2,
+  "company_route_review_business_days": 5,
+  "company_cooldown_days": 14,
+  "stalled_runs_before_escalation": 2,
+  "paid_api_calls_enabled": false,
+  "notes": "App subagents allowed by user; no paid API provisioning. Planner returns research/verification actions, never send authorization.",
+  "multichannel_added_at": "2026-10-01",
+  "multichannel_note": "Additive October 1 multi-channel layer (Naren request 2026-10-01). Plays are research/preparation proposals that share the existing per-company and daily caps; they never authorize sends, applications or new channels. See MULTICHANNEL_STRATEGY.md.",
+  "ats_scan": {
+    "registry": "ats_registry.json",
+    "default_window_days": 3,
+    "freshness_basis": "posted_or_updated",
+    "cache": "ats-state/seen_roles.json",
+    "cadence": "manual run, at most twice daily on outreach days; no scheduler installed"
+  },
+  "fresh_role_max_age_days": 3,
+  "fresh_apply_window_hours": 48,
+  "max_plays_per_run": 5,
+  "plays_include_updated_only": false,
+  "play_lookahead_days": 14,
+  "channels": {
+    "fresh_apply": {
+      "enabled": true,
+      "window_hours": 48,
+      "counts_toward_contact_caps": false,
+      "requires_naren": true,
+      "note": "Prepare the packet same day; Naren approves and submits. Applications remain a Naren decision."
+    },
+    "referral_first_degree": {
+      "enabled": true,
+      "fallback": "alumni",
+      "counts_toward_contact_caps": true,
+      "requires_naren": true,
+      "note": "Existing connections at the company; a referral ask needs Naren's per-message approval."
+    },
+    "alumni": {
+      "enabled": true,
+      "counts_toward_contact_caps": true,
+      "note": "Routing question only on first touch; a referral ask only after they reply."
+    },
+    "recruiter_linkedin": {
+      "enabled": true,
+      "counts_toward_contact_caps": true,
+      "note": "Requisition-owning recruiter; reference the requisition ID; standing v4 first-touch rules."
+    },
+    "hiring_manager": {
+      "enabled": true,
+      "counts_toward_contact_caps": true,
+      "note": "Verified or clearly labeled likely manager from public sources; link the proof-of-work artifact."
+    },
+    "community": {
+      "enabled": true,
+      "counts_toward_contact_caps": false,
+      "requires_naren": true,
+      "note": "Research job channels; any public post or DM needs Naren's approval and counts toward caps if it is a DM."
+    },
+    "proof_of_work": {
+      "enabled": true,
+      "max_prep_hours": 3,
+      "counts_toward_contact_caps": false,
+      "requires_naren": true,
+      "note": "Small team-specific artifact; independent work labeled independent; Naren reviews before sharing."
+    },
+    "public_email": {
+      "enabled": true,
+      "counts_toward_contact_caps": true,
+      "requires_naren": true,
+      "note": "Only a recruiting inbox the employer printed publicly; never guessed or permuted; never in parallel with an open LinkedIn route."
+    }
+  },
+  "multichannel_play": [
+    {
+      "channel": "fresh_apply",
+      "day_offset": 0
+    },
+    {
+      "channel": "referral_first_degree",
+      "day_offset": 0
+    },
+    {
+      "channel": "recruiter_linkedin",
+      "day_offset": 1
+    },
+    {
+      "channel": "proof_of_work",
+      "day_offset": 1
+    },
+    {
+      "channel": "hiring_manager",
+      "day_offset": 2
+    },
+    {
+      "channel": "community",
+      "day_offset": 0,
+      "optional": true
+    },
+    {
+      "channel": "public_email",
+      "day_offset": 3,
+      "optional": true,
+      "only_if": "public_email_listed"
+    }
+  ]
+}

@@ -44,8 +44,18 @@ can ingest the pipeline's output without parsing prose.
 
 - `source` is one of `knockout-answers` (standing), `ground-truth` (resume fact),
   `generated` (drafted for this JD — review before use), `ask_user` (needs him).
-- Nothing in `answers` is ever submitted by the pipeline. The extension fills fields
-  while **he** has the application open; he reviews and submits.
-- `eeo` is always `ask_user`. The pipeline never answers EEO self-ID.
+- A permitted cloud adapter may submit exact verified answers under V2 standing authorization.
+  The extension remains an optional manual aid; unverified drafts never certify eligibility.
+- Unknown EEO preferences remain `ask_user`. Only exact documented standing or question-specific
+  verified preferences can be used; the pipeline never infers demographic facts.
 - `work_authorization` uses the exact G2 text from `docs/knockout-answers.md`.
 - Keep answers plain-text, no markdown, no em dashes — they go into form fields.
+
+## Cloud evidence envelope
+
+`cloud.preparation.screening_answers` adds exact live `question_hash`, source/reference hash,
+answer hash, submitted field value, and a list of unresolved required questions. Unsupported
+select options, hidden location coordinates, signatures/attestations, salaries and unknown
+personal facts are unresolved rather than guessed. Optional sensitive fields can be omitted;
+required unresolved questions produce `needs_user_fact`. Immutable Notion packet records keep
+the exact fields and evidence; application transition records refer to the packet and hashes.

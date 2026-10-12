@@ -42,14 +42,8 @@ When the master resume is approved:
 Do NOT sync the unreviewed master — scoring against a draft bakes the draft's
 framing into every future candidate ranking.
 
-## AutoApply AI handoff
+## Cloud application handoff (V2)
 
-Per approved application folder, the pipeline emits:
-- `resume.pdf` (+ `.tex`) — the tailored variant, also copied to `resumes/variants/`
-- `answers.md` + `answers.json` (schema: `docs/answer-schema.md`)
-- `changelog.md` — every bullet changed vs master, mapped to JD requirements
+The cloud application lane consumes this existing public export and independently verifies each official employer/requisition. Public feed scores and sponsorship flags are research signals, not authorization. Actual posting date controls freshness; feed-reported applied/unknown history suppresses repeats even when a role no longer passes current filters.
 
-The AutoApply AI Chrome extension consumes these from its Resume Vault / Answer
-Vault while **he** has the application open. The pipeline never drives the
-extension and never submits anything. Submission stays human, in his browser,
-under his review — no exceptions.
+The former extension-only/manual submission rule is superseded by the V2 standing authorization. Eligible truthful packets can use an employer-permitted official integration with scoped cloud authentication and definitive evidence. The laptop extension remains a manual aid where necessary; it is not driven from GitHub Actions. See `pipeline.md` and `docs/ATS_CAPABILITIES.md`.

@@ -1,0 +1,49 @@
+{
+ "offset": 0,
+ "limit": 100,
+ "totalFound": 2,
+ "content": [
+  {
+   "id": "1001",
+   "name": "Data Engineer",
+   "releasedDate": "2026-09-30T14:00:00.000Z",
+   "refNumber": "REF1001",
+   "company": {
+    "identifier": "Delta",
+    "name": "Delta"
+   },
+   "location": {
+    "city": "Plano",
+    "region": "TX",
+    "country": "us",
+    "remote": false,
+    "fullLocation": "Plano, TX, United States"
+   },
+   "typeOfEmployment": {
+    "id": "permanent",
+    "label": "Full-time"
+   },
+   "creator": {
+    "name": "Pat Example"
+   }
+  },
+  {
+   "id": "1002",
+   "name": "Data Engineer",
+   "releasedDate": "2026-09-30T14:00:00.000Z",
+   "company": {
+    "identifier": "Delta",
+    "name": "Delta"
+   },
+   "location": {
+    "city": "Pune",
+    "country": "in",
+    "fullLocation": "Pune, India"
+   },
+   "typeOfEmployment": {
+    "id": "permanent",
+    "label": "Full-time"
+   }
+  }
+ ]
+}

@@ -1,0 +1,115 @@
+{
+ "jobs": [
+  {
+   "id": 101,
+   "title": "Data Engineer",
+   "absolute_url": "https://job-boards.greenhouse.io/acme/jobs/101",
+   "location": {
+    "name": "Dallas, TX"
+   },
+   "offices": [
+    {
+     "name": "Dallas",
+     "location": "Dallas, Texas, United States"
+    }
+   ],
+   "first_published": "2026-09-30T15:00:00-05:00",
+   "updated_at": "2026-09-30T15:00:00-05:00",
+   "requisition_id": "R-101",
+   "departments": [
+    {
+     "name": "Data"
+    }
+   ],
+   "metadata": [],
+   "content": "&lt;p&gt;Build CDC pipelines on SQL Server and Azure with Python. Own data validation and CI/CD.&lt;/p&gt;&lt;p&gt;3+ years of professional experience.&lt;/p&gt;&lt;div class=&quot;pay-range&quot;&gt;&lt;span&gt;$140,000&lt;/span&gt;&lt;span&gt;&amp;mdash;&lt;/span&gt;&lt;span&gt;$180,000 USD&lt;/span&gt;&lt;/div&gt;&lt;p&gt;We do sponsor visas! However, we aren&#x27;t able to successfully sponsor visas for every role and every candidate.&lt;/p&gt;"
+  },
+  {
+   "id": 102,
+   "title": "Senior Staff Data Platform Engineer",
+   "absolute_url": "https://job-boards.greenhouse.io/acme/jobs/102",
+   "location": {
+    "name": "Remote - US"
+   },
+   "offices": [],
+   "first_published": "2026-10-01T09:00:00Z",
+   "updated_at": "2026-10-01T09:00:00Z",
+   "departments": [],
+   "metadata": [],
+   "content": "&lt;p&gt;10+ years of experience building distributed systems in Scala and Java.&lt;/p&gt;"
+  },
+  {
+   "id": 103,
+   "title": "Analytics Engineer",
+   "absolute_url": "https://job-boards.greenhouse.io/acme/jobs/103",
+   "location": {
+    "name": "San Francisco, CA"
+   },
+   "offices": [],
+   "first_published": "2026-09-30T12:00:00Z",
+   "updated_at": "2026-09-30T12:00:00Z",
+   "departments": [],
+   "metadata": [],
+   "content": "&lt;p&gt;dbt and SQL modeling.&lt;/p&gt;&lt;p&gt;Unfortunately, we are unable to sponsor visas for this role.&lt;/p&gt;"
+  },
+  {
+   "id": 104,
+   "title": "Account Executive, Data",
+   "absolute_url": "https://job-boards.greenhouse.io/acme/jobs/104",
+   "location": {
+    "name": "New York, NY"
+   },
+   "offices": [],
+   "first_published": "2026-09-30T12:00:00Z",
+   "updated_at": "2026-09-30T12:00:00Z",
+   "departments": [],
+   "metadata": [],
+   "content": "&lt;p&gt;Sell data products.&lt;/p&gt;"
+  },
+  {
+   "id": 105,
+   "title": "Data Engineer",
+   "absolute_url": "https://job-boards.greenhouse.io/acme/jobs/105",
+   "location": {
+    "name": "London, UK"
+   },
+   "offices": [],
+   "first_published": "2026-09-30T12:00:00Z",
+   "updated_at": "2026-09-30T12:00:00Z",
+   "departments": [],
+   "metadata": [],
+   "content": "&lt;p&gt;SQL and Python.&lt;/p&gt;"
+  },
+  {
+   "id": 106,
+   "title": "Software Engineer, Data Platform",
+   "absolute_url": "https://job-boards.greenhouse.io/acme/jobs/106",
+   "location": {
+    "name": "New York, NY"
+   },
+   "offices": [],
+   "first_published": "2026-08-01T12:00:00Z",
+   "updated_at": "2026-09-30T18:00:00Z",
+   "departments": [],
+   "metadata": [],
+   "content": "&lt;p&gt;Python, Spark and Airflow.&lt;/p&gt;"
+  },
+  {
+   "id": 107,
+   "title": "Data Engineer",
+   "absolute_url": "https://job-boards.greenhouse.io/acme/jobs/107",
+   "location": {
+    "name": "Austin, TX"
+   },
+   "offices": [],
+   "first_published": "2026-07-01T12:00:00Z",
+   "updated_at": "2026-07-01T12:00:00Z",
+   "departments": [],
+   "metadata": [],
+   "content": "&lt;p&gt;Old role.&lt;/p&gt;"
+  }
+ ],
+ "meta": {
+  "total": 7
+ }
+}

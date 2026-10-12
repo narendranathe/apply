@@ -1,0 +1,60 @@
+name: Private history reconciliation
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        type: choice
+        default: dry-run
+        options: [dry-run, import]
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: hiring-outreach-single-writer
+  cancel-in-progress: false
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - name: Authenticate and verify historic snapshot
+        env:
+          MIGRATION_BACKUP_KEY: ${{ secrets.MIGRATION_BACKUP_KEY }}
+        run: python scripts/verify_migration_archive.py
+      - name: Restore only to private ephemeral staging
+        env:
+          MIGRATION_BACKUP_KEY: ${{ secrets.MIGRATION_BACKUP_KEY }}
+        run: |
+          python - <<'PY'
+          import base64, os
+          from pathlib import Path
+          from scripts.encrypted_backup import restore_archive
+          root = Path('.migration-private')
+          root.mkdir(mode=0o700, exist_ok=True)
+          key = Path('/tmp/apply-runner-recovery-key.bin')
+          key.write_bytes(base64.b64decode(os.environ['MIGRATION_BACKUP_KEY'], validate=True))
+          key.chmod(0o600)
+          restore_archive(Path('migration-archives/2026-10-11-v2-history.aesgcm'), root / 'restored', key_path=key)
+          key.unlink()
+          PY
+      - name: Reconcile without replaying historical effects
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          IMPORT_MODE: ${{ inputs.mode }}
+        run: |
+          if [ "$IMPORT_MODE" = 'import' ]; then
+            python scripts/migrate_history.py --input .migration-private/restored/normalized/merged-historical-records.json --write --private-destination-verified
+          else
+            python scripts/migrate_history.py --input .migration-private/restored/normalized/merged-historical-records.json
+          fi
+      - name: Remove plaintext staging
+        if: always()
+        run: python -c "import shutil; shutil.rmtree('.migration-private', ignore_errors=True)"

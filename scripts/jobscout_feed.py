@@ -49,7 +49,7 @@ def fetch_feed(url=FEED_URL, timeout=30, retries=3):
     last = None
     for attempt in range(retries):
         try:
-            req = urllib.request.Request(url, headers={"User-Agent": "job-application-pipeline/1.0"})
+            req = urllib.request.Request(url or FEED_URL, headers={"User-Agent": "job-application-pipeline/2.0"})
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 return json.load(resp)
         except Exception as e:
@@ -67,9 +67,10 @@ def candidates(data, min_score=0.55, max_age_days=3, now=None):
         score = job.get("relevance_score") or 0
         if score < min_score:
             continue
-        posted = parse_dt(job.get("posted_at")) or parse_dt(job.get("first_seen_at"))
+        # first_seen is a feed observation, not evidence of the posting date.
+        posted = parse_dt(job.get("posted_at"))
         age_days = (now - posted).total_seconds() / 86400 if posted else None
-        if age_days is None or age_days > max_age_days:
+        if age_days is None or age_days < -0.01 or age_days > max_age_days:
             continue
         out.append({
             "title": job.get("title"),
@@ -85,9 +86,22 @@ def candidates(data, min_score=0.55, max_age_days=3, now=None):
             "salary_max": job.get("salary_max"),
             "matched_skills": job.get("matched_skills") or [],
             "is_remote": job.get("is_remote"),
+            "requisition_id": job.get("requisition_id") or job.get("job_id"),
+            "application_status": job.get("application_status"),
+            "application_applied_at": job.get("application_applied_at"),
         })
     out.sort(key=lambda j: j["score"], reverse=True)
     return out
+
+
+def feed_metadata(data, now=None, max_age_hours=24):
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    exported = parse_dt(data.get("exported_at"))
+    age = (now - exported).total_seconds() / 3600 if exported else None
+    return {"exported_at": data.get("exported_at"), "export_age_hours": round(age, 1) if age is not None else None,
+            "stale": age is None or age < -0.05 or age > max_age_hours,
+            "total_jobs": data.get("stats", {}).get("total_jobs"),
+            "companies_tracked": data.get("stats", {}).get("companies_tracked")}
 
 
 def main():
@@ -106,17 +120,8 @@ def main():
 
     cands = candidates(data, args.min_score, args.max_age_days)[:args.limit]
     stats = data.get("stats", {})
-    exported = parse_dt(data.get("exported_at"))
-    now = datetime.datetime.now(datetime.timezone.utc)
-    stale_hours = (now - exported).total_seconds() / 3600 if exported else None
-    meta = {
-        "exported_at": data.get("exported_at"),
-        "export_age_hours": round(stale_hours, 1) if stale_hours is not None else None,
-        "stale": bool(stale_hours is not None and stale_hours > 24),
-        "total_jobs": stats.get("total_jobs"),
-        "companies_tracked": stats.get("companies_tracked"),
-        "filters": {"min_score": args.min_score, "max_age_days": args.max_age_days},
-    }
+    meta = feed_metadata(data)
+    meta["filters"] = {"min_score": args.min_score, "max_age_days": args.max_age_days}
 
     if args.json:
         print(json.dumps({"meta": meta, "candidates": cands}, indent=1))

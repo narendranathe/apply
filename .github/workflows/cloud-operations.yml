@@ -1,0 +1,69 @@
+name: Unified cloud operations
+run-name: 'cloud:${{ inputs.mode || ''live'' }}:${{ inputs.lane || github.event.schedule }}'
+on:
+  schedule:
+    - cron: '0 6 * * *'
+      timezone: 'America/Chicago'
+    - cron: '30 6 * * *'
+      timezone: 'America/Chicago'
+  workflow_dispatch:
+    inputs:
+      lane:
+        type: choice
+        default: all
+        options: [all, accepted, first_touch, applications]
+      mode:
+        type: choice
+        default: dry-run
+        options: [dry-run, live]
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: hiring-outreach-single-writer
+  cancel-in-progress: false
+jobs:
+  orchestrate:
+    if: github.event_name == 'workflow_dispatch' || vars.CLOUD_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - name: Install isolated PDF build tools
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends texlive-latex-extra texlive-fonts-recommended poppler-utils
+      - name: Verify private destination
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PRIVATE=$(gh api "repos/$GITHUB_REPOSITORY" --jq '.private')
+          test "$PRIVATE" = 'true'
+          echo "DESTINATION_PRIVATE=$PRIVATE" >> "$GITHUB_ENV"
+      - name: Run one coordinated writer
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          MIGRATION_BACKUP_KEY: ${{ secrets.MIGRATION_BACKUP_KEY }}
+          CLOUD_ENABLED: ${{ vars.CLOUD_ENABLED }}
+          CLOUD_GITHUB_TOKEN: ${{ github.token }}
+          ORIGINATING_CRON: ${{ github.event.schedule }}
+          REQUESTED_LANE: ${{ inputs.lane || 'all' }}
+          REQUESTED_MODE: ${{ inputs.mode || 'live' }}
+        run: python -m cloud.orchestrator --cron "$ORIGINATING_CRON" --lane "$REQUESTED_LANE" --mode "$REQUESTED_MODE" --reconcile
+      - name: Private aggregate run evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: redacted-run-${{ github.run_id }}
+          path: |
+            run-output/summary.json
+            run-output/*.aesgcm
+          retention-days: 14
+          if-no-files-found: ignore
+      - name: Actionable failure
+        if: failure()
+        run: echo 'Cloud run failed. Inspect private reconciliation records; do not retry uncertain applications.' >> "$GITHUB_STEP_SUMMARY"

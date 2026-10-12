@@ -1,64 +1,28 @@
 # apply
 
-One repo for the whole job hunt. Every role found, every resume version used, every
-application submitted — tracked in one place so nothing gets applied to twice and
-nothing goes out without Naren's approval.
+Private code for one coordinated job application and relationship workflow. GitHub Actions executes the lanes; the existing Notion Hiring & Outreach source holds operational records. SQLite and full outreach logs are authenticated encrypted recovery archives.
 
-Run by Milo, Codex, and any future agent, all following the same contract.
+The [V2 master prompt](docs/migration/ONE_PASS_CLOUD_MIGRATION_PROMPT_V2.md) and [cutover checklist](docs/migration/ONE_PASS_CUTOVER_CHECKLIST_V2.md) govern this migration. Reports distinguish verified engineering from deployment gates.
 
-## How it works
+| Lane | America/Chicago schedule | Behavior |
+|---|---|---|
+| Accepted relationships | 06:00 daily | Replies, relationships, referrals and verified-context drafts |
+| First touch | 06:30 daily | Fresh roles, contact routes, prioritization and drafts |
+| Applications | Separate phase after 06:30 discovery | Qualify, prepare, permitted submission, verified receipts |
 
-1. **Find** — the daily run pulls fresh roles from Naren's JobScout feed
-   (130+ company career pages) plus targeted searches. Each posting goes through
-   a sponsorship/recency/fit gate before anyone touches it.
-2. **Prepare** — the agent claims the role in the registry (first claim wins),
-   then drafts a tailored resume, a changelog of every bullet changed, and
-   knockout-question answers. All saved in the application folder.
-3. **Approve** — Naren reviews the changelog + resume + answers. Only his explicit
-   "yes" moves it forward. He submits from his own browser, assisted by his
-   AutoApply AI extension.
+Applications have standing authorization when every truth, dedup, artifact, answer, site-permission and receipt gate passes. Unknown facts or unavailable methods create exceptions while other roles continue. Attempts never count as verified applications. LinkedIn has no automated sender here; execution remains human absent a permitted integration.
 
-## The one rule
+One writer uses deterministic immutable records, fresh preflight and readback. Notion has no transactional uniqueness guarantee; uncertainty requires reconciliation. applications/registry.json is an ignored compatibility import/export view, not competing cloud state.
 
-**Before sourcing any role, check `applications/registry.json`.
-If the dedup key is already there, stop.** Duplicate applications get candidates
-blacklisted. The registry is the guardrail. Full contract: `AGENTS.md`.
+Run validation:
 
-## What's where
-
-```
-applications/
-  registry.json            # the dedup registry — check this first, always
-  YYYY-MM-DD-company-role/ # one folder per application
-    jd.md                  # the job description snapshot we applied against
-    resume.tex/.pdf        # the tailored resume variant
-    changelog.md           # every change vs the master resume, and why
-    answers.md/.json       # knockout answers (the JSON feeds the browser extension)
-    status.json            # machine-readable status
-resumes/
-  master/                  # the golden master resume — never edit in place
-  variants/                # copies of submitted variants, named per application
-docs/
-  ground-truth.md          # the only source of resume facts (mirrors his Mac)
-  arcs.md                  # the six story arcs for tailoring
-  resume-instructions.md   # how a tailored resume gets built (gate, budgets, QA)
-  knockout-answers.md      # standing answers: work auth, sponsorship, comp, location
-  answer-schema.md         # the answers.json format the extension reads
-  jobscout-integration.md  # how the JobScout feed works, its quirks, fallbacks
-scripts/
-  jobscout_feed.py         # fetch + filter fresh roles from the JobScout feed
-  new_application.py       # dedup check + claim + folder scaffold
-  registry.py              # query/update the registry
-pipeline.md                # the daily workflow, step by step
-AGENTS.md                  # the multi-agent operating contract — read this first
+```sh
+python3 -m pip install -r requirements.txt
+python3 -m unittest discover -s tests -v
+python3 scripts/security_check.py
+python3 scripts/check_workflows.py
 ```
 
-## Statuses
+Actions manual dry-run provides cloud shadow validation, with writes in memory and no sends/submissions. Schedules remain guarded by CLOUD_ENABLED and verified Notion cutover evidence until history comparison, restored backups, shadow tests and retirement of local writers all pass.
 
-`sourced` → `draft_ready` → `approved` → `applied` → `interview`
-...or `rejected` / `withdrawn` / `stale`
-
-- **sourced** — role claimed by an agent. Nobody else touches it.
-- **draft_ready** — resume + changelog + answers prepared, waiting on Naren.
-- **approved** — Naren approved the exact resume and answers.
-- **applied** — submitted. Registry records when, by whom, which resume.
+See [cutover and rollback](docs/runbooks/CUTOVER.md), [Notion schema](docs/NOTION_SCHEMA.md), [submission capabilities](docs/ATS_CAPABILITIES.md), and [inventory](docs/MIGRATION_INVENTORY.md).

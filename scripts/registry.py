@@ -1,158 +1,108 @@
 #!/usr/bin/env python3
-"""registry.py — the dedup registry for the job application pipeline.
+"""Read the authoritative Notion application history; JSON is an export view.
 
-Usage:
-  python3 scripts/registry.py check --key <dedup_key>
-      Exit 0 + prints record if the key exists (STOP: do not source it again).
-      Exit 1 if the key is new (safe to claim).
-
-  python3 scripts/registry.py claim --key <k> --company <c> --role <r> --url <u> --agent <a>
-      Register a new role (status=sourced) and scaffold applications/<folder>/. Fails if key exists.
-
-  python3 scripts/registry.py set --key <k> --status <s> [--resume <variant>] [--note <text>]
-      Move an application through sourced -> draft_ready -> approved -> applied -> terminal.
-
-  python3 scripts/registry.py list [--status <s>]
-      Show registry entries, optionally filtered.
-
-Registry lives at applications/registry.json, keys are dedup keys. Keep it sorted for clean diffs.
+check exits 0 for a duplicate, 1 only for a verified-new key, 2 for unavailable
+or ambiguous state. claim/set intentionally refuse competing local mutations.
+Import existing JSON through the centrally serialized migration workflow.
 """
 import argparse
+import base64
 import json
-import os
-import re
+from pathlib import Path
 import sys
-from datetime import date
 
-HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-REG_PATH = os.path.join(HERE, "applications", "registry.json")
-APPS_DIR = os.path.join(HERE, "applications")
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+from cloud.applications import canonical_url, fold_applications
+from cloud.preparation import digest
+from cloud.notion import NotionStore
 
-STATUSES = ["sourced", "draft_ready", "approved", "applied",
-            "interview", "rejected", "withdrawn", "stale"]
-
-
-def load():
-    if not os.path.exists(REG_PATH):
-        return {}
-    with open(REG_PATH) as f:
-        return json.load(f)
+REG_PATH = ROOT / "applications/registry.json"
 
 
-def save(reg):
-    os.makedirs(os.path.dirname(REG_PATH), exist_ok=True)
-    with open(REG_PATH, "w") as f:
-        json.dump(reg, f, indent=2, sort_keys=True)
-        f.write("\n")
+def compatibility_view(store):
+    return {record["payload"].get("dedup_key", key): {**record["payload"], "status": record["status"]}
+            for key, record in fold_applications(store.query(kind="applications")).items()}
 
 
-def slug(s):
-    s = s.lower()
-    s = re.sub(r"[^a-z0-9]+", "-", s).strip("-")
-    return s[:60]
+def key_matches(key, record):
+    return key == record.get("dedup_key") or canonical_url(key) in {
+        canonical_url(url) for url in [record.get("url"), record.get("posting_url"), *record.get("url_aliases", [])] if url}
 
 
-def cmd_check(args):
-    reg = load()
-    rec = reg.get(args.key)
-    if rec:
-        print(json.dumps({args.key: rec}, indent=2))
-        print("EXISTS — do not source this role again.", file=sys.stderr)
+def main(argv=None, *, store=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    sub = parser.add_subparsers(dest="command", required=True)
+    check = sub.add_parser("check")
+    check.add_argument("--key", required=True)
+    listing = sub.add_parser("list")
+    listing.add_argument("--status")
+    exporting = sub.add_parser("export")
+    exporting.add_argument("--output", required=True)
+    packet = sub.add_parser("packet", help="Restore exact private packet from Notion for review/manual action")
+    packet.add_argument("--application-id", required=True)
+    packet.add_argument("--output", required=True)
+    # Parse historical invocations and fail with a clear cutover instruction.
+    for command in ("claim", "set"):
+        old = sub.add_parser(command)
+        for option in ("key", "company", "role", "url", "agent", "status", "resume", "note"):
+            old.add_argument("--" + option)
+    args = parser.parse_args(argv)
+    if args.command in {"claim", "set"}:
+        print("BLOCKED: local registry mutations are retired. Use the central cloud application/migration lane; Notion is authoritative.", file=sys.stderr)
+        return 3
+    try:
+        authoritative = store or NotionStore()
+        if args.command == "packet":
+            application = fold_applications(authoritative.query(kind="applications")).get(args.application_id)
+            reference = (application or {}).get("payload", {}).get("packet", {})
+            material = authoritative.get(reference.get("record_id", ""))
+            if not material:
+                raise ValueError("recoverable_packet_unavailable")
+            payload = material["payload"]
+            destination = Path(args.output)
+            destination.mkdir(mode=0o700, parents=True, exist_ok=True)
+            files = {"jd.md": payload["jd"].encode(),
+                     "answers.json": (json.dumps({"fields": payload["answers"], "evidence": payload["answer_evidence"], "missing": payload["missing"]}, indent=2) + "\n").encode(),
+                     "changelog.md": ("# Changelog vs master\n\n" + json.dumps(payload["changelog"], indent=2) + "\n").encode()}
+            if payload.get("resume_source"):
+                files["resume.tex"] = payload["resume_source"].encode()
+                if digest(files["resume.tex"]) != payload["source_sha256"]:
+                    raise ValueError("source_hash_mismatch")
+                files["v8preamble.tex"] = (ROOT / "resumes/master/v8preamble.tex").read_bytes()
+            if payload.get("resume_pdf_base64"):
+                files["resume.pdf"] = base64.b64decode(payload["resume_pdf_base64"], validate=True)
+                if digest(files["resume.pdf"]) != payload["resume_sha256"]:
+                    raise ValueError("pdf_hash_mismatch")
+            if digest(payload["answers"]) != payload["answers_hash"]:
+                raise ValueError("answers_hash_mismatch")
+            for name, content in files.items():
+                target = destination / name
+                target.write_bytes(content)
+                target.chmod(0o600)
+            print("Restored private packet with verified hashes; do not commit these files.")
+            return 0
+        view = compatibility_view(authoritative)
+        if args.command == "check":
+            matches = [record for key, record in view.items() if key == args.key or key_matches(args.key, record)]
+            if matches:
+                print("EXISTS: stop; canonical application history already contains this key.")
+                return 0
+            print("NEW: no match in current authoritative Notion state. Only the central writer may claim it.")
+            return 1
+        if args.command == "export":
+            destination = Path(args.output)
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_text(json.dumps(view, indent=2, sort_keys=True) + "\n")
+            print("Exported compatibility view; do not commit plaintext application records.")
+            return 0
+        for key, record in sorted(view.items()):
+            if not args.status or record["status"] == args.status:
+                print(f"{record['status']:22s} {key}")
         return 0
-    print("NEW — safe to claim.")
-    return 1
-
-
-def cmd_claim(args):
-    reg = load()
-    if args.key in reg:
-        print(f"EXISTS — {args.key} is already registered. Stop.", file=sys.stderr)
+    except Exception:
+        print("BLOCKED: authoritative application history unavailable or ambiguous. No new-key or submission authorization inferred.", file=sys.stderr)
         return 2
-    folder = f"{date.today().isoformat()}-{slug(args.company)}-{slug(args.role)}"
-    folder = os.path.join(APPS_DIR, folder)
-    os.makedirs(folder, exist_ok=False)
-    # scaffold the application folder
-    for name, body in [
-        ("jd.md", f"# {args.role} — {args.company}\n\nURL: {args.url}\n\n<!-- paste the JD snapshot here -->\n"),
-        ("changelog.md", "# Changelog vs master resume\n\n<!-- every bullet changed/added/removed, with the JD requirement it maps to -->\n"),
-        ("answers.md", "# Knockout answers (draft — needs Naren's approval)\n\n<!-- work auth, sponsorship, location, years, comp, posting-specific questions -->\n"),
-        ("status.json", json.dumps({"status": "sourced", "claimed_by": args.agent,
-                                    "claimed_at": date.today().isoformat()}, indent=2) + "\n"),
-    ]:
-        with open(os.path.join(folder, name), "w") as f:
-            f.write(body)
-    reg[args.key] = {
-        "company": args.company,
-        "role": args.role,
-        "url": args.url,
-        "folder": os.path.basename(folder),
-        "status": "sourced",
-        "claimed_by": args.agent,
-        "claimed_at": date.today().isoformat(),
-        "resume_variant": None,
-        "applied_at": None,
-        "notes": [],
-    }
-    save(reg)
-    print(f"Claimed {args.key} -> {folder}")
-    return 0
-
-
-def cmd_set(args):
-    reg = load()
-    rec = reg.get(args.key)
-    if not rec:
-        print(f"UNKNOWN KEY — {args.key} is not registered.", file=sys.stderr)
-        return 2
-    if args.status not in STATUSES:
-        print(f"BAD STATUS — use one of: {', '.join(STATUSES)}", file=sys.stderr)
-        return 2
-    rec["status"] = args.status
-    if args.resume:
-        rec["resume_variant"] = args.resume
-    if args.status == "applied" and not rec.get("applied_at"):
-        rec["applied_at"] = date.today().isoformat()
-    if args.note:
-        rec.setdefault("notes", []).append(f"{date.today().isoformat()}: {args.note}")
-    # mirror into the folder's status.json
-    sj = os.path.join(APPS_DIR, rec["folder"], "status.json")
-    if os.path.exists(sj):
-        with open(sj) as f:
-            s = json.load(f)
-        s["status"] = args.status
-        with open(sj, "w") as f:
-            json.dump(s, f, indent=2)
-            f.write("\n")
-    save(reg)
-    print(f"{args.key} -> {args.status}")
-    return 0
-
-
-def cmd_list(args):
-    reg = load()
-    for key in sorted(reg):
-        rec = reg[key]
-        if args.status and rec["status"] != args.status:
-            continue
-        print(f"{rec['status']:12s} {rec['company']:28.28s} {rec['role'][:50]:50s} {key[:60]}")
-    return 0
-
-
-def main():
-    ap = argparse.ArgumentParser()
-    sub = ap.add_subparsers(dest="cmd", required=True)
-    c = sub.add_parser("check"); c.add_argument("--key", required=True)
-    c = sub.add_parser("claim")
-    c.add_argument("--key", required=True); c.add_argument("--company", required=True)
-    c.add_argument("--role", required=True); c.add_argument("--url", required=True)
-    c.add_argument("--agent", required=True)
-    c = sub.add_parser("set")
-    c.add_argument("--key", required=True); c.add_argument("--status", required=True)
-    c.add_argument("--resume", default=None); c.add_argument("--note", default=None)
-    c = sub.add_parser("list"); c.add_argument("--status", default=None)
-    args = ap.parse_args()
-    fn = {"check": cmd_check, "claim": cmd_claim, "set": cmd_set, "list": cmd_list}[args.cmd]
-    return fn(args)
 
 
 if __name__ == "__main__":

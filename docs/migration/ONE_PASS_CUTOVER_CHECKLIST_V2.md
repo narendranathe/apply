@@ -1,0 +1,33 @@
+# One-pass cloud migration: revised V2 cutover checklist
+
+**Target:** One private GitHub Actions cloud execution system using the EXISTING Notion Hiring & Outreach workspace as the primary operational CRM, plus encrypted copies of local source records for disaster recovery. Mac OFF is acceptable after cutover.
+
+**Schedules (America/Chicago):**
+- **06:00 AM daily:** accepted connections, replies, follow-up and referral intelligence (old 09:00).
+- **06:30 AM daily:** new roles, qualified contacts, first-touch research and outreach drafts (old 09:30).
+- **Applications:** discover the actual existing cadence; merge it into the one-writer cloud system. Routine qualifying applications should **auto-submit where authorized/permitted and technically reliable**, without per-application approval.
+
+## Before pushing sensitive data
+- [ ] Confirm `narendranathe/apply` is **PRIVATE** or use an approved private destination. Inspect pre-existing public Git history and forks; changing visibility does not retract already-shared content.
+- [ ] Inspect existing `apply` pipeline, real auto-apply scheduler, `job-scout` feeder, both Codex automations, local SQLite journal, Python scripts, two Outreach_Log mirrors, all Notion Queue/Contacts/History data and blocked/uncertain deliveries.
+- [ ] Define file classifications: safe code and policies → private git; local SQLite and unredacted logs → **encrypted** archive in private git and normalized import to Notion; cookies/login sessions/API keys → **NEVER** git, not even private.
+- [ ] Create encrypted migration archives, verify a restore and hashes, and securely keep decryption keys **outside** the repository. Harden `.gitignore` and CI secret scanning.
+
+## Build the shared cloud system
+- [ ] Extend the **existing** Notion Hub as the operational system for companies, roles, contacts, applications, messages/outcomes, referrals, interviews and event/audit records. Do not duplicate the CRM.
+- [ ] Create a limited-scope Notion API integration for GitHub Actions. The current ChatGPT/desktop login is not the runner's credential.
+- [ ] Use one GitHub Actions orchestrator/common concurrency group for all writers, deterministic IDs, idempotent Notion writes, post-write readback, backups and uncertainty suppression. Notion is not transactional; do **not** promise mathematically exactly-once operations without additional storage.
+- [ ] Update `apply/AGENTS.md`, `pipeline.md`, scripts, tests and status machine: remove mandatory individual approval and browser-submission requirement for routine applications. Implement permitted cloud auto-submission with truthful answers, official requisition dedup and verifiable receipts. Unknown/blocked sites become exceptions, never fabricated successful submissions.
+- [ ] Keep LinkedIn invitations/messages human-executed absent a specifically permitted integration. Do not copy desktop browser cookies or authenticated profiles to the cloud.
+- [ ] Configure **06:00/06:30 America/Chicago** GitHub Action schedules with DST support and a manual dry-run mode. Preserve application schedule as discovered.
+- [ ] Run tests for duplicates, Notion conflicts, rate limits, failed or uncertain application submissions, encrypted backup restore, DST, partial migration and fail-safe recovery.
+
+## One single cutover
+- [ ] Run shadow validation (no actual messages/submissions) against all three lanes; reconcile historical Notion/SQLite/local application data and outstanding other-agent work.
+- [ ] Verify the private repo, secure Notion integration, optional AI API limits, any permitted employer/ATS submission credentials, and no unaudited paid services.
+- [ ] Retire both local Codex heartbeat schedules **and** the previous application scheduler, with in-flight jobs completed or reconciled.
+- [ ] Take final delta import; enable cloud schedules and verify one central writer. Test both morning tasks and application lane from GitHub Actions with the Mac off.
+- [ ] Monitor receipts/status of auto-submitted jobs separately from prepared/attempted/manual-action-needed jobs; ensure ambiguous submissions are never blindly retried.
+- [ ] Document rollback, alerting, restoration, retention, monthly usage and a clear list of remaining exceptions.
+
+**Run instructions:** Paste the ENTIRE `ONE_PASS_CLOUD_MIGRATION_PROMPT_V2.md` into ONE new interactive Codex chat opened on the local `narendranathe/apply` checkout. Do not paste the original Codex prompts or the two individual cloud task prompts again; Codex will read them from local files. Do not treat a plan alone as deployment.

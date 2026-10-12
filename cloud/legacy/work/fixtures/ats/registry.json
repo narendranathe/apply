@@ -1,0 +1,41 @@
+{
+ "version": 1,
+ "employers": [
+  {
+   "employer": "Acme Data",
+   "ats": "greenhouse",
+   "slug": "acme"
+  },
+  {
+   "employer": "Beta AI",
+   "ats": "lever",
+   "slug": "beta"
+  },
+  {
+   "employer": "Gamma",
+   "ats": "ashby",
+   "slug": "gamma"
+  },
+  {
+   "employer": "Delta",
+   "ats": "smartrecruiters",
+   "slug": "Delta"
+  },
+  {
+   "employer": "Broken Co",
+   "ats": "greenhouse",
+   "slug": "broken"
+  },
+  {
+   "employer": "Disabled Co",
+   "ats": "greenhouse",
+   "slug": "disabled",
+   "enabled": false
+  },
+  {
+   "employer": "Unsupported Co",
+   "ats": "workday",
+   "slug": "nope"
+  }
+ ]
+}

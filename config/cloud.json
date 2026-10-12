@@ -1,0 +1,22 @@
+{
+  "notion_data_source_id": "d932083f-8d8a-4570-a027-025bbfffb878",
+  "reconcile_lookback_days": 2,
+  "applications": {
+    "max_candidates": 5,
+    "min_score": 0.51,
+    "max_age_days": 7,
+    "max_feed_age_hours": 24,
+    "max_submissions_per_day": 3,
+    "employers": {}
+  },
+  "outreach": {
+    "max_contacts_per_run": 30,
+    "account_history_reconciled": false,
+    "research_ai_share": 0.6,
+    "proof_point": {
+      "fact_id": "E-LIVEREC",
+      "source": "docs/ground-truth.md",
+      "text": "Live CDC incremental-load failure diagnosed and restored in place under production pressure"
+    }
+  }
+}

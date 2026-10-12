@@ -1,0 +1,21 @@
+{
+ "id": "1001",
+ "postingUrl": "https://jobs.smartrecruiters.com/Delta/1001-data-engineer",
+ "applyUrl": "https://jobs.smartrecruiters.com/Delta/1001-data-engineer?oga=true",
+ "jobAd": {
+  "sections": {
+   "jobDescription": {
+    "title": "Job Description",
+    "text": "<p>Maintain SQL Server, SSIS and Power BI reporting.</p>"
+   },
+   "qualifications": {
+    "title": "Qualifications",
+    "text": "<ul><li>2+ years of experience with T-SQL.</li></ul>"
+   },
+   "additionalInformation": {
+    "title": "Additional Information",
+    "text": "<p>Benefits.</p>"
+   }
+  }
+ }
+}
