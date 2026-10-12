@@ -50,6 +50,15 @@ class OrchestrationTests(unittest.TestCase):
         self.assertEqual(unresolved_writers(rows, 4, lambda identity: False), ['1'])
         self.assertEqual(unresolved_writers(rows, 4, lambda identity: identity == '1'), [])
 
+    def test_manual_live_lane_does_not_expand_into_applications(self):
+        store = ShadowStore()
+        store.put(record('deployment:cutover:v2', 'audit_events', {k: True for k in ('history_reconciled', 'backup_restore_verified', 'local_actors_retired', 'shadow_verified')}))
+        config = {'destination_private': True, 'cloud_enabled': True, 'reconcile_lookback_days': 0}
+        with patch('cloud.applications.run_applications') as applications, patch('cloud.orchestrator.run_outreach', return_value={'sent': 0}) as outreach:
+            execute(store, config, datetime(2026, 10, 12, 13, tzinfo=timezone.utc), requested='accepted', dry_run=False)
+        applications.assert_not_called()
+        self.assertEqual(outreach.call_count, 1)
+
     def test_completed_slot_suppresses_rerun(self):
         store = ShadowStore()
         store.put(record('run:2026-10-12:accepted:completed', 'agent_runs', {}))
@@ -94,6 +103,23 @@ class OutreachSafetyTests(unittest.TestCase):
         result = run_outreach(store, {}, 'accepted', self.now)
         self.assertEqual(result['blocked'], {'fresh_source_unavailable': 1})
 
+    def test_changed_original_identity_invalidates_verified_snapshot(self):
+        from cloud.outreach import run_outreach
+        class Store(ShadowStore):
+            def current_contact_observations(inner):
+                return [{'source_notion_id': 'source', 'observed_at': self.now.isoformat(), 'properties': {'Company': 'Changed employer'}, 'body': [], 'no_contact': False}]
+        store = Store()
+        store.put(record('contact:test', 'contacts', dict(self.contact, source_notion_id='source', verified_source_hash='previous-hash')))
+        result = run_outreach(store, {}, 'accepted', self.now)
+        self.assertEqual(result['blocked'], {'needs_verification': 1})
+
+    def test_research_rotation_and_reply_priority(self):
+        from cloud.outreach import select_contacts
+        contacts = [record('a', 'contacts', {}), record('b', 'contacts', {}), record('c', 'contacts', {'genuine_reply': True})]
+        observations = [record('old', 'conversation_observations', {'contact_id': 'a', 'lane': 'accepted', 'observed_at': self.now.isoformat()})]
+        selected = select_contacts(contacts, observations, 'accepted', 2)
+        self.assertEqual([x['id'] for x in selected], ['c', 'b'])
+
     def test_two_unanswered_and_24_hour_gap(self):
         self.assertEqual(gate(dict(self.contact, unanswered_total=2), self.now, 'accepted'), 'unanswered_limit')
         self.assertEqual(gate(dict(self.contact, last_touch_at=self.now.isoformat()), self.now, 'accepted'), 'minimum_gap')
@@ -113,6 +139,8 @@ class OutreachSafetyTests(unittest.TestCase):
         self.assertTrue(unsafe('other.bin', b'SQLite format 3\0'))
         self.assertTrue(unsafe('thing.txt', ('gh' + 'p_' + 'a' * 40).encode()))
         self.assertTrue(unsafe('export/Outreach_Log.md', b'message'))
+        self.assertTrue(unsafe('config.json', ('{"api_key":"' + 'a' * 32 + '"}').encode()))
+        self.assertTrue(unsafe('.env.production', ('NOTION_TOKEN=' + 'a' * 32).encode()))
         self.assertFalse(unsafe('migration-archives/snapshot.aesgcm', b'ciphertext'))
 
 

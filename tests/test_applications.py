@@ -12,7 +12,7 @@ from cloud.notion import AmbiguousWriteError
 from cloud.orchestrator import ShadowStore
 from cloud.preparation import digest
 from cloud.records import make_record
-from cloud.submission import GreenhouseAdapter, Response, SubmissionBlocked
+from cloud.submission import GreenhouseAdapter, LeverAdapter, Response, SubmissionBlocked
 from scripts.registry import main as registry_main
 
 
@@ -244,6 +244,21 @@ class ApplicationTests(unittest.TestCase):
         lead = {'company': 'Acme', 'url': 'https://job-boards.greenhouse.io/acme/jobs/100'}
         self.assertTrue(adapter.verify(lead)['open'])
         transport.bad = True
+        with self.assertRaises(SubmissionBlocked):
+            adapter.verify(lead)
+        research = adapter.verify(lead, require_schema=False)
+        self.assertTrue(research['open'])
+        self.assertFalse(research['schema_verified'])
+
+    def test_lever_public_research_does_not_require_submission_credentials(self):
+        transport = ATSTransport()
+        adapter = LeverAdapter({'board_token': 'acme'}, transport)
+        lead = {'company': 'Acme', 'url': 'https://jobs.lever.co/acme/req-1'}
+        research = adapter.verify(lead, require_schema=False)
+        self.assertTrue(research['open'])
+        self.assertFalse(research['employer_identity_verified'])
+        self.assertFalse(research['schema_verified'])
+        self.assertEqual(len(transport.calls), 1)
         with self.assertRaises(SubmissionBlocked):
             adapter.verify(lead)
 

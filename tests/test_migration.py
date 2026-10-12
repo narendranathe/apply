@@ -144,6 +144,33 @@ class MigrationTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             merge_history(local, [], bad)
 
+    def test_cli_conflict_and_uncertain_readback_fail_run(self):
+        row = event_record(example())
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "export.json"
+            path.write_text(json.dumps({"schema": "apply-historical-export/v1", "records": [row], "blocked": []}))
+            changed = MemoryStore()
+            changed.records[row["id"]] = event_record(example(content="A different historical payload"))
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                result = migrate_main(["--input", str(path), "--write", "--private-destination-verified"],
+                                      store=changed, private_verifier=lambda: True)
+            self.assertEqual(result, 2)
+            self.assertEqual(changed.writes, 0)
+            self.assertEqual(json.loads(output.getvalue())["conflicted"], 1)
+
+            class Uncertain(MemoryStore):
+                def put(self, value):
+                    self.writes += 1
+            uncertain = Uncertain()
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                result = migrate_main(["--input", str(path), "--write", "--private-destination-verified"],
+                                      store=uncertain, private_verifier=lambda: True)
+            self.assertEqual(result, 2)
+            self.assertEqual(uncertain.writes, 1)
+            self.assertEqual(json.loads(output.getvalue())["blocked"], 1)
+
     def test_journal_and_marker_mirrors_preserve_full_optional_fields(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

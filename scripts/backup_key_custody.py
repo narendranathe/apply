@@ -4,6 +4,7 @@ import argparse
 import base64
 from pathlib import Path
 import subprocess
+from macos_keychain import read_secret, add_secret
 
 SERVICE = 'narendranathe.apply.cloud-migration.v2'
 ACCOUNT = 'migration-backup-key'
@@ -17,16 +18,14 @@ def secure_key(key_path, repository, github=False):
     if len(key) != 32:
         raise ValueError('Expected 32-byte AES-256 key')
     encoded = base64.b64encode(key)
-    existing = subprocess.run(['security', 'find-generic-password', '-s', SERVICE, '-a', ACCOUNT, '-w'], capture_output=True)
-    if existing.returncode == 0:
-        if existing.stdout.strip() != encoded:
+    existing = read_secret(SERVICE, ACCOUNT)
+    if existing is not None:
+        if existing != encoded:
             raise ValueError('Existing secure-store key differs; never replace historical custody')
     else:
-        result = subprocess.run(['security', 'add-generic-password', '-s', SERVICE, '-a', ACCOUNT, '-w', encoded.decode()], capture_output=True)
-        if result.returncode:
-            raise RuntimeError('Keychain storage needs user action')
-    readback = subprocess.run(['security', 'find-generic-password', '-s', SERVICE, '-a', ACCOUNT, '-w'], capture_output=True)
-    if readback.returncode or readback.stdout.strip() != encoded:
+        add_secret(SERVICE, ACCOUNT, encoded)
+    readback = read_secret(SERVICE, ACCOUNT)
+    if readback != encoded:
         raise RuntimeError('Keychain custody readback failed')
     if github:
         result = subprocess.run(['gh', 'secret', 'set', 'MIGRATION_BACKUP_KEY', '--repo', repository], input=encoded, capture_output=True)

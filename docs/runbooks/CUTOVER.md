@@ -15,10 +15,15 @@ The approved V2 prompt authorizes one coordinated cutover. Production remains di
 
 Keep CLOUD_ENABLED unset/false during development. All cloud writes, imports and reconciliation use concurrency group hiring-outreach-single-writer with cancel-in-progress false.
 
+First register the validated workflows on the default branch with CLOUD_ENABLED=false.
+GitHub dispatch-only workflows must exist there before branch-specific dry-runs/imports
+can be dispatched. This prepares the host without activating a competing writer.
+Then complete hosted shadow and initial reconciliation while local tasks remain active.
+
 1. Stop new local writes at one boundary and complete/reconcile in-flight work. Retire both Codex schedules through automation_update and read back their persisted states. Retire any separately discovered application scheduler; leave unrelated OpenClaw jobs alone.
 2. Take a final delta snapshot and authenticated encrypted archive. Import through the central writer and record imported/unchanged/conflicted/blocked totals.
 3. Append deployment:cutover:v2 in Notion with history_reconciled, backup_restore_verified, local_actors_retired and shadow_verified explicitly true, plus evidence URLs, hashes and commit. Tests alone cannot justify this record.
-4. Merge the migration and set repository variable CLOUD_ENABLED=true. Schedules are 06:00 and 06:30 America/Chicago. Applications run as a distinct phase after 06:30 when no previous cadence can be established.
+4. Confirm the pinned, validated default-branch deployment and set repository variable CLOUD_ENABLED=true. Schedules are 06:00 and 06:30 America/Chicago. Applications run as a distinct phase after 06:30 when no previous cadence can be established.
 5. Dispatch all lanes on GitHub-hosted runners. Validate receipt handling on a permitted sandbox before production. Production applications require every eligibility gate and employer authorization.
 6. Verify schedules on the default branch and record Mac-off validation separately from local tests. Verify private Notion readback and encrypted backup recovery.
 

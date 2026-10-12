@@ -134,7 +134,7 @@ class GreenhouseAdapter:
         if not re.fullmatch(r"[a-zA-Z0-9_-]+", self.board):
             raise SubmissionBlocked("missing_verified_board")
 
-    def verify(self, lead):
+    def verify(self, lead, *, require_schema=True):
         url = urllib.parse.urlsplit(lead.get("url") or "")
         job_id = None
         if url.hostname in {"boards.greenhouse.io", "job-boards.greenhouse.io"}:
@@ -159,6 +159,15 @@ class GreenhouseAdapter:
         deadline = timestamp(body.get("application_deadline"))
         if deadline and deadline <= dt.datetime.now(dt.timezone.utc):
             return {"open": False}
+        job = {"open": True, "company": body["company_name"], "title": body["title"],
+               "requisition_id": str(body.get("requisition_id") or body.get("internal_job_id") or job_id),
+               "posting_id": job_id, "url": body.get("absolute_url") or lead["url"],
+               "aliases": [lead["url"], body.get("absolute_url") or lead["url"]],
+               "location": (body.get("location") or {}).get("name", "") if isinstance(body.get("location"), (dict, type(None))) else "",
+               "jd": plain_html(body["content"]), "questions": [], "schema_verified": False,
+               "ats": self.ats, "endpoint": endpoint, "observed_at": dt.datetime.now(dt.timezone.utc).isoformat(), "evidence_url": endpoint}
+        if not require_schema:
+            return job
         questions = (object_array(body, "questions", required=True) + object_array(body, "location_questions") + object_array(body, "compliance"))
         demographics = body.get("demographic_questions")
         if demographics is None:
@@ -179,14 +188,8 @@ class GreenhouseAdapter:
             if any(consent.get(key) for key in ("requires_consent", "requires_processing_consent", "requires_retention_consent")):
                 questions.append({"label": "Legal data-processing/retention consent", "required": True,
                                   "fields": [{"name": f"consent_{index}", "type": "human_attestation"}]})
-        return {"open": True, "company": body["company_name"], "title": body["title"],
-                "requisition_id": str(body.get("requisition_id") or body.get("internal_job_id") or job_id),
-                "posting_id": job_id, "url": body.get("absolute_url") or lead["url"],
-                "aliases": [lead["url"], body.get("absolute_url") or lead["url"]],
-                "location": (body.get("location") or {}).get("name", "") if isinstance(body.get("location"), (dict, type(None))) else "", "jd": plain_html(body["content"]),
-                "questions": validated_questions(questions), "ats": self.ats, "endpoint": endpoint,
-                "salary_ranges": object_array(body, "pay_input_ranges"),
-                "observed_at": dt.datetime.now(dt.timezone.utc).isoformat(), "evidence_url": endpoint}
+        return {**job, "questions": validated_questions(questions), "schema_verified": True,
+                "salary_ranges": object_array(body, "pay_input_ranges")}
 
     def submit(self, job, packet):
         if not permitted(self.employer):
@@ -215,13 +218,14 @@ class LeverAdapter:
         if not re.fullmatch(r"[a-zA-Z0-9_-]+", self.board):
             raise SubmissionBlocked("missing_verified_board")
 
-    def verify(self, lead):
+    def verify(self, lead, *, require_schema=True):
         url = urllib.parse.urlsplit(lead.get("url") or "")
         match = re.fullmatch(r"/([^/]+)/([a-zA-Z0-9-]+)(?:/apply)?/?", url.path)
         if url.hostname != "jobs.lever.co" or not match or match[1] != self.board:
             raise SubmissionBlocked("official_post_identity_missing")
         binding = self.employer.get("employer_verification", {})
-        if (not binding.get("evidence_url", "").startswith("https://") or
+        employer_bound = bool(binding.get("evidence_url", "").startswith("https://") and timestamp(binding.get("verified_at")) and normalize(binding.get("company")) == normalize(lead.get("company")))
+        if require_schema and (not binding.get("evidence_url", "").startswith("https://") or
                 not timestamp(binding.get("verified_at")) or normalize(binding.get("company")) != normalize(lead.get("company"))):
             raise SubmissionBlocked("official_employer_binding_missing")
         endpoint = f"https://api.lever.co/v0/postings/{self.board}/{match[2]}"
@@ -233,6 +237,16 @@ class LeverAdapter:
             return {"open": False}
         if response.status != 200 or body.get("id") != match[2] or not body.get("text"):
             raise SubmissionBlocked("official_post_unverified")
+        sections = object_array(body, "lists")
+        jd = plain_html(body.get("description", "")) + "\n" + "\n".join(plain_html(s.get("text", "")) + "\n" + plain_html(s.get("content", "")) for s in sections)
+        job = {"open": True, "company": lead["company"], "employer_identity_verified": employer_bound,
+               "title": body["text"], "requisition_id": body["id"], "posting_id": body["id"], "jd": jd,
+               "url": body.get("hostedUrl") or lead["url"], "aliases": [lead["url"], body.get("hostedUrl") or lead["url"]],
+               "location": (body.get("categories") or {}).get("location", "") if isinstance(body.get("categories"), (dict, type(None))) else "",
+               "questions": [], "schema_verified": False, "ats": self.ats, "endpoint": endpoint,
+               "observed_at": dt.datetime.now(dt.timezone.utc).isoformat(), "evidence_url": endpoint}
+        if not require_schema:
+            return job
         # Public v0 postings omit custom questions. Fetch the complete official
         # authenticated form at action time; static config is insufficient.
         credential = os.environ.get(self.employer.get("schema_credential_env", ""), "")
@@ -272,7 +286,7 @@ class LeverAdapter:
                 questions.append({"label": name, "required": True, "fields": [{"name": name, "type": "input_text"}]})
         sections = object_array(body, "lists")
         jd = plain_html(body.get("description", "")) + "\n" + "\n".join(plain_html(s.get("text", "")) + "\n" + plain_html(s.get("content", "")) for s in sections)
-        return {"open": True, "company": lead["company"], "title": body["text"],
+        return {**job, "schema_verified": True, "open": True, "company": lead["company"], "title": body["text"],
                 "requisition_id": body["id"], "posting_id": body["id"], "jd": jd,
                 "url": body.get("hostedUrl") or lead["url"], "aliases": [lead["url"], body.get("hostedUrl") or lead["url"]],
                 "location": (body.get("categories") or {}).get("location", "") if isinstance(body.get("categories"), (dict, type(None))) else "",

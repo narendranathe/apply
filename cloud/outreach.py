@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 import json
 from pathlib import Path
+from cloud.records import content_hash
 
 
 def stamp(value):
@@ -74,12 +75,26 @@ def verified_proof(config):
     return text
 
 
+def select_contacts(contacts, observations, lane, limit):
+    """Prioritize genuine replies, then rotate toward least recently reviewed."""
+    last_reviewed = {}
+    for item in observations:
+        payload = item.get('payload', {})
+        when = stamp(payload.get('observed_at'))
+        identity = payload.get('contact_id')
+        if identity and when and payload.get('lane') == lane:
+            last_reviewed[identity] = max(when, last_reviewed.get(identity, when))
+    oldest = datetime.min.replace(tzinfo=timezone.utc)
+    return sorted(contacts, key=lambda row: (not row.get('payload', {}).get('genuine_reply', False), last_reviewed.get(row['id'], oldest), row['id']))[:limit]
+
+
 def run_outreach(store, config, lane, now, dry_run=True):
     contacts = store.query(kind='contacts')
     observations = store.current_contact_observations() if hasattr(store, 'current_contact_observations') else []
     source_key = lambda value: str(value or '').replace('-', '').lower()
     fresh = {source_key(x['source_notion_id']): x for x in observations}
     events = store.query(kind='outreach_events')
+    previous_plans = store.query(kind='conversation_observations')
     counts = {}
     known_counts = config.get('account_history_reconciled', False)
     for event in events:
@@ -89,7 +104,7 @@ def run_outreach(store, config, lane, now, dry_run=True):
             counts.setdefault(payload.get('company_id'), set()).add(payload.get('contact_id'))
     proof = verified_proof(config)
     result = {'lane': lane, 'inbox': 'not checked', 'contacts_available': len(contacts), 'contacts_reviewed': 0, 'drafts': 0, 'research': 0, 'sent': 0, 'blocked': {}}
-    for item in contacts[:config.get('max_contacts_per_run', 30)]:
+    for item in select_contacts(contacts, previous_plans, lane, config.get('max_contacts_per_run', 30)):
         result['contacts_reviewed'] += 1
         contact = dict(item.get('payload', {}))
         source = fresh.get(source_key(contact.get('source_notion_id')))
@@ -97,6 +112,11 @@ def run_outreach(store, config, lane, now, dry_run=True):
             # New human suppression takes effect without editing historical envelopes.
             contact['opt_out'] = contact.get('opt_out') or source.get('no_contact') or source.get('suppressed')
             contact['source_observed_at'] = source['observed_at']
+            verified_source_hash = contact.get('verified_source_hash')
+            observed_hash = content_hash({'properties': source.get('properties', {}), 'body': source.get('body', [])})
+            if verified_source_hash != observed_hash:
+                contact['identity_verified'] = False
+                contact['history_complete'] = False
         company_id = contact.get('company_id')
         blocked = gate(contact, now, lane, len(counts.get(company_id, set())) if known_counts else None)
         if not blocked and contact.get('source_notion_id') and not source:

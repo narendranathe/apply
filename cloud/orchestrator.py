@@ -88,7 +88,8 @@ def execute(store, config, now=None, cron='', requested='all', dry_run=True, rec
     lanes = selected_lanes(cron, requested)
     # Every production wake checks all due lanes: GitHub can replace a pending run.
     if not dry_run:
-        lanes = ['accepted', 'first_touch', 'applications']
+        if cron or requested == 'all':
+            lanes = ['accepted', 'first_touch', 'applications']
         reconcile = True
     results = []
     for day, lane, missed in due_slots(now, lanes, config.get('reconcile_lookback_days', 2), reconcile):

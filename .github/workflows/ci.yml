@@ -22,6 +22,8 @@ jobs:
         run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends texlive-latex-extra texlive-fonts-recommended poppler-utils
       - run: python scripts/security_check.py
       - run: python -m unittest discover -s tests -v
+        env:
+          MIGRATION_BACKUP_KEY: ${{ github.event_name == 'push' && secrets.MIGRATION_BACKUP_KEY || '' }}
       - run: python -m unittest discover -s cloud/legacy/work -q
       - name: Restore real encrypted history on hosted runner
         if: github.event_name == 'push'
@@ -31,3 +33,11 @@ jobs:
       - run: python -m compileall -q cloud scripts
       - name: Schedule and single writer validation
         run: python scripts/check_workflows.py
+      - name: Encrypted private build diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: encrypted-master-qa-${{ github.run_id }}
+          path: run-output/master-qa.aesgcm
+          retention-days: 7
+          if-no-files-found: ignore

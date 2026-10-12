@@ -4,7 +4,7 @@ import unittest
 from unittest.mock import patch
 
 from cloud.preparation import (FACTS, MASTER, digest, grade_job, prepare_packet,
-                               screening_answers, select_arc, tailor_source, verify_resume)
+                               screening_answers, select_arc, tailor_source, verify_resume, requirements_from_jd)
 from scripts.jobscout_feed import candidates, feed_metadata
 
 
@@ -32,6 +32,11 @@ class PreparationTests(unittest.TestCase):
 
     def test_unknown_requirement_section_is_explicit_gap(self):
         self.assertEqual(grade_job({**self.job, 'jd': 'A great team with Python.'})['reason'], 'requirement_map_unavailable')
+
+    def test_real_posting_heading_shapes_preserve_explicit_requirement_boundaries(self):
+        for heading in ("Requirements:", "Qualifications:", "You may be a good fit if you:", "What we're looking for:", "Who you are:"):
+            requirements = requirements_from_jd(heading + '\nSQL and Python\nCI/CD\nPreferred qualifications:\nProduction AWS\nBenefits:\nUnlimited leave')
+            self.assertEqual(requirements, ['SQL and Python', 'CI/CD'])
 
     def test_ineligible_country_and_sponsorship_prohibition(self):
         self.assertFalse(grade_job({**self.job, 'location': 'London, England'})['qualified'])

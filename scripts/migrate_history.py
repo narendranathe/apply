@@ -95,6 +95,8 @@ def main(argv=None, *, store=None, private_verifier=None):
                               "error_type": type(error).__name__}))
             return 2
         print(json.dumps({k: v for k, v in report.items() if k != "results"}, sort_keys=True))
+        if report["conflicted"] or report["blocked"]:
+            return 2
     else:
         p.error("Specify --journal or --input")
     return 0

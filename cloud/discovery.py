@@ -62,14 +62,14 @@ def run_discovery(store, config, now, feed=None, transport=None):
             store.put(make_record('companies', {'company_id': company_id, 'name': job['company']}, record_id=company_id))
         payload = {**job, 'company_id': company_id, 'job_id': job_id, 'feed_exported_at': metadata['exported_at'],
                    'prior_application_id': prior.get('payload', {}).get('application_id') if prior else None}
-        store.put(make_record('jobs', payload, record_id=stable_id('job_observation', job_id, now.date().isoformat(), job['jd']), status='open_observed'))
+        store.put(make_record('jobs', payload, record_id=stable_id('job_observation', job_id, payload), status='open_observed'))
         known = [row['id'] for row in contacts if row.get('payload', {}).get('company_id') == company_id or normalized_identity(row.get('payload', {}).get('company', '')) == normalized_identity(job['company'])]
         plan = {'company_id': company_id, 'job_id': job_id, 'source_url': job['evidence_url'], 'observed_at': now.isoformat(),
                 'known_contact_ids': known, 'verified_hiring_owner': None,
                 'next_action': 'verify_existing_routes' if known else 'research_official_hiring_team_or_public_professional_route',
                 'constraints': ['no_invented_owner', 'exact_identity_and_history_before_draft', 'respect_opt_out_scope', 'no_email_guessing'],
                 'application_context': 'already_in_history' if prior else 'fresh_verified_role', 'hypothesis': 'role_specific_route_to_qualified_conversation'}
-        store.put(make_record('conversation_observations', plan, record_id=stable_id('role_route_plan', job_id, now.date().isoformat()), status='research'))
+        store.put(make_record('conversation_observations', plan, record_id=stable_id('role_route_plan', job_id, plan), status='research'))
         result['research_tasks'] += 1
     return result
 

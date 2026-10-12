@@ -6,9 +6,9 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 PATTERNS = [
-    re.compile(rb'(?:ghp_|github_pat_|ntn_|sk-proj-)[A-Za-z0-9_\-]{24,}'),
+    re.compile(rb'(?:ghp_|github_pat_|ntn_|sk-proj-|secret_)[A-Za-z0-9_\-]{24,}'),
     re.compile(rb'-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----'),
-    re.compile(rb'(?i)(?:access_token|refresh_token|api_key|client_secret)\s*[=:]\s*["\x27][A-Za-z0-9_\-]{24,}["\x27]'),
+    re.compile(rb'(?i)(?:access_token|refresh_token|api_key|client_secret|notion_token|migration_backup_key|github_token|gh_token)["\x27]?\s*[=:]\s*["\x27]?[A-Za-z0-9_+/=\-]{24,}'),
 ]
 
 
@@ -17,6 +17,8 @@ def unsafe(path, data):
     if any(x in name for x in ('.migration-private/', 'outreach_log', 'cookies', 'browser-profile')):
         return True
     if name.endswith(('.sqlite', '.sqlite3', '.db', '.agekey', '.pem', '.key', '.env')):
+        return True
+    if Path(name).name.startswith('.env.') and not name.endswith('.env.example'):
         return True
     if name.startswith(('applications/', 'resumes/variants/')):
         return True

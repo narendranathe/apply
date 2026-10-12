@@ -82,17 +82,17 @@ def select_arc(jd):
 
 def requirements_from_jd(jd):
     """Only explicit qualification sections; never turn a keyword score into fit."""
-    lines = [line.strip(" \t-•").rstrip(":") for line in jd.splitlines() if line.strip()]
+    lines = [line.strip(" \t-•*").rstrip(":").strip() for line in jd.splitlines() if line.strip()]
     output, collecting = [], False
     for line in lines:
-        if re.fullmatch(r"(?:minimum |basic |required )?(?:requirements|qualifications)|what you(?:'|’)ll (?:bring|need)|must.have[s]?", line, re.I):
+        if re.fullmatch(r"(?:minimum |basic |required |job )?(?:requirements|qualifications)|what you(?:'|’)ll (?:bring|need)|must.have[s]?|you (?:may|might|could) be a good fit if(?: you)?|what we(?:'|’)re looking for|who you are", line, re.I):
             collecting = True
             continue
-        if collecting and re.fullmatch(r"(?:preferred qualifications|benefits|compensation|about us|what we offer|responsibilities)", line, re.I):
+        if collecting and re.fullmatch(r"(?:preferred|desired|nice.to.have)(?: qualifications| requirements| skills)?|benefits|compensation|salary|about (?:us|the (?:team|role|company))|what we offer|responsibilities|what you(?:'|’)ll do|why (?:join|work).*|interview process|equal (?:employment )?opportunit(?:y|ies).*", line, re.I):
             collecting = False
         if collecting:
             output.append(line)
-    return output
+    return output if len(output) <= 40 else []
 
 
 def grade_job(job, config=None):
@@ -276,8 +276,24 @@ def verify_resume(tex_path, pdf_path, expected_pages=2):
                     and [text.index(section) for section in ("Technical Skills", "Experience", "Projects", "Education")] == sorted(text.index(section) for section in ("Technical Skills", "Experience", "Projects", "Education")),
                 "overfull": "Overfull" not in tex_path.with_suffix(".log").read_text(errors="replace")})
             result.update({"page_count": len(pdf.pages), "page_fill": [round(fill, 1) for fill in fills], "text_hash": digest(text.encode())})
-        with contextlib.redirect_stdout(io.StringIO()):
+        diagnostics = io.StringIO()
+        with contextlib.redirect_stdout(diagnostics):
             result["checks"]["strict_layout"] = strict_qa.layout(str(pdf_path), expected_pages)
+        # Preserve precise private evidence without leaking resume snippets in
+        # assertion/runner logs. The runner encrypts this packet on QA failure.
+        diagnostic_path = pdf_path.parent / "qa-diagnostics.txt"
+        diagnostic_path.write_text(diagnostics.getvalue())
+        diagnostic_path.chmod(0o600)
+        result["strict_layout_failures"] = []
+        for line in diagnostics.getvalue().splitlines():
+            if not line.strip().startswith("FAIL:"):
+                continue
+            failure = line.strip()[5:].strip()
+            # The strict checker appends the private bullet after ':'. Retain
+            # page, line/tail character measurements and the unchanged limits.
+            if "BULLET" in failure or "DEAD ZONE" in failure:
+                failure = failure.split(":", 1)[0]
+            result["strict_layout_failures"].append(failure)
     except (ImportError, OSError, ValueError, IndexError):
         result["reasons"].append("pdf_qa_unavailable_or_failed")
     renderer = shutil.which("pdftoppm")

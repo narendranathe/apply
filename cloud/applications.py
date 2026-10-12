@@ -151,6 +151,9 @@ def _employer(lead, config):
     match = re.fullmatch(r"/([^/]+)/jobs/\d+/?", parsed.path)
     if parsed.hostname in {"boards.greenhouse.io", "job-boards.greenhouse.io"} and match:
         return {"ats": "greenhouse", "board_token": match[1]}
+    match = re.fullmatch(r"/([^/]+)/[a-zA-Z0-9-]+(?:/apply)?/?", parsed.path)
+    if parsed.hostname == "jobs.lever.co" and match:
+        return {"ats": "lever", "board_token": match[1]}
     raise SubmissionBlocked("employer_board_config_unavailable")
 
 
