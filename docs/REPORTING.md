@@ -16,6 +16,7 @@ Jobs and contacts count distinct explicit canonical IDs, then original Notion pa
 | Jobs with qualification evidence | Official source URL and aware source date, exact JD hash, explicit truthful-fit map, current ground-truth fact IDs, no VERIFY/BLOCKED fact use, and the recorded coverage matches the evidenced requirements |
 | Applications attempted | Distinct application IDs with a structured, nonfuture aware attempt date |
 | Verified submissions | Stable official receipt ID, HTTPS evidence URL, nonfuture aware confirmed_at, applied_verified receipt status, and a 2xx HTTP result |
+| Human-confirmed submissions | Separate structured direct Naren confirmation, exact application identity/source hash and dated employer acknowledgement; never represented as an ATS HTTP receipt |
 | Recruiter screens/interviews/referrals/useful replies | Explicit structured verified confirmation with an exact event ID, HTTPS source, aware nonfuture confirmation date, contact ID, and a supported outcome |
 
 A later rejection/closure does not erase an earlier verified receipt. All immutable application transitions are inspected for historical receipts. Repeated receipt/evidence references count once. The same receipt claimed by different applications, or conflicting contents for one confirmation event, blocks the report. A generic HTTP 200, prose about an interview, copied activity, drafted packet, stage label, or date-only historical observation is not an outcome.

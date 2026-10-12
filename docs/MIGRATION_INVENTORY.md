@@ -171,6 +171,15 @@ normalized inputs restored as **44 exact members** from a separate archive,
 SHA-256 `c383cbfe52ca32e0cd55bdccd9b78728046a22d6119a19e318d54b03e93b0a66`.
 Combined input now has **717 records**, preserving every earlier version.
 
+Naren then directly confirmed Goldman was submitted. Gmail supplied the
+authenticated employer acknowledgement, with no requisition in its body.
+The direct statement, source association and email evidence are preserved
+in a separate two-member encrypted archive, excluding the authentication-code email.
+An append-only human-confirmed application revision and audit bring input to
+**719 records**. Human-confirmed submission count is one; cloud auto-submissions
+remain zero. The provider-email evidence scope is explicit and never modeled as
+a fabricated ATS HTTP receipt. All **769 archive members** restored exactly.
+
 Runner secrets, complete remote payload reconciliation, actual application actor
 and cadence, cloud shadow runs, final source delta and a proven single writer
 must pass before local task retirement. Both desktop tasks remain ACTIVE. The

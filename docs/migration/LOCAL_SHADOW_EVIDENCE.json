@@ -1,11 +1,73 @@
 {
-  "baseline_records": 703,
+  "baseline_records": 719,
   "cloud_hosted": false,
   "dry_run": true,
   "linkedin_inbox": "not checked",
   "linkedin_sent": 0,
   "live_notion_credential_verified": false,
   "production_submission_count": 0,
+  "reporting": {
+    "allocation": {
+      "baseline_ai_share": 0.6,
+      "causal_effect_claimed": false,
+      "cohorts": {
+        "ai_platform": {
+          "matured_assignments": 0,
+          "observed_qualified_rate": null,
+          "qualified_assignments": 0
+        },
+        "data_platform": {
+          "matured_assignments": 0,
+          "observed_qualified_rate": null,
+          "qualified_assignments": 0
+        }
+      },
+      "configuration_changed": false,
+      "current_ai_share": 0.6,
+      "policy": {
+        "maturity_days": 14,
+        "max_mix_shift": 0.1,
+        "min_matured_assignments_per_family": 20,
+        "min_qualified_assignments_per_family": 5,
+        "min_rate_difference": 0.1
+      },
+      "proposed_ai_share": 0.6,
+      "reason": "insufficient_verified_qualified_outcomes"
+    },
+    "configuration_changed": false,
+    "counts": {
+      "actual_verified_assignments": 0,
+      "application_status_observations": {
+        "applied_verified": 1,
+        "prepared": 2
+      },
+      "applications_attempted": 0,
+      "confirmed_interviews": 0,
+      "confirmed_recruiter_screens": 0,
+      "confirmed_referrals_offered": 0,
+      "confirmed_referrals_submitted": 0,
+      "confirmed_useful_replies": 0,
+      "human_confirmed_submitted_applications": 1,
+      "ignored_unverified_evidence": 0,
+      "invalid_or_unverified_assignments": 0,
+      "jobs_with_qualification_evidence": 0,
+      "prepared_application_observations": 3,
+      "qa_ready_packet_evidence_applications": 0,
+      "source_applications": 3,
+      "source_contact_observations": 154,
+      "source_contacts": 154,
+      "source_job_observations": 23,
+      "source_jobs": 22,
+      "verified_submission_receipts": 0,
+      "verified_submitted_applications": 0
+    },
+    "dry_run": true,
+    "external_messages_sent": 0,
+    "observed_at": "2026-10-12T21:31:37.364904+00:00",
+    "report_id": "funnel_reports:aadc6762be3ae08d512c6cd83f88d6192be82413a859e5062eeb15c3a500abd1",
+    "reporting_records": 6,
+    "sync_cursor_id": "reporting_cursor:0921184eacf4d53354793b3597bb68a68f119731e05d1c297cee899d1973b7e4"
+  },
   "results": [
     {
       "blocked": {
@@ -26,13 +88,11 @@
       "contacts_available": 154,
       "contacts_reviewed": 30,
       "discovery": {
-        "duplicates": 0,
-        "exceptions": {
-          "official_employer_mismatch": 1
-        },
-        "feed_exported_at": "2026-10-12T01:26:10.090365+00:00",
-        "official_open": 4,
-        "research_tasks": 4,
+        "duplicates": 1,
+        "exceptions": {},
+        "feed_exported_at": "2026-10-12T21:22:29.172207+00:00",
+        "official_open": 5,
+        "research_tasks": 5,
         "roles_checked": 5
       },
       "drafts": 0,
@@ -47,12 +107,11 @@
       "dry_run": true,
       "duplicates": 0,
       "exceptions": {
-        "official_application_requirement_ambiguous": 2,
-        "official_employer_mismatch": 1,
-        "requirement_map_unavailable": 2
+        "official_application_requirement_ambiguous": 4,
+        "official_employer_mismatch": 1
       },
       "feed_checked": true,
-      "feed_exported_at": "2026-10-12T01:26:10.090365+00:00",
+      "feed_exported_at": "2026-10-12T21:22:29.172207+00:00",
       "feed_fresh": true,
       "lane": "applications",
       "prepared": 0,

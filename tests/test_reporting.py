@@ -92,6 +92,15 @@ class ReportingTests(unittest.TestCase):
         self.assertEqual(result['counts']['verified_submitted_applications'], 1)
         self.assertEqual(result['counts']['application_status_observations'], {'rejected': 1})
 
+    def test_human_confirmed_submission_is_separate_from_provider_receipts(self):
+        proof = {'schema': 'human-application-confirmation/v1', 'application_id': 'a', 'actor': 'Naren',
+                 'user_confirmed': True, 'user_statement': 'submitted', 'source_record_hash': 'a'*64,
+                 'employer_message_id': 'email:one', 'employer_acknowledged_at': NOW.isoformat(),
+                 'evidence_url': 'https://mail.google.com/mail/u/0/#all/email-one'}
+        counts = run_reporting(Store([application('a', 0, 'applied_verified', confirmation_evidence=proof)]), {}, NOW)['counts']
+        self.assertEqual(counts['human_confirmed_submitted_applications'], 1)
+        self.assertEqual(counts['verified_submission_receipts'], 0)
+
     def test_duplicate_outcome_sources_count_exact_event_once(self):
         payload = {'contact_id': 'person', 'confirmation_evidence': confirmation('confirmed-one', 'interview_confirmed')}
         rows = [make_record('interviews', payload, 'i'), make_record('outreach_events', payload, 'event')]

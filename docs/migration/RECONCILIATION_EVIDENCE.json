@@ -3,11 +3,10 @@
   "conflicted": 0,
   "dry_run": true,
   "imported": 0,
-  "maximum_simulated_request_bytes": 363397,
-  "normalized_records": 717,
-  "notion_request_size_boundary_verified_records": 717,
+  "normalized_records": 719,
   "source_commit": "16de4acc4e66c6b7e09502ff5f4dfb8d3ec873ba",
+  "source_user_confirmation_date": "2026-10-12",
   "unchanged": 354,
-  "validation_environment": "offline_audited_notion_snapshot_plus_upstream_application_deltas",
-  "would_import": 363
+  "validation_environment": "offline_audited_notion_snapshot_plus_upstream_deltas_and_user_confirmation",
+  "would_import": 365
 }

@@ -1,0 +1,24 @@
+{
+  "algorithm": "AES-256-GCM",
+  "archive": "migration-archives/2026-10-12-goldman-confirmation.aesgcm",
+  "archive_bytes": 663019,
+  "archive_sha256": "be44ed3161970031a477c23201116ecd90b7dce5c4df23cbe3cb2e5348c7dfe6",
+  "canonical_records": 719,
+  "files": [
+    {
+      "bytes": 3918504,
+      "name": "normalized/merged-historical-records.json",
+      "sha256": "9287fbc790b28367be75d4d07b67e592fda103c847f339935648f784c534218e"
+    },
+    {
+      "bytes": 1344,
+      "name": "source/goldman-confirmation.json",
+      "sha256": "85b2f09719a013b46b1ff38a532c501e13716ba4955e260071bd3e2fe8941236"
+    }
+  ],
+  "key_in_archive": false,
+  "normalized_member": "normalized/merged-historical-records.json",
+  "restore_verified": true,
+  "schema": "apply-encrypted-backup/v1",
+  "source_effect_replay": false
+}

@@ -145,6 +145,19 @@ def _qa_packet(payload):
                for k in ('resume_sha256', 'source_sha256', 'ground_truth_sha256', 'answers_hash'))
 
 
+def _human_confirmation(payload, now):
+    evidence = payload.get('confirmation_evidence')
+    if not isinstance(evidence, dict):
+        return False
+    received = _stamp(evidence.get('employer_acknowledged_at'))
+    return bool(evidence.get('schema') == 'human-application-confirmation/v1'
+                and evidence.get('application_id') == payload.get('application_id')
+                and evidence.get('user_confirmed') is True and evidence.get('actor') == 'Naren'
+                and evidence.get('user_statement') and evidence.get('source_record_hash')
+                and evidence.get('employer_message_id') and _source_url(evidence.get('evidence_url'))
+                and received and received <= now)
+
+
 def _policy(config):
     value = config.get('reporting', {})
     policy = {k: value.get(k, default) for k, default in (
@@ -380,10 +393,12 @@ def run_reporting(store, config, now, dry_run=True):
                       if _qualification(x['payload'], facts, now, min_coverage)}
     prepared = {_application_id(x) for x in sources['applications'] if x['status'] in {'prepared', 'draft_ready', 'approved'}}
     qa_ready = {_application_id(x) for x in sources['applications'] if _qa_packet(x['payload'])}
+    human_confirmed = {_application_id(x) for x in sources['applications'] if _human_confirmation(x['payload'], now)}
     counts = {'source_jobs': len(job_ids), 'source_contacts': len(contact_ids), 'source_applications': len(applications),
               'source_job_observations': len(sources['jobs']), 'source_contact_observations': len(sources['contacts']),
               'jobs_with_qualification_evidence': len(qualified_jobs), 'prepared_application_observations': len(prepared),
               'qa_ready_packet_evidence_applications': len(qa_ready),
+              'human_confirmed_submitted_applications': len(human_confirmed),
               'applications_attempted': len(attempted), 'verified_submission_receipts': len(receipts),
               'verified_submitted_applications': len(set(receipts.values())),
               'confirmed_recruiter_screens': sum(x['evidence']['outcome'] == 'recruiter_screen_confirmed' for x in outcomes.values()),
