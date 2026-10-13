@@ -167,6 +167,10 @@ if __name__ == '__main__':
     try:
         main()
     except Exception as error:
-        # Upstream errors may contain URLs or payloads; emit class only to runner logs.
-        print(json.dumps({'status': 'blocked', 'error_type': type(error).__name__, 'reason': str(error) if isinstance(error, Blocked) else 'inspect_private_reconciliation_records'}))
+        # Never serialize upstream messages, bodies, headers, or request values.
+        from cloud.notion import NotionAPIError
+        failure = {'status': 'blocked', 'error_type': type(error).__name__, 'reason': str(error) if isinstance(error, Blocked) else 'inspect_private_reconciliation_records'}
+        if isinstance(error, NotionAPIError):
+            failure['notion'] = error.diagnostics()
+        print(json.dumps(failure))
         raise SystemExit(1)
