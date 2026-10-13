@@ -24,6 +24,37 @@ MACHINE_FIELDS = {"Cloud ID": "rich_text", "Cloud Kind": "rich_text", "Cloud Has
                   "Cloud Status": "rich_text", "Cloud Envelope": "rich_text", "Cloud Managed Hash": "rich_text",
                   "Section": "select", "Name": "title", "Type": "select", "Status": "select"}
 CORE_KEYS = ("id", "kind", "payload", "status", "hash")
+# Closed vocabularies: API fields are untrusted, even when named "code".
+# https://developers.notion.com/reference/status-codes
+API_ERROR_CODES = frozenset({
+    "invalid_json", "invalid_request_url", "invalid_request", "invalid_grant",
+    "validation_error", "missing_version", "invalid_beta", "unauthorized",
+    "restricted_resource", "object_not_found", "conflict_error", "rate_limited",
+    "internal_server_error", "bad_gateway", "service_unavailable",
+    "database_connection_unavailable", "gateway_timeout", "service_overload",
+})
+OPERATIONS = frozenset({"retrieve_data_source", "query_data_source", "list_block_children",
+                        "retrieve_page_property", "create_page", "notion_request"})
+
+
+def _safe_status(status):
+    return status if type(status) is int and 100 <= status <= 599 else None
+
+
+def _request_operation(method: str, path: str) -> str:
+    # Classify the route without exposing IDs, query strings, or request data.
+    parts = path.split("?", 1)[0].split("/")
+    if method == "GET" and len(parts) == 3 and parts[:2] == ["", "data_sources"]:
+        return "retrieve_data_source"
+    if method == "POST" and len(parts) == 4 and parts[:2] == ["", "data_sources"] and parts[3] == "query":
+        return "query_data_source"
+    if method == "GET" and len(parts) == 4 and parts[:2] == ["", "blocks"] and parts[3] == "children":
+        return "list_block_children"
+    if method == "GET" and len(parts) == 5 and parts[:2] == ["", "pages"] and parts[3] == "properties":
+        return "retrieve_page_property"
+    if method == "POST" and path == "/pages":
+        return "create_page"
+    return "notion_request"
 
 
 class NotionError(RuntimeError):
@@ -46,9 +77,18 @@ class NotionAPIError(NotionError):
     def __init__(self, status: int, code: str = "api_error", retry_after: float | None = None,
                  rate_limit_reason: str | None = None):
         # Do not include Notion response messages: they can contain private data.
-        self.status, self.code, self.retry_after = status, code, retry_after
+        self.status, self.retry_after = status, retry_after
+        self.api_code = code if isinstance(code, str) and code in API_ERROR_CODES else "unknown"
+        self.code = code if isinstance(code, str) and code in API_ERROR_CODES | {"api_error", "retry_after_exceeds_budget"} else "unknown"
+        self.operation = "notion_request"
         self.rate_limit_reason = rate_limit_reason
-        super().__init__("Notion API HTTP " + str(status) + " (" + code + ")")
+        super().__init__("Notion API HTTP " + str(_safe_status(status)) + " (" + self.code + ")")
+
+    def diagnostics(self) -> dict:
+        """Only these three independently sanitized fields may enter runner logs."""
+        return {"http_status": _safe_status(self.status),
+                "error_code": self.api_code if isinstance(self.api_code, str) and self.api_code in API_ERROR_CODES else "unknown",
+                "operation": self.operation if isinstance(self.operation, str) and self.operation in OPERATIONS else "notion_request"}
 
 
 class _NoRedirect(HTTPRedirectHandler):
@@ -141,17 +181,23 @@ class NotionStore:
                 error = json.loads(exc.read().decode("utf-8"))
             except (ValueError, UnicodeError):
                 error = {}
-            retry = exc.headers.get("Retry-After") or error.get("additional_data", {}).get("retry_after")
+            if not isinstance(error, dict):
+                error = {}
+            additional = error.get("additional_data", {})
+            if not isinstance(additional, dict):
+                additional = {}
+            retry = exc.headers.get("Retry-After") or additional.get("retry_after")
             try:
                 retry = float(retry) if retry is not None else None
-            except ValueError:
+            except (TypeError, ValueError):
                 retry = None
             raise NotionAPIError(exc.code, error.get("code", "api_error"), retry,
-                                 error.get("additional_data", {}).get("rate_limit_reason")) from None
+                                 additional.get("rate_limit_reason")) from None
 
     def _request(self, method: str, path: str, body: dict | None = None, *, write: bool = False) -> dict:
         headers = {"Authorization": "Bearer " + self.token, "Notion-Version": API_VERSION,
                    "Content-Type": "application/json"}
+        operation = _request_operation(method, path)
         for attempt in range(self.max_attempts):
             try:
                 result = self.transport(method, path, body, headers)
@@ -159,6 +205,7 @@ class NotionStore:
                     raise ValueError("Malformed Notion response")
                 return result
             except NotionAPIError as exc:
+                exc.operation = operation
                 if write and exc.status >= 500 and exc.status != 529:
                     raise AmbiguousWriteError("Notion write outcome is uncertain; reconcile the record ID before retry") from None
                 retryable = ((exc.status in {429, 529} and exc.rate_limit_reason != "public_api_request_blocked")
@@ -167,7 +214,9 @@ class NotionStore:
                     raise
                 delay = max(0, exc.retry_after) if exc.retry_after is not None else min(2 ** attempt, self.max_delay)
                 if delay > self.max_delay:
-                    raise NotionAPIError(exc.status, "retry_after_exceeds_budget", delay) from None
+                    bounded = NotionAPIError(exc.status, "retry_after_exceeds_budget", delay)
+                    bounded.api_code, bounded.operation = exc.api_code, operation
+                    raise bounded from None
                 self.sleeper(delay + random.uniform(0, min(0.25, max(0, self.max_delay - delay))))
             except (URLError, TimeoutError, OSError, ValueError, UnicodeError):
                 if write:
@@ -372,21 +421,28 @@ class NotionStore:
                           {"property": "Cloud Envelope", "rich_text": {"is_not_empty": True}}]}
         if kind:
             fragment = canonical_json({"kind": kind})[1:-1]
-            invalid_identity = {"and": [{"property": "Section", "select": {"equals": "Cloud"}},
-                                       {"or": [{"property": field, "rich_text": {"is_empty": True}}
-                                               for field in ("Cloud ID", "Cloud Kind", "Cloud Envelope")]}]}
-            filters = {"and": [filters, {"or": [{"property": "Cloud Kind", "rich_text": {"equals": kind}},
-                                                {"property": "Cloud Envelope", "rich_text": {"contains": fragment}},
-                                                invalid_identity]}]}
+            matching_kind = {"property": "Cloud Kind", "rich_text": {"equals": kind}}
+            # Distribute the old managed-row/kind predicate into OR-of-ANDs.
+            # Notion permits only two compound levels. These branches preserve
+            # all independent lookups and the malformed-identity guard.
+            filters = {"or": [
+                *({"and": [managed, matching_kind]} for managed in filters["or"]),
+                {"property": "Cloud Envelope", "rich_text": {"contains": fragment}},
+                *({"and": [{"property": "Section", "select": {"equals": "Cloud"}},
+                            {"property": field, "rich_text": {"is_empty": True}}]}
+                  for field in ("Cloud ID", "Cloud Kind", "Cloud Envelope")),
+            ]}
         pages = self._pages(filters)
         records, seen = [], set()
         for page in pages:
             record = self._decode_cloud(page)
-            if kind is not None and record['kind'] != kind:
-                raise ConflictError('Cloud kind query disagrees with the immutable envelope')
             if record["id"] in seen:
                 raise ConflictError("Duplicate Cloud ID in query")
             seen.add(record["id"])
+            # A substring can match a nested payload's kind. Only skip after
+            # verifying the complete envelope, properties, body, and identity.
+            if kind is not None and record['kind'] != kind:
+                continue
             records.append(record)
         if kind == "outreach_events":
             legacy_pages = self._pages({"and": [{"property": "Event ID", "rich_text": {"is_not_empty": True}},
