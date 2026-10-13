@@ -522,4 +522,6 @@ def reconcile_records(records: Iterable[dict], store: RecordStore, *, dry_run: b
                     outcome = "imported"
         report[outcome] += 1
         report["results"].append({"id": key, "outcome": outcome, "reason": reason})
+        if reason == 'write_readback_uncertain_no_retry':
+            break  # Any storage uncertainty stops every later creation.
     return report

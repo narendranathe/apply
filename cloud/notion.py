@@ -13,7 +13,7 @@ import os
 import random
 import time
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote
+from urllib.parse import quote, quote_from_bytes, unquote_to_bytes
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from .records import canonical_json, content_hash, display_title, make_record, validate_record
@@ -116,6 +116,44 @@ def _rich_text(text: str) -> list[dict]:
     return [{"type": "text", "text": {"content": chunk}} for chunk in chunks]
 
 
+def _owned_rich_text(items: list[dict]) -> list[dict]:
+    """Canonical text segmentation retains formatting, links, and other values.
+
+    Notion may join adjacent text items on read. Rebuild identical runs with
+    the original 2000-character write chunks so stored managed hashes remain
+    valid without changing the page or accepting a meaningful edit.
+    """
+    result, metadata, content = [], None, []
+
+    def flush():
+        if metadata is not None:
+            text = "".join(content)
+            for chunk in [text[i:i + 2000] for i in range(0, len(text), 2000)] or [""]:
+                result.append({**metadata, "text": {**metadata["text"], "content": chunk}})
+
+    for item in items:
+        owned = {k: v for k, v in item.items() if k not in {"plain_text", "href"}}
+        if owned.get("annotations") == {"bold": False, "italic": False, "strikethrough": False,
+                                        "underline": False, "code": False, "color": "default"}:
+            owned.pop("annotations")
+        if isinstance(owned.get("text"), dict):
+            owned["text"] = dict(owned["text"])
+            if owned["text"].get("link") is None:
+                owned["text"].pop("link", None)
+        if owned.get("type") == "text" and isinstance(owned.get("text", {}).get("content"), str):
+            value = owned["text"].pop("content")
+            if owned != metadata:
+                flush()
+                metadata, content = owned, []
+            content.append(value)
+        else:
+            flush()
+            metadata, content = None, []
+            result.append(owned)
+    flush()
+    return result
+
+
 def _owned_body(blocks: list[dict]) -> list[dict]:
     """Stable block projection excludes server IDs/timestamps, retains content."""
     result = []
@@ -124,14 +162,7 @@ def _owned_body(blocks: list[dict]) -> list[dict]:
         body = dict(block.get(kind, {}))
         for key in ("rich_text", "caption"):
             if key in body:
-                body[key] = [{k: v for k, v in item.items() if k not in {"plain_text", "href"}}
-                             for item in body[key]]
-                for item in body[key]:
-                    if item.get("annotations") == {"bold": False, "italic": False, "strikethrough": False,
-                                                    "underline": False, "code": False, "color": "default"}:
-                        item.pop("annotations")
-                    if item.get("text", {}).get("link") is None:
-                        item.get("text", {}).pop("link", None)
+                body[key] = _owned_rich_text(body[key])
         if body.get("color") == "default":
             body.pop("color")
         if kind == "code" and body.get("caption") == []:
@@ -309,7 +340,10 @@ class NotionStore:
         for name, prop in list(props.items()):
             kind = prop.get("type")
             if prop.get("id") and kind in {"rich_text", "title", "relation", "people"} and (prop.get("has_more") or len(prop.get(kind, [])) >= 25):
-                items = self._paginate("GET", "/pages/" + page["id"] + "/properties/" + quote(prop["id"], safe=""))
+                # API IDs are already URL encoded. Canonicalize once, also
+                # accepting raw IDs, without encoding their percent signs twice.
+                property_id = quote_from_bytes(unquote_to_bytes(prop["id"]), safe="")
+                items = self._paginate("GET", "/pages/" + page["id"] + "/properties/" + property_id)
                 if any(item.get("type") != kind for item in items):
                     raise ConflictError("Notion page property has incompatible paginated items")
                 props[name] = dict(prop, **{kind: [item[kind] for item in items]}, has_more=False)
@@ -465,6 +499,11 @@ class NotionStore:
         return records
 
     def put(self, record: dict) -> dict:
+        """Return a fully verified existing row or exact post-create readback.
+
+        A successful return covers the immutable envelope, machine properties,
+        and managed body. Uncertain writes/readbacks raise instead of returning.
+        """
         record = validate_record(record)
         record_id = record["id"]
         self.preflight()  # Fresh schema and exact-identity read before every write.

@@ -403,6 +403,29 @@ class NotionTests(unittest.TestCase):
         complete = self.store._complete_page(page)
         self.assertEqual(_text(complete["properties"]["Notes"]), "x" * 26)
 
+    def test_encoded_property_id_reads_complete_envelope_without_double_encoding(self):
+        record = make_record("events", {"text": "x" * 52000}, "encoded-property:test")
+        self.store.put(record)
+        page = self.api.pages[0]
+        prop = page["properties"]["Cloud Envelope"]
+        chunks = copy.deepcopy(prop["rich_text"])
+        prop.update(id="f%5C%5C%3Ap", type="rich_text", rich_text=chunks[:25])
+        original = self.api.__call__
+        property_reads = []
+        def transport(method, path, body, headers):
+            if path.startswith("/pages/1/properties/"):
+                property_reads.append(path)
+                if urlsplit(path).path != "/pages/1/properties/f%5C%5C%3Ap":
+                    raise NotionAPIError(404, "object_not_found")
+                offset = 25 if "start_cursor=next" in path else 0
+                return {"results": [{"type": "rich_text", "rich_text": x} for x in chunks[offset:offset + 25]],
+                        "has_more": offset == 0, "next_cursor": "next" if offset == 0 else None}
+            return original(method, path, body, headers)
+        self.store.transport = transport
+        self.assertEqual(self.store.get(record["id"])["payload"], record["payload"])
+        self.assertEqual(len(property_reads), 2)
+        self.assertEqual(len(self.api.writes()), 1)
+
     def test_from_env_never_reads_desktop_auth(self):
         with patch.dict("os.environ", {}, clear=True):
             with self.assertRaisesRegex(NotionError, "NOTION_TOKEN"):
@@ -418,6 +441,61 @@ class NotionTests(unittest.TestCase):
         record = make_record("events", {"text": "λ" * 5000}, "large:test")
         self.assertEqual(self.store.put(record)["payload"], record["payload"])
         self.assertTrue(all(len(c["text"]["content"]) <= 2000 for c in self.api.blocks["1"][0]["code"]["rich_text"]))
+
+    def test_server_coalesced_code_text_preserves_existing_hash_and_readback(self):
+        record = make_record("events", {"text": "λ" * 6000}, "coalesced:test")
+        self.store.put(record)
+        stored_hash = copy.deepcopy(self.api.pages[0]["properties"]["Cloud Managed Hash"])
+        # Literal produced by the original v1 chunked projection, before this fix.
+        self.assertEqual(_text(stored_hash), "c87316d591eecb03a0da8958d5cae6805ee744985d6fce8bfa4a6dd5934c7a73")
+        code = self.api.blocks["1"][0]["code"]
+        self.assertGreater(len(code["rich_text"]), 1)
+        code["rich_text"] = [{"type": "text", "text": {"content": canonical_json(record)}}]
+        self.assertEqual(self.store.get(record["id"])["payload"], record["payload"])
+        self.assertEqual(self.store.put(record)["hash"], record["hash"])
+        self.assertEqual(self.api.pages[0]["properties"]["Cloud Managed Hash"], stored_hash)
+        self.assertEqual(len(self.api.writes()), 1)
+
+    def test_resegmented_body_still_blocks_content_format_link_and_field_edits(self):
+        for edit in ("content", "format", "link", "language", "caption", "body_field"):
+            with self.subTest(edit=edit):
+                api = FakeNotion()
+                store = NotionStore("test-token", transport=api, request_interval=0)
+                record = make_record("events", {"text": "λ" * 6000}, "guarded:test")
+                store.put(record)
+                original = api.__call__
+                def transport(method, path, body, headers):
+                    response = original(method, path, body, headers)
+                    if path.startswith("/blocks/"):
+                        code = response["results"][0]["code"]
+                        text = "".join(item["text"]["content"] for item in code["rich_text"])
+                        item = copy.deepcopy(code["rich_text"][0])
+                        item["text"]["content"] = text
+                        code["rich_text"] = [item]
+                        if edit == "content":
+                            item["text"]["content"] += "changed"
+                        elif edit in {"format", "link"}:
+                            # A changed later fragment must not disappear into
+                            # an earlier identical-looking plain-text run.
+                            changed = copy.deepcopy(item)
+                            item["text"]["content"] = text[:4000]
+                            changed["text"]["content"] = text[4000:]
+                            if edit == "format":
+                                changed["annotations"]["bold"] = True
+                            else:
+                                changed["text"]["link"] = {"url": "https://example.test/edited"}
+                            code["rich_text"].append(changed)
+                        elif edit == "language":
+                            code["language"] = "python"
+                        elif edit == "caption":
+                            code["caption"] = [{"type": "text", "text": {"content": "Added caption"}}]
+                        else:
+                            code["meaningful_field"] = "edited"
+                    return response
+                store.transport = transport
+                with self.assertRaises(ConflictError):
+                    store.get(record["id"])
+                self.assertEqual(len(api.writes()), 1)
 
     def test_overlarge_record_stops_before_post(self):
         with self.assertRaises(ValueError):

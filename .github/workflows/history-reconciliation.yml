@@ -6,6 +6,12 @@ on:
         type: choice
         default: dry-run
         options: [dry-run, import, inspect]
+      offset:
+        type: string
+        default: '0'
+      limit:
+        type: string
+        default: '100'
 permissions:
   contents: read
   actions: read
@@ -15,7 +21,7 @@ concurrency:
 jobs:
   reconcile:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
@@ -52,13 +58,15 @@ jobs:
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
           GITHUB_TOKEN: ${{ github.token }}
           IMPORT_MODE: ${{ inputs.mode }}
+          IMPORT_OFFSET: ${{ inputs.offset || '0' }}
+          IMPORT_LIMIT: ${{ inputs.limit || '100' }}
         run: |
           if [ "$IMPORT_MODE" = 'inspect' ]; then
             python scripts/inspect_cloud_readback.py .migration-private/restored/combined-historical-records.json
           elif [ "$IMPORT_MODE" = 'import' ]; then
-            python scripts/migrate_history.py --input .migration-private/restored/combined-historical-records.json --write --private-destination-verified
+            python scripts/migrate_history.py --input .migration-private/restored/combined-historical-records.json --write --private-destination-verified --offset "$IMPORT_OFFSET" --limit "$IMPORT_LIMIT"
           else
-            python scripts/migrate_history.py --input .migration-private/restored/combined-historical-records.json
+            python scripts/migrate_history.py --input .migration-private/restored/combined-historical-records.json --offset "$IMPORT_OFFSET" --limit "$IMPORT_LIMIT"
           fi
       - name: Remove plaintext staging
         if: always()
