@@ -15,6 +15,11 @@ def page_list(items):
     return {"results": items, "has_more": False, "next_cursor": None}
 
 
+def compound_depth(filters):
+    children = filters.get('and', filters.get('or'))
+    return 0 if children is None else 1 + max((compound_depth(child) for child in children), default=0)
+
+
 class FakeNotion:
     """Fake the API boundary, including pagination and server block decoration."""
     def __init__(self):
@@ -49,6 +54,9 @@ class FakeNotion:
         if method == "GET" and path.startswith("/data_sources/"):
             return copy.deepcopy(self.schema)
         if method == "POST" and path.endswith("/query"):
+            # The real API accepts at most two compound-filter levels.
+            if compound_depth(body.get('filter', {})) > 2:
+                raise NotionAPIError(400, 'validation_error')
             items = [] if self.hide_created else [p for p in self.pages if "filter" not in body or self.matches(p, body["filter"])]
             offset = int(body.get("start_cursor", "0"))
             result = copy.deepcopy(items[offset:offset + self.page_size])
@@ -175,6 +183,27 @@ class NotionTests(unittest.TestCase):
         self.store.put(make_record("runs", {}, "run:one"))
         self.assertEqual(len(self.store.query("contacts")), 5)
         self.assertEqual(len(self.store.query()), 6)
+
+    def test_kind_query_obeys_api_compound_filter_limit(self):
+        self.assertEqual(self.store.query('funnel_reports'), [])
+        self.assertLessEqual(compound_depth(self.api.calls[-1][2]['filter']), 2)
+
+    def test_valid_unrelated_nested_kind_is_filtered_after_validation(self):
+        self.store.put(make_record('audit_events', {'nested': {'kind': 'applications'}}, 'audit:nested'))
+        self.assertEqual(self.store.query('applications'), [])
+        self.assertEqual(len(self.store.query('audit_events')), 1)
+        self.assertEqual(len(self.api.writes()), 1)
+
+    def test_query_still_rejects_duplicate_and_edited_nested_kind_matches(self):
+        self.store.put(make_record('audit_events', {'nested': {'kind': 'applications'}}, 'audit:nested'))
+        self.api.pages.append(copy.deepcopy(self.api.pages[0]))
+        with self.assertRaises(ConflictError):
+            self.store.query('applications')
+        self.api.pages.pop()
+        self.api.pages[0]['properties']['Cloud Hash'] = {'rich_text': _rich_text('edited')}
+        with self.assertRaises(ConflictError):
+            self.store.query('applications')
+        self.assertEqual(len(self.api.writes()), 1)
 
     def test_application_query_cannot_hide_cleared_or_edited_identity(self):
         for field, replacement in (('Cloud ID', ''), ('Cloud Kind', 'contacts'), ('Cloud Envelope', '')):

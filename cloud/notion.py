@@ -421,21 +421,28 @@ class NotionStore:
                           {"property": "Cloud Envelope", "rich_text": {"is_not_empty": True}}]}
         if kind:
             fragment = canonical_json({"kind": kind})[1:-1]
-            invalid_identity = {"and": [{"property": "Section", "select": {"equals": "Cloud"}},
-                                       {"or": [{"property": field, "rich_text": {"is_empty": True}}
-                                               for field in ("Cloud ID", "Cloud Kind", "Cloud Envelope")]}]}
-            filters = {"and": [filters, {"or": [{"property": "Cloud Kind", "rich_text": {"equals": kind}},
-                                                {"property": "Cloud Envelope", "rich_text": {"contains": fragment}},
-                                                invalid_identity]}]}
+            matching_kind = {"property": "Cloud Kind", "rich_text": {"equals": kind}}
+            # Distribute the old managed-row/kind predicate into OR-of-ANDs.
+            # Notion permits only two compound levels. These branches preserve
+            # all independent lookups and the malformed-identity guard.
+            filters = {"or": [
+                *({"and": [managed, matching_kind]} for managed in filters["or"]),
+                {"property": "Cloud Envelope", "rich_text": {"contains": fragment}},
+                *({"and": [{"property": "Section", "select": {"equals": "Cloud"}},
+                            {"property": field, "rich_text": {"is_empty": True}}]}
+                  for field in ("Cloud ID", "Cloud Kind", "Cloud Envelope")),
+            ]}
         pages = self._pages(filters)
         records, seen = [], set()
         for page in pages:
             record = self._decode_cloud(page)
-            if kind is not None and record['kind'] != kind:
-                raise ConflictError('Cloud kind query disagrees with the immutable envelope')
             if record["id"] in seen:
                 raise ConflictError("Duplicate Cloud ID in query")
             seen.add(record["id"])
+            # A substring can match a nested payload's kind. Only skip after
+            # verifying the complete envelope, properties, body, and identity.
+            if kind is not None and record['kind'] != kind:
+                continue
             records.append(record)
         if kind == "outreach_events":
             legacy_pages = self._pages({"and": [{"property": "Event ID", "rich_text": {"is_not_empty": True}},
