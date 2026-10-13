@@ -5,7 +5,7 @@ on:
       mode:
         type: choice
         default: dry-run
-        options: [dry-run, import]
+        options: [dry-run, import, inspect]
 permissions:
   contents: read
   actions: read
@@ -53,7 +53,9 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           IMPORT_MODE: ${{ inputs.mode }}
         run: |
-          if [ "$IMPORT_MODE" = 'import' ]; then
+          if [ "$IMPORT_MODE" = 'inspect' ]; then
+            python scripts/inspect_cloud_readback.py .migration-private/restored/combined-historical-records.json
+          elif [ "$IMPORT_MODE" = 'import' ]; then
             python scripts/migrate_history.py --input .migration-private/restored/combined-historical-records.json --write --private-destination-verified
           else
             python scripts/migrate_history.py --input .migration-private/restored/combined-historical-records.json

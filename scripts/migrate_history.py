@@ -91,8 +91,12 @@ def main(argv=None, *, store=None, private_verifier=None):
             report = reconcile_records(export["records"], store, dry_run=not args.write,
                                        private_destination=private_verified)
         except Exception as error:
-            print(json.dumps({"status": "blocked", "reason": "history_reconciliation_failed",
-                              "error_type": type(error).__name__}))
+            from cloud.notion import NotionAPIError
+            failure = {"status": "blocked", "reason": "history_reconciliation_failed",
+                       "error_type": type(error).__name__}
+            if isinstance(error, NotionAPIError):
+                failure['notion'] = error.diagnostics()
+            print(json.dumps(failure))
             return 2
         print(json.dumps({k: v for k, v in report.items() if k != "results"}, sort_keys=True))
         if report["conflicted"] or report["blocked"]:
