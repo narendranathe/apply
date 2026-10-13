@@ -96,7 +96,7 @@ class FakeNotion:
 class NotionTests(unittest.TestCase):
     def setUp(self):
         self.api, self.delays = FakeNotion(), []
-        self.store = NotionStore("test-token", transport=self.api, sleeper=self.delays.append)
+        self.store = NotionStore("test-token", transport=self.api, sleeper=self.delays.append, request_interval=0)
         self.record = make_record("contacts", {"source": "verified", "message": "exact Unicode λ\nbody"}, "contact:test")
 
     def test_put_idempotent_and_readback_verifies_real_body(self):
@@ -209,7 +209,7 @@ class NotionTests(unittest.TestCase):
         for field, replacement in (('Cloud ID', ''), ('Cloud Kind', 'contacts'), ('Cloud Envelope', '')):
             with self.subTest(field=field):
                 api = FakeNotion()
-                store = NotionStore('test-token', transport=api)
+                store = NotionStore('test-token', transport=api, request_interval=0)
                 store.put(make_record('applications', {'application_id': 'a', 'receipt': 'historical'}, 'app:a', 'applied_verified'))
                 api.pages[0]['properties'][field] = {'rich_text': _rich_text(replacement)}
                 with self.assertRaises(ConflictError):

@@ -151,17 +151,21 @@ def _managed_hash(properties: dict, blocks: list[dict]) -> str:
 class NotionStore:
     def __init__(self, token: str | None = None, data_source_id: str = DEFAULT_DATA_SOURCE_ID,
                  *, transport=None, sleeper=time.sleep, max_attempts: int = 4,
-                 max_delay: float = 30, max_pages: int = 1000):
+                 max_delay: float = 30, max_pages: int = 1000, request_interval: float = 0.4):
         self.token = token or os.environ.get("NOTION_TOKEN", "")
         if not self.token:
             raise NotionError("NOTION_TOKEN is required; desktop connector authentication is not a runner credential")
         if not data_source_id or any(c not in "0123456789abcdefABCDEF-" for c in data_source_id):
             raise ValueError("Invalid Notion data source identity")
-        if max_attempts < 1 or max_pages < 1 or max_delay < 0:
+        if max_attempts < 1 or max_pages < 1 or max_delay < 0 or request_interval < 0:
             raise ValueError("Invalid retry/pagination budget")
         self.data_source_id = data_source_id
         self.transport = transport or self._transport
         self.sleeper, self.max_attempts, self.max_delay, self.max_pages = sleeper, max_attempts, max_delay, max_pages
+        # One serial writer: pace starts below the lowest 180/minute connection
+        # budget, including successful reads, pagination, and retry attempts.
+        self.clock, self.request_interval = time.monotonic, request_interval
+        self._next_request_at = None
         self._uncertain = set()
 
     @classmethod
@@ -200,6 +204,11 @@ class NotionStore:
         operation = _request_operation(method, path)
         for attempt in range(self.max_attempts):
             try:
+                started = self.clock()
+                if self._next_request_at is not None and started < self._next_request_at:
+                    self.sleeper(self._next_request_at - started)
+                    started = self.clock()
+                self._next_request_at = started + self.request_interval
                 result = self.transport(method, path, body, headers)
                 if not isinstance(result, dict):
                     raise ValueError("Malformed Notion response")
