@@ -7,6 +7,21 @@ from tests.test_notion import FakeNotion
 
 
 class BoundedIndexTests(unittest.TestCase):
+    def test_source_index_avoids_generated_versions_without_hiding_corruption(self):
+        api = FakeNotion()
+        store = NotionStore('test-token', transport=api, request_interval=0)
+        source = make_record('applications', {'application_id': 'a'}, 'app:a')
+        store.put(source)
+        for kind in ('entity_projections', 'index_manifests', 'index_changes', 'agent_tasks'):
+            store.put(make_record(kind, {'schema': 'agent-index/v1'}, 'generated:' + kind))
+        self.assertEqual([r['id'] for r in store.index_source_records()], ['app:a'])
+        from tests.test_notion import compound_depth
+        queries = [c for c in api.calls if c[0] == 'POST' and c[1].endswith('/query')]
+        self.assertTrue(all(compound_depth(c[2]['filter']) <= 2 for c in queries))
+        api.pages[0]['properties']['Cloud Kind']['rich_text'][0]['text']['content'] = 'entity_projections'
+        with self.assertRaises(ConflictError):
+            store.index_source_records()
+
     def test_latest_manifest_is_server_sorted_and_uniqueness_checked(self):
         api = FakeNotion()
         store = NotionStore('test-token', transport=api, request_interval=0)

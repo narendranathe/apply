@@ -1,0 +1,11 @@
+{
+  "schema": "apply-github-agent-registry/v1",
+  "actors": {
+    "narendranathe": {
+      "principal": "naren-github",
+      "enabled": true,
+      "capabilities": ["read_summarize", "research_propose", "prepare_application", "record_verified_manual_action", "ingest_verified_conversation"],
+      "allow_source_evidence": false
+    }
+  }
+}

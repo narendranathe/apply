@@ -40,6 +40,10 @@ class FakeNotion:
         operation = filters.get("rich_text", filters.get("select", {}))
         if "equals" in operation:
             return value == operation["equals"]
+        if "does_not_equal" in operation:
+            return value != operation["does_not_equal"]
+        if "does_not_contain" in operation:
+            return operation["does_not_contain"] not in value
         if "contains" in operation:
             return operation["contains"] in value
         return not bool(value) if operation.get("is_empty") else bool(value)

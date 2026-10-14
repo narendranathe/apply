@@ -5,6 +5,8 @@ from unittest.mock import patch
 from cloud.orchestrator import Blocked, ShadowStore, due_slots, execute, selected_lanes
 from cloud.outreach import gate, record
 from scripts.security_check import unsafe
+from cloud.cutover import make_cutover_record
+from tests.test_cutover import evidence
 
 
 class OrchestrationTests(unittest.TestCase):
@@ -34,7 +36,7 @@ class OrchestrationTests(unittest.TestCase):
 
     def test_incomplete_slot_blocks_all_future_live_effects(self):
         store = ShadowStore()
-        store.put(record('deployment:cutover:v2', 'audit_events', {k: True for k in ('history_reconciled', 'backup_restore_verified', 'local_actors_retired', 'shadow_verified')}))
+        store.put(make_cutover_record(evidence()))
         store.put(record('run:2026-10-12:accepted:started', 'agent_runs', {'date': '2026-10-12'}))
         config = {'destination_private': True, 'cloud_enabled': True, 'reconcile_lookback_days': 0}
         with patch('cloud.applications.run_applications', return_value={'verified': 0}), patch('cloud.orchestrator.run_outreach') as outreach:
@@ -53,7 +55,7 @@ class OrchestrationTests(unittest.TestCase):
 
     def test_manual_live_lane_does_not_expand_into_applications(self):
         store = ShadowStore()
-        store.put(record('deployment:cutover:v2', 'audit_events', {k: True for k in ('history_reconciled', 'backup_restore_verified', 'local_actors_retired', 'shadow_verified')}))
+        store.put(make_cutover_record(evidence()))
         config = {'destination_private': True, 'cloud_enabled': True, 'reconcile_lookback_days': 0}
         with patch('cloud.applications.run_applications') as applications, patch('cloud.orchestrator.run_outreach', return_value={'sent': 0}) as outreach:
             execute(store, config, datetime(2026, 10, 12, 13, tzinfo=timezone.utc), requested='accepted', dry_run=False)

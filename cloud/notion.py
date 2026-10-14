@@ -550,6 +550,40 @@ class NotionStore:
             raise ConflictError('Index manifest readback is inconsistent')
         return verified
 
+    def index_source_records(self) -> list[dict]:
+        """Fresh authoritative sources, excluding old generated index versions.
+
+        Independent property/envelope paths retain corruption detection. Flatten
+        into OR-of-ANDs to respect Notion's two compound-level limit. Generated
+        task snapshots are excluded only when both kind and schema agree.
+        """
+        generated = ('entity_projections', 'index_manifests', 'index_changes')
+        not_kind = [{'property': 'Cloud Kind', 'rich_text': {'does_not_equal': kind}} for kind in generated]
+        not_envelope = [{'property': 'Cloud Envelope', 'rich_text': {
+            'does_not_contain': canonical_json({'kind': kind})[1:-1]}} for kind in generated]
+        managed = [{'property': 'Section', 'select': {'equals': 'Cloud'}},
+                   {'property': 'Cloud ID', 'rich_text': {'is_not_empty': True}},
+                   {'property': 'Cloud Envelope', 'rich_text': {'is_not_empty': True}}]
+        original_task = [
+            {'property': 'Cloud Kind', 'rich_text': {'does_not_equal': 'agent_tasks'}},
+            {'property': 'Cloud Envelope', 'rich_text': {
+                'does_not_contain': canonical_json({'schema': 'agent-index/v1'})[1:-1]}}]
+        branches = [{'and': [identity, *exclusions, task]} for identity in managed
+                    for exclusions in (not_kind, not_envelope) for task in original_task]
+        branches += [{'and': [managed[0], {'property': field, 'rich_text': {'is_empty': True}}]}
+                     for field in ('Cloud ID', 'Cloud Kind', 'Cloud Envelope')]
+        pages = self._pages({'or': branches})
+        records, seen = [], set()
+        for page in pages:
+            row = self._decode_cloud(page)
+            if row['id'] in seen:
+                raise ConflictError('Duplicate source identity in index query')
+            seen.add(row['id'])
+            if row['kind'] in generated or (row['kind'] == 'agent_tasks' and row['payload'].get('schema') == 'agent-index/v1'):
+                continue
+            records.append(row)
+        return records
+
     def put(self, record: dict) -> dict:
         """Return a fully verified existing row or exact post-create readback.
 
@@ -592,6 +626,14 @@ class NotionStore:
             raise
         try:
             readback = self.get(record_id)
+            # A successful create can precede data-source query visibility.
+            # Only an absent result is polled, while the ID stays quarantined.
+            # No creation retry, conflict retry, or inferred success is allowed.
+            for delay in (1, 2, 4):
+                if readback is not None:
+                    break
+                self.sleeper(delay)
+                readback = self.get(record_id)
         except NotionError as error:
             safe = error.diagnostics() if isinstance(error, (NotionAPIError, AmbiguousWriteError, ConflictError)) else None
             raise AmbiguousWriteError("Write readback failed; reconcile before any replay", diagnostics=safe) from None

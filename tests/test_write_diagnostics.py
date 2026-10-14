@@ -7,6 +7,25 @@ from tests.test_notion import FakeNotion
 
 
 class WriteDiagnosticsTests(unittest.TestCase):
+    def test_visibility_lag_only_repeats_absent_reads_not_creation(self):
+        api = FakeNotion()
+        delays = []
+        store = NotionStore('test-token', transport=api, request_interval=0, sleeper=delays.append)
+        original = store.get
+        calls = 0
+        def get(identity):
+            nonlocal calls
+            calls += 1
+            if 1 < calls < 5:
+                return None
+            return original(identity)
+        store.get = get
+        row = make_record('contacts', {}, 'contact:visibility')
+        self.assertEqual(store.put(row)['hash'], row['hash'])
+        self.assertEqual(len(api.writes()), 1)
+        self.assertEqual(delays, [1, 2, 4])
+        self.assertNotIn(row['id'], store._uncertain)
+
     def test_readback_api_error_keeps_only_safe_fields_and_quarantines(self):
         api = FakeNotion()
         store = NotionStore('private-token', transport=api, request_interval=0)
