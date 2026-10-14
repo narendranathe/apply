@@ -1,12 +1,17 @@
 """Manifest-last publication through one immutable writer, with fault injection."""
 from copy import deepcopy
+from collections import Counter
 from datetime import timedelta
 import unittest
 
 from cloud.index_publisher import IndexPublicationError, publish_index, snapshot_hash
 from cloud.orchestrator import ShadowStore
 from cloud.records import make_record
+from cloud.cutover import make_cutover_record
+from cloud.migration import SCHEMA as MIGRATION_SCHEMA, combine_exports
+from cloud.records import content_hash
 from tests.test_agent_index import NOW, app, contact, event, job, receipt
+from tests.test_cutover import evidence
 
 
 class FreshStore:
@@ -209,6 +214,105 @@ class IndexPublisherTests(unittest.TestCase):
     def test_snapshot_hash_rejects_conflicting_duplicate_core(self):
         with self.assertRaisesRegex(IndexPublicationError, "authoritative_source_identity_conflict"):
             snapshot_hash([contact(), contact(name="Other")])
+
+
+class CutoverBoundIndexTests(unittest.TestCase):
+    def activated(self, source):
+        exported = combine_exports([{'schema': MIGRATION_SCHEMA, 'records': source, 'blocked': []}])
+        proof = evidence()
+        manifest_hash = content_hash(exported)
+        proof['historical_manifest_sha256'] = manifest_hash
+        proof['history']['historical_manifest_sha256'] = manifest_hash
+        proof['archive']['historical_manifest_sha256'] = manifest_hash
+        proof['history']['readback'] = {'records': len(source), 'unchanged': len(source), 'conflicted': 0,
+                                        'blocked': 0, 'families': dict(Counter(row['kind'] for row in source))}
+        return exported, make_cutover_record(proof)
+
+    def assert_incomplete(self, result):
+        self.assertFalse(result['complete'])
+        self.assertEqual(result['manifest']['payload']['campaign_brief']['ready_tasks'], 0)
+        self.assertTrue(result['manifest']['payload']['conflicts'])
+
+    def test_valid_bound_cutover_restored_baseline_and_fresh_rows_allow_ready_index(self):
+        source = [contact(), job()]
+        exported, cutover = self.activated(source)
+        store = FreshStore([*source, cutover])
+        result = publish_index(store, NOW, reconciled_export=exported, cutover_record=cutover)
+        self.assertTrue(result['complete'])
+        self.assertEqual(result['source_snapshot_hash'], snapshot_hash([*source, cutover]))
+        self.assertGreater(result['manifest']['payload']['campaign_brief']['ready_tasks'], 0)
+        self.assertEqual(store.query_calls, [None, 'outreach_events'])
+
+    def test_original_legacy_events_are_checked_in_the_same_fresh_snapshot(self):
+        legacy = event('invitation_pending_confirmed', 'legacy-pending', kind='outreach_events')
+        source = [contact(), legacy]
+        exported, cutover = self.activated(source)
+        result = publish_index(FreshStore([contact(), cutover], [legacy]), NOW,
+                               reconciled_export=exported, cutover_record=cutover)
+        self.assertTrue(result['complete'])
+
+    def test_missing_or_changed_baseline_row_cannot_be_overridden_by_caller_flags(self):
+        source = [contact(), job()]
+        exported, cutover = self.activated(source)
+        for live in ([contact(), cutover], [contact(name='Changed private name'), job(), cutover]):
+            result = publish_index(FreshStore(live), NOW, source_complete=True, source_snapshot_hash=snapshot_hash(live),
+                                   reconciled_export=exported, cutover_record=cutover)
+            self.assert_incomplete(result)
+
+    def test_invalid_cutover_or_unbound_export_does_not_fall_back_to_hash_authority(self):
+        source = [contact()]
+        exported, cutover = self.activated(source)
+        invalid_payload = deepcopy(cutover['payload'])
+        invalid_payload['local_actors_retired'] = False
+        invalid_cutover = make_record('audit_events', invalid_payload, cutover['id'], cutover['status'])
+        changed_export = deepcopy(exported)
+        changed_export['source_manifest'].append({'sha256': 'e' * 64})
+        for baseline, activation in ((exported, invalid_cutover), (changed_export, cutover),
+                                     (None, cutover), (exported, None)):
+            live = [contact(), activation or cutover]
+            result = publish_index(FreshStore(live), NOW, source_complete=True, source_snapshot_hash=snapshot_hash(live),
+                                   reconciled_export=baseline, cutover_record=activation)
+            self.assert_incomplete(result)
+
+    def test_partial_empty_or_duplicate_baseline_cannot_establish_authority(self):
+        source = [contact()]
+        exported, cutover = self.activated(source)
+        blocked = {**exported, 'blocked': ['partial']}
+        empty = {**exported, 'records': []}
+        duplicate = {**exported, 'records': source * 2}
+        for baseline in (blocked, empty, duplicate):
+            proof = deepcopy(cutover['payload'])
+            for bound in (proof, proof['history'], proof['archive']):
+                bound['historical_manifest_sha256'] = content_hash(baseline)
+            activation = make_cutover_record(proof)
+            result = publish_index(FreshStore([contact(), activation]), NOW,
+                                   reconciled_export=baseline, cutover_record=activation)
+            self.assert_incomplete(result)
+
+    def test_cutover_must_itself_exist_exactly_in_the_fresh_authoritative_snapshot(self):
+        source = [contact()]
+        exported, cutover = self.activated(source)
+        result = publish_index(FreshStore(source), NOW, reconciled_export=exported, cutover_record=cutover)
+        self.assert_incomplete(result)
+
+    def test_readback_totals_are_bound_to_the_actual_restored_record_families(self):
+        source = [contact()]
+        exported, cutover = self.activated(source)
+        proof = deepcopy(cutover['payload'])
+        proof['history']['readback']['families'] = {'jobs': 1}
+        activation = make_cutover_record(proof)
+        result = publish_index(FreshStore([*source, activation]), NOW,
+                               reconciled_export=exported, cutover_record=activation)
+        self.assert_incomplete(result)
+
+    def test_new_append_only_source_rows_are_included_without_changing_baseline_authority(self):
+        source = [contact()]
+        exported, cutover = self.activated(source)
+        reply = event('recruiter_reply_confirmed', 'new-event')
+        result = publish_index(FreshStore([*source, cutover, reply]), NOW,
+                               reconciled_export=exported, cutover_record=cutover)
+        self.assertTrue(result['complete'])
+        self.assertEqual(result['source_snapshot_hash'], snapshot_hash([*source, cutover, reply]))
 
 
 if __name__ == "__main__":

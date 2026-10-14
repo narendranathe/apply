@@ -6,6 +6,7 @@ manifest remains the reader's visibility boundary. No external action is made.
 """
 from __future__ import annotations
 
+from collections import Counter
 from datetime import datetime
 
 from .agent_index import GENERATED_KINDS, SCHEMA, build_index
@@ -110,13 +111,55 @@ def _put_verified(store, row):
     return _canonical(readback)
 
 
-def publish_index(store, now: datetime, source_complete=False, source_snapshot_hash=None):
+def _reconciled_source_proof(source, reconciled_export, cutover_record):
+    """Bind genuine cutover evidence to every restored historical CORE row."""
+    from .cutover import validate_cutover_record
+    from .migration import SCHEMA as MIGRATION_SCHEMA
+    try:
+        cutover = validate_cutover_record(cutover_record)
+    except (ValueError, TypeError, KeyError, AttributeError):
+        return False, ['cutover_evidence_invalid']
+    if (not isinstance(reconciled_export, dict) or reconciled_export.get('schema') != MIGRATION_SCHEMA
+            or reconciled_export.get('blocked') != [] or not isinstance(reconciled_export.get('records'), list)
+            or not reconciled_export['records']):
+        return False, ['reconciled_export_incomplete']
+    if cutover['payload']['historical_manifest_sha256'] != content_hash(reconciled_export):
+        return False, ['reconciled_export_deployment_hash_mismatch']
+    baseline = {}
+    try:
+        for row in reconciled_export['records']:
+            canonical = _canonical(row)
+            if canonical['id'] in baseline:
+                return False, ['reconciled_export_identity_conflict']
+            baseline[canonical['id']] = canonical
+    except IndexPublicationError:
+        return False, ['reconciled_export_invalid']
+    report = cutover['payload']['history']['readback']
+    families = dict(Counter(row['kind'] for row in baseline.values()))
+    if report['records'] != len(baseline) or report['families'] != families:
+        return False, ['reconciled_export_readback_totals_mismatch']
+    observed = {row['id']: row for row in source}
+    if observed.get(cutover['id']) != cutover:
+        return False, ['cutover_evidence_not_in_fresh_source']
+    for identity, expected in baseline.items():
+        if observed.get(identity) != expected:
+            return False, ['reconciled_export_source_missing_or_changed']
+    return True, []
+
+
+def publish_index(store, now: datetime, source_complete=False, source_snapshot_hash=None,
+                  *, reconciled_export=None, cutover_record=None):
     """Publish children first, then their manifest, returning a private result.
 
     A fresh read is necessary but does not itself prove reconciliation. Ready
     tasks require ``source_complete=True`` plus a matching, nonempty snapshot
     hash (a string or ``{hash, complete, conflicts}`` evidence envelope). A hash
     mismatch publishes an explicitly incomplete index with no ready actions.
+
+    Production can instead supply the authenticated restored export and the
+    actual cutover record. Their manifest hash, exact readback totals and every
+    immutable historical CORE row must match the fresh source snapshot. A
+    supplied partial/invalid proof never falls back to caller authority flags.
 
     ``result['manifest']`` is for internal use; operational logs should print
     only the remaining bounded summary fields. A failed write or readback stops
@@ -144,11 +187,18 @@ def publish_index(store, now: datetime, source_complete=False, source_snapshot_h
     else:
         raise ValueError("Invalid snapshot evidence")
     matching = isinstance(expected_hash, str) and bool(expected_hash) and expected_hash == actual_hash
-    complete = source_complete and evidenced and matching and bool(source) and not evidence_conflicts
-    if source_complete and not matching:
-        evidence_conflicts.append("source_snapshot_evidence_missing_or_changed")
-    if source_complete and not source:
-        evidence_conflicts.append("empty_authoritative_snapshot_unreconciled")
+    if reconciled_export is not None or cutover_record is not None:
+        proven, proof_conflicts = _reconciled_source_proof(source, reconciled_export, cutover_record)
+        evidence_conflicts.extend(proof_conflicts)
+        if source_snapshot_hash is not None and not matching:
+            evidence_conflicts.append('source_snapshot_evidence_missing_or_changed')
+        complete = proven and bool(source) and not evidence_conflicts
+    else:
+        complete = source_complete and evidenced and matching and bool(source) and not evidence_conflicts
+        if source_complete and not matching:
+            evidence_conflicts.append("source_snapshot_evidence_missing_or_changed")
+        if source_complete and not source:
+            evidence_conflicts.append("empty_authoritative_snapshot_unreconciled")
     indexed = build_index(source, now, previous_manifest=previous,
                           source_snapshot_hash={"hash": actual_hash, "complete": complete,
                                                 "conflicts": evidence_conflicts})

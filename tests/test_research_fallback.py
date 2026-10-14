@@ -57,6 +57,25 @@ def live_store():
 
 
 class ResearchFallbackTests(unittest.TestCase):
+    def test_archived_application_loss_stops_before_preparation(self):
+        from cloud.notion import ConflictError
+        base = live_store()
+        archived = record('historical:receipt', 'applications', {'application_id': 'fixture'}, 'applied_verified')
+        config = {'destination_private': True, 'cloud_enabled': True, 'reconcile_lookback_days': 0,
+                  '_reconciled_export': {'records': [archived]}}
+        with patch('cloud.applications.run_applications') as applications:
+            with self.assertRaises(ConflictError):
+                execute(base, config, NOW, requested='applications', mode='live')
+        applications.assert_not_called()
+
+    def test_live_cli_rejects_nondefault_branch_before_credentials_or_store(self):
+        with patch('sys.argv', ['cloud.orchestrator', '--mode', 'live']), \
+             patch.dict('os.environ', {'GITHUB_ACTIONS': 'true', 'GITHUB_REF': 'refs/heads/codex/unvalidated'}, clear=True), \
+             patch('cloud.notion.NotionStore') as store:
+            with self.assertRaisesRegex(Blocked, 'live_requires_default_branch_hosted_writer'):
+                main()
+        store.assert_not_called()
+
     def pipeline(self, stack):
         seen = []
         def outreach(store, config, lane, now, dry_run):
@@ -205,7 +224,7 @@ class ResearchFallbackTests(unittest.TestCase):
         original_transport = base.transport
         def applications(store, config, dry_run, *, effect_guard):
             self.assertFalse(dry_run)
-            self.assertIs(effect_guard.__self__, budget)
+            self.assertTrue(callable(effect_guard))
             effect_guard()
             clock[0] = 80
             with self.assertRaises(SubmissionBlocked):

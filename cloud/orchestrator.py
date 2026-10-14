@@ -91,7 +91,10 @@ def _publish_agent_index(working, now, dry_run, budget):
     writer = IndexPreviewStore(working) if dry_run else working
     # A complete query is not proof that every historical import and final
     # source delta was reconciled. No operational authority is inferred here.
-    publication = publish_index(writer, now, source_complete=False)
+    export = getattr(working, '_reconciled_export', None) if not dry_run else None
+    cutover = working.get('deployment:cutover:v2') if export is not None else None
+    publication = publish_index(writer, now, source_complete=False,
+                                **({'reconciled_export': export, 'cutover_record': cutover} if export is not None else {}))
     if dry_run:
         # Preserve the preview in the caller's private staging, never in Notion.
         working.records.update(writer.records)
@@ -187,6 +190,15 @@ def execute(store, config, now=None, cron='', requested='all', dry_run=True, rec
     if not dry_run:
         live_gate(store, config)
     working = ShadowStore(store) if dry_run else store
+    baseline = config.get('_reconciled_export') if not dry_run else None
+    if baseline is not None:
+        working._reconciled_export = baseline
+
+    def require_effect_capacity():
+        budget.require_effect_capacity()
+        if baseline is not None:
+            from cloud.baseline_guard import verify_application_coverage
+            verify_application_coverage(working, baseline)
     from cloud.reporting import effective_research_share
     config = {**config, 'outreach': dict(config.get('outreach', {}))}
     config['outreach']['research_ai_share'] = effective_research_share(working, config, now)
@@ -196,6 +208,9 @@ def execute(store, config, now=None, cron='', requested='all', dry_run=True, rec
         if cron or requested == 'all':
             lanes = ['accepted', 'first_touch', 'applications']
         reconcile = True
+    if baseline is not None and 'applications' in lanes:
+        from cloud.baseline_guard import verify_application_coverage
+        verify_application_coverage(working, baseline)  # Before any preparation.
     results = []
     for day, lane, missed in due_slots(now, lanes, config.get('reconcile_lookback_days', 2), reconcile):
         budget.check_request()
@@ -218,7 +233,7 @@ def execute(store, config, now=None, cron='', requested='all', dry_run=True, rec
         elif lane == 'applications':
             from cloud.applications import run_applications
             summary = run_applications(working, config, dry_run=dry_run,
-                                       effect_guard=budget.require_effect_capacity if not dry_run else None)
+                                       effect_guard=require_effect_capacity if not dry_run else None)
         else:
             summary = run_outreach(working, config.get('outreach', {}), lane, now.astimezone(ZONE), dry_run)
             if lane == 'first_touch':
@@ -254,6 +269,9 @@ def main():
     parser.add_argument('--reconcile', action='store_true')
     parser.add_argument('--output', default='run-output/summary.json')
     args = parser.parse_args()
+    if args.mode == 'live' and (os.environ.get('GITHUB_ACTIONS') != 'true'
+                                or os.environ.get('GITHUB_REF') != 'refs/heads/main'):
+        raise Blocked('live_requires_default_branch_hosted_writer')
     config = json.loads(Path(args.config).read_text())
     config['destination_private'] = os.environ.get('DESTINATION_PRIVATE') == 'true'
     config['cloud_enabled'] = os.environ.get('CLOUD_ENABLED') == 'true'
@@ -272,6 +290,12 @@ def main():
         validate_key()
         # Validate activation before a failure witness may append an audit row.
         live_gate(store, config)
+        from cloud.baseline import restore_baseline
+        baseline, manifest_hash = restore_baseline()
+        cutover = store.get('deployment:cutover:v2')
+        if not cutover or cutover['payload'].get('historical_manifest_sha256') != manifest_hash:
+            raise Blocked('authenticated_baseline_differs_from_cutover')
+        config['_reconciled_export'] = baseline
         from cloud.runtime_guard import verify_previous_writers
         verify_previous_writers(store)
     preview = []

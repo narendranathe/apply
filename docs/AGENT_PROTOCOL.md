@@ -201,4 +201,6 @@ python scripts/encrypt_agent_intake.py --input /private/path/intake.json --outpu
 gh workflow run agent-intake.yml --repo narendranathe/apply --ref main --json < /private/path/sealed-dispatch.json
 ```
 
-The sealed input is at most48KB and the decrypted envelope at most32KB. Tampering, wrong keys, unknown actors, incomplete indexes, stale projections or ambiguous storage all fail closed. Queuing is the only effect of this workflow.
+The sealed input is at most 48 KB and the decrypted envelope at most 32 KB. Tampering, wrong keys, unknown actors, incomplete indexes, stale projections or ambiguous storage all fail closed. Queuing is the only effect of this workflow.
+
+Production publication can become complete only through cutover-bound authenticated baseline restoration and exact fresh source coverage. A configuration flag or a successful query is insufficient. The baseline manifest hash, readback counts and every original immutable record must match; the application lane independently repeats archived-application coverage before preparation and before any provider request. Missing history blocks effects and ready tasks. Preview and research-only modes never take this authority path.
