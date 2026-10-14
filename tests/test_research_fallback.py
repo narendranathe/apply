@@ -89,10 +89,11 @@ class ResearchFallbackTests(unittest.TestCase):
             seen.append(store)
             store.put(record('research:synthetic:job', 'jobs', {'company': 'Synthetic Co'}, 'research'))
             return {'official_open': 1, 'research_tasks': 1}
-        def applications(store, config, dry_run, *, effect_guard):
+        def applications(store, config, dry_run, *, effect_guard, preview_packets=False):
             self.assertIsInstance(store, ShadowStore)
             self.assertTrue(dry_run)
             self.assertIsNone(effect_guard)
+            self.assertTrue(preview_packets)
             seen.append(store)
             return {'lane': 'applications', 'dry_run': True, 'qualified': 1, 'prepared': 1,
                     'submission_attempts': 0, 'applied_verified': 0}
@@ -181,10 +182,11 @@ class ResearchFallbackTests(unittest.TestCase):
         fixture.setUp()
         try:
             base, transport = ReadOnlyStore(), fixtures.ATSTransport()
-            def applications(store, config, dry_run, *, effect_guard):
+            def applications(store, config, dry_run, *, effect_guard, preview_packets=False):
                 self.assertTrue(dry_run)
                 return run_applications(store, config, dry_run=dry_run, feed=fixture.feed,
-                                        transport=transport, prepare=fixture.prepare, effect_guard=effect_guard)
+                                        transport=transport, prepare=fixture.prepare, effect_guard=effect_guard,
+                                        preview_packets=preview_packets)
             config = {**fixture.config, **research_config()}
             with patch('cloud.applications.run_applications', side_effect=applications), \
                  patch('cloud.reporting.run_reporting', return_value={'counts': {}}), \
@@ -194,6 +196,7 @@ class ResearchFallbackTests(unittest.TestCase):
                 result = execute(base, config, NOW, requested='applications', mode='research-only')
             self.assertEqual(result['results'][0]['prepared'], 1)
             self.assertEqual(result['results'][0]['submission_attempts'], 0)
+            self.assertEqual(result['staged_record_counts'].get('application_packets'), 1)
             self.assertFalse(any(call[0] == 'POST' for call in transport.calls))
             lever.assert_not_called()
             greenhouse.assert_not_called()

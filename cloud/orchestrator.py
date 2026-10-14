@@ -233,7 +233,8 @@ def execute(store, config, now=None, cron='', requested='all', dry_run=True, rec
         elif lane == 'applications':
             from cloud.applications import run_applications
             summary = run_applications(working, config, dry_run=dry_run,
-                                       effect_guard=require_effect_capacity if not dry_run else None)
+                                       effect_guard=require_effect_capacity if not dry_run else None,
+                                       **({'preview_packets': True} if research_only else {}))
         else:
             summary = run_outreach(working, config.get('outreach', {}), lane, now.astimezone(ZONE), dry_run)
             if lane == 'first_touch':
