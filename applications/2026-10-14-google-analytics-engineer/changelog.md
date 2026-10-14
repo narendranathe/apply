@@ -6,6 +6,20 @@ systems behind them; turns business questions into trusted data products.
 **Gate:** PASS with flags (G1 Google H-1B filer; G3 ~65-70% honest — full-stack
 Angular/.Net GAP; G4 1-day fresh; G5 6 yrs vs 5 asked).
 
+## 1-page variant (2026-10-14, JD-language rewrite per his direction)
+
+- **"Speak the language of the job listing":** the 1-pager now mirrors the posting's exact
+  vocabulary — "Owns data engineering workstreams" (acquisition, pipelining, quality, prep,
+  warehousing), "Designed and developed ETL pipelines," "dashboard design and creation,"
+  "AI/ML analytics integrated into the reporting stack," "predictive analytics and
+  forecasting," "full-stack web application development client and server side" (honest:
+  Chrome extension + FastAPI backend + React dashboard, no Angular/.Net claimed),
+  "Engaged stakeholders," "prototype and iterate." Every mirrored term maps to grounded
+  evidence; nothing invented for keyword matching.
+- Condensed: ExponentHR 6 bullets, Missouri S&T 2, C2FO/Udaan/Zomato 1-2 each, 3 projects
+  (JobScout, AutoApply AI, Fraud Detection), skills in 4 rows.
+- QA: LINT PASS, BUDGET PASS, ORDER PASS, 1 page, fill ~97%, 0 overfull, summary 393 chars.
+
 ## Changed vs master
 
 - **Summary (rewritten, Arc F):** "**Analytics Engineer** who turns business questions into
