@@ -1,0 +1,70 @@
+% Coinbase - Senior Software Engineer, Data Platform (Greenhouse 7812407) — SINGLE PAGE, JD-language
+% Tailored variant of master. Arc D primary (velocity/platform) + Arc F condensed.
+% Thesis: designs, develops, and operates the foundational data services other teams build on.
+% Every section mirrors the posting's own vocabulary; all claims grounded in GROUND_TRUTH.md.
+% Mode: 1-page. Gate: PASS with flags (see jd.md). Titles HR-verifiable, never adjusted.
+\documentclass[letterpaper,10pt]{article}
+\input{v8preamble}
+\begin{document}
+\resumeheader
+\summary{\textbf{Senior Data Engineer} who designs, develops, and operates foundational data services: backend services processing and serving data at scale for analytics, machine learning, and end-user experiences across 400 databases and 70 TB, batch (SQL) and streaming (Kafka) pipelines, self-service applications for monitoring and troubleshooting, and generative AI used responsibly with human oversight.}
+
+\section{Technical Skills}
+\skillrow{Data Platforms}{Python, SQL, T-SQL, Kafka, Spark Structured Streaming, CDC, idempotent pipelines, data modeling, data validation}
+\skillrow{Backend \& Scale}{FastAPI, REST APIs, Docker, Kubernetes, AKS, scale-out architectures, GitHub Actions, Prometheus, Grafana}
+\skillrow{Observability}{data quality tracking, monitoring, self-healing recovery, runbooks, alert tuning, anomaly detection, lineage-aware validation}
+\skillrow{AI \& Tooling}{LLM APIs, RAG, pgvector, MLflow, LightGBM, PyTorch, drift monitoring, model serving, Delta Lake}
+
+\section{Experience}
+\roleheader{Data Engineer}{ExponentHR}{July 2024 - Present}{Dallas, TX}
+\rolecontext{Payroll data platform: 400 databases, 70 TB, 10 servers, 15-minute refresh. Owns foundational data services end to end.}
+\begin{itemize}
+\item Compressed release cycles from 3 months to \textbf{14 days} owning CI/CD through Azure DevOps, aligning dev, test, IT, and business on Scrum and removing about 11 weeks of idle handoff time from every release.
+\item Rewrote the database copy-and-restore pipeline fully idempotent, closing four latent failure modes including orphaned CDC cleanup jobs and replication races, freeing 5,000 engineering hours a year worth about \textbf{\$300K}.
+\item Built self-service applications for managing, monitoring, and troubleshooting pipelines: surfaced SSIS execution history in SQL with control-table-driven validation that turns silent data drift into alertable failures with a named owner.
+\item Shipped data observability with proactive monitoring and self-healing recovery for production SQL Agent jobs across three failure modes (missed, stuck, silent), closing a detection gap before CDC log retention made failures unrecoverable.
+\item Reengineered CDC (change-data-capture) ETL from full-table reloads to idempotent incremental merge-upserts in \textbf{SQL}, cutting batch runtime from 30 minutes to under 8 minutes and compute cost 67 percent, with failed runs rerunning clean.
+\item Built a business-context harness for the team's LLM coding agents, using generative AI responsibly with \textbf{human oversight}: context is hand-annotated and every agent-assisted change is gated through code review and tests.
+\end{itemize}
+
+\roleheader{Data Engineer}{Missouri S\&T}{Aug. 2023 - July 2024}{Rolla, MO}
+\rolecontext{Research and platform infrastructure: anomaly-detection pipelines, alert tuning, and the Kubernetes migration.}
+\begin{itemize}
+\item Migrated anomaly-detection workloads from static VMs to AKS (Azure Kubernetes Service) with pod autoscaling, consolidating 20 nodes to 4-8 dynamic, lifting CPU use from 12 to 64 percent and cutting spend \textbf{\$3,200} a month.
+\item Delivered Azure AI Anomaly Detector pipelines selecting an algorithm per time-series profile, reaching \textbf{95\%} accuracy and catching a production memory leak 4 hours before it would have caused an outage.
+\end{itemize}
+
+\roleheader{Product Intern}{C2FO}{June 2023 - Aug. 2023}{Kansas City, KS}
+\begin{itemize}
+\item Traced offer-acceptance drops with SQL-driven behavior analysis, turning findings into product decisions with the owning team.
+\end{itemize}
+
+\roleheader{Business Intelligence Analyst}{Udaan}{Sept. 2020 - Mar. 2021}{Nashik, India}
+\begin{itemize}
+\item Delivered 400 percentage points of city GMV growth to Rs. 5 Cr a month for a new-city launch, matching the incumbent competitor.
+\end{itemize}
+
+\roleheader{Business Analyst}{Zomato}{Mar. 2018 - Sept. 2020}{Hyderabad, India}
+\begin{itemize}
+\item Indexed 100K+ internal documents in \textbf{Elasticsearch} for self-serve search, cutting support desk volume 80 percent.
+\end{itemize}
+
+\section{Projects}
+\projheader{Real-Time Fraud Detection}{Kafka, LightGBM, MLflow, FastAPI, Docker}{2026}
+\begin{itemize}
+\item Scores Kafka-streamed events in FastAPI with an MLflow-tracked LightGBM classifier; idempotent writes make replays no-ops.
+\end{itemize}
+\projheader{repo-context-hooks}{Python, GitHub Actions, Sigstore, CodeQL}{PyPI}
+\begin{itemize}
+\item Published a zero-dependency Python package to PyPI for LLM agent context; Sigstore-signed releases, \textbf{330+ passing tests}.
+\end{itemize}
+\projheader{JobScout}{Python, SQLite, GitHub Actions, TF-IDF}{2025}
+\begin{itemize}
+\item Monitors 109 career pages with TF-IDF matching against 95+ resume variants, sending Discord and Telegram alerts on new matches.
+\end{itemize}
+
+\section{Education \& Certifications}
+\eduline{\textbf{Missouri S\&T} - MS Information Science and Technology, GPA 4.0 \hfill Jan. 2022 - Dec. 2023}
+\eduline{\textbf{GVP College of Engineering} - B.Tech Mechanical Engineering \hfill 2017}
+\eduline{DP-700 Microsoft Certified Fabric Data Engineer Associate $|$ CSPO $|$ Publication DOI 10.1080/10495142.2025.2525123}
+\end{document}

@@ -1,5 +1,18 @@
 # Changelog vs master resume — Coinbase Senior Software Engineer, Data Platform (2026-10-14)
 
+## 1-page standard (2026-10-14, per his rule: one page is the standard; resume must speak the JD's language)
+
+- Rebuilt the 2-page Arc D draft as a 1-pager in the posting's own vocabulary: "designs,
+  develops, and operates foundational data services," "backend services processing and
+  serving data at scale for analytics, machine learning, and end-user experiences,"
+  "batch (SQL) and streaming (Kafka)," "self-service applications for managing,
+  monitoring, and troubleshooting pipelines," "data observability," "generative AI used
+  responsibly with human oversight." Every mirrored term maps to grounded evidence.
+- Condensed: ExponentHR 6 bullets, Missouri S&T 2, C2FO/Udaan/Zomato 1 each, 3 projects
+  (Fraud Detection, repo-context-hooks, JobScout), skills in 4 rows.
+- QA: LINT PASS, BUDGET PASS, ORDER PASS, 1 page, fill ~92%, 0 overfull, summary 392 chars.
+- Approved by him 2026-10-14 ("submit"); submitted via browser the same day.
+
 **Arc:** D primary (velocity/platform — the JD is about foundational data services, self-service
 tooling, and observability) + Arc F page 2.
 **Thesis:** builds the foundational data services other teams build on — idempotent pipelines,
