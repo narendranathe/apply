@@ -17,9 +17,11 @@ def inspect(store, records):
         props = page['properties']
         value = validate_record(json.loads(_text(props.get('Cloud Envelope'))))
         expected = source.get(value['id'])
+        readback = store.get(value['id'])
         blocks = store._blocks(page['id'])
         code = [b['code'] for b in blocks if b.get('type') == 'code']
         checks.append({
+            'verified_get_matches_source': bool(expected and readback and all(readback[k] == expected[k] for k in CORE_KEYS)),
             'source_core_matches': bool(expected and all(value[k] == expected[k] for k in CORE_KEYS)),
             'name_matches': _text(props.get('Name')) == display_title(value),
             'body_text_matches_envelope': len(code) == 1 and _text({'rich_text': code[0].get('rich_text', [])}) == canonical_json(value),

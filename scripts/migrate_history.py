@@ -102,10 +102,10 @@ def main(argv=None, *, store=None, private_verifier=None):
             report = reconcile_records(records, store, dry_run=not args.write,
                                        private_destination=private_verified)
         except Exception as error:
-            from cloud.notion import NotionAPIError
+            from cloud.notion import AmbiguousWriteError, NotionAPIError
             failure = {"status": "blocked", "reason": "history_reconciliation_failed",
                        "error_type": type(error).__name__}
-            if isinstance(error, NotionAPIError):
+            if isinstance(error, (NotionAPIError, AmbiguousWriteError)):
                 failure['notion'] = error.diagnostics()
             print(json.dumps(failure))
             return 2

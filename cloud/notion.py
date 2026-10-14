@@ -67,6 +67,16 @@ class ConflictError(NotionError):
 
 class AmbiguousWriteError(NotionError):
     """A write may have succeeded. Persist an exception and reconcile first."""
+    def __init__(self, message, *, diagnostics=None):
+        super().__init__(message)
+        self._diagnostics = diagnostics
+
+    def diagnostics(self):
+        value = self._diagnostics if isinstance(self._diagnostics, dict) else {}
+        code, operation = value.get('error_code'), value.get('operation')
+        return {'http_status': _safe_status(value.get('http_status')),
+                'error_code': code if isinstance(code, str) and code in API_ERROR_CODES else 'unknown',
+                'operation': operation if isinstance(operation, str) and operation in OPERATIONS else 'notion_request'}
 
 
 class PaginationError(NotionError):
@@ -247,7 +257,8 @@ class NotionStore:
             except NotionAPIError as exc:
                 exc.operation = operation
                 if write and exc.status >= 500 and exc.status != 529:
-                    raise AmbiguousWriteError("Notion write outcome is uncertain; reconcile the record ID before retry") from None
+                    raise AmbiguousWriteError("Notion write outcome is uncertain; reconcile the record ID before retry",
+                                              diagnostics=exc.diagnostics()) from None
                 retryable = ((exc.status in {429, 529} and exc.rate_limit_reason != "public_api_request_blocked")
                              or not write and exc.status in {500, 502, 503, 504})
                 if not retryable or attempt == self.max_attempts - 1:
@@ -540,8 +551,9 @@ class NotionStore:
             raise
         try:
             readback = self.get(record_id)
-        except NotionError:
-            raise AmbiguousWriteError("Write readback failed; reconcile before any replay") from None
+        except NotionError as error:
+            safe = error.diagnostics() if isinstance(error, (NotionAPIError, AmbiguousWriteError)) else None
+            raise AmbiguousWriteError("Write readback failed; reconcile before any replay", diagnostics=safe) from None
         if not readback or any(readback[k] != record[k] for k in CORE_KEYS):
             raise AmbiguousWriteError("Write did not read back exactly; reconcile before any replay")
         self._uncertain.discard(record_id)
