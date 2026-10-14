@@ -57,6 +57,32 @@ def live_store():
 
 
 class ResearchFallbackTests(unittest.TestCase):
+    def test_archived_uncertain_applications_suppress_preview_without_base_writes(self):
+        import tests.test_applications as fixtures
+        from cloud.applications import application_key, digest, run_applications
+        fixture = fixtures.ApplicationTests(methodName='test_dry_run_has_no_state_or_external_mutation')
+        fixture.setUp()
+        try:
+            old = record('archive:unknown', 'applications', {
+                'application_id': 'application:' + digest(application_key('Acme', 'req-1')),
+                'company': 'Acme', 'requisition_id': 'req-1', 'role': 'Data Engineer',
+                'url': 'https://jobs.lever.co/acme/req-1', 'revision': 0,
+                'historical_only': True}, 'submission_unknown')
+            config = {**fixture.config, **research_config(), '_suppression_baseline': {'records': [old]}}
+            base, transport = ReadOnlyStore(), fixtures.ATSTransport()
+            def applications(store, config, dry_run, *, effect_guard, preview_packets):
+                return run_applications(store, config, True, feed=fixture.feed, transport=transport,
+                                        prepare=fixture.prepare, preview_packets=preview_packets)
+            with patch('cloud.applications.run_applications', side_effect=applications), \
+                 patch('cloud.reporting.run_reporting', return_value={'counts': {}}):
+                result = execute(base, config, NOW, requested='applications', mode='research-only')
+            self.assertEqual(result['results'][0]['duplicates'], 1)
+            self.assertEqual(result['results'][0]['prepared'], 0)
+            self.assertEqual(base.puts, [])
+            self.assertFalse(any(call[0] == 'POST' for call in transport.calls))
+        finally:
+            fixture.tearDown()
+
     def test_archived_application_loss_stops_before_preparation(self):
         from cloud.notion import ConflictError
         base = live_store()
@@ -268,6 +294,7 @@ class ResearchFallbackTests(unittest.TestCase):
                 stack.enter_context(patch.dict('os.environ', {'DESTINATION_PRIVATE': 'true', 'CLOUD_RESEARCH_ENABLED': 'true',
                     'CLOUD_ENABLED': 'false', 'NOTION_TOKEN': 'synthetic-secret'}, clear=True))
                 stack.enter_context(patch('cloud.notion.NotionStore', return_value=base))
+                stack.enter_context(patch('cloud.baseline.restore_baseline', return_value=({'records': []}, 'a' * 64)))
                 witness = stack.enter_context(patch('cloud.runtime_guard.verify_previous_writers'))
                 key = stack.enter_context(patch('cloud.backup.validate_key'))
                 backup = stack.enter_context(patch('cloud.backup.backup_store', return_value={

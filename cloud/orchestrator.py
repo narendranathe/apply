@@ -190,6 +190,13 @@ def execute(store, config, now=None, cron='', requested='all', dry_run=True, rec
     if not dry_run:
         live_gate(store, config)
     working = ShadowStore(store) if dry_run else store
+    if dry_run and config.get('_suppression_baseline') is not None:
+        # Historical applications suppress preview preparation before import;
+        # an archived observation never grants live execution authority.
+        from cloud.records import validate_record
+        for row in config['_suppression_baseline']['records']:
+            if row['kind'] == 'applications':
+                working.put(validate_record(row))
     baseline = config.get('_reconciled_export') if not dry_run else None
     if baseline is not None:
         working._reconciled_export = baseline
@@ -286,6 +293,9 @@ def main():
     store = NotionStore(token=token, data_source_id=config['notion_data_source_id'])
     budget = RuntimeBudget(RUNTIME_SECONDS, RECOVERY_RESERVE_SECONDS)
     _attach_budget(store, budget)
+    if args.mode != 'live':
+        from cloud.baseline import restore_baseline
+        config['_suppression_baseline'], _ = restore_baseline()
     if args.mode == 'live':
         from cloud.backup import validate_key
         validate_key()
