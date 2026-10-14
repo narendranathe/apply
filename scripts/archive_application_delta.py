@@ -95,8 +95,43 @@ def orphan_registry(files, observations, compatibility):
     return registry, identities
 
 
+def select_changed_orphans(files, registry, previous_records):
+    """Skip byte-identical captured packets without changing historical rows.
+
+    Git commit identity alone does not make an unchanged packet a new event.
+    A changed JD, status, answer, resume, dependency or exact registry evidence
+    still produces a new historical observation with every eligibility gate off.
+    """
+    from cloud.applications import fold_applications
+    latest = fold_applications([row for row in previous_records if row.get("kind") == "applications"])
+    by_folder = {}
+    for item in latest.values():
+        folder = item.get("payload", {}).get("source_folder")
+        if folder:
+            if folder in by_folder:
+                raise ValueError("Historical application folder identity is ambiguous")
+            by_folder[folder] = item["payload"]
+    changed, unchanged = {}, []
+    for key, row in registry.items():
+        folder = row["folder"]
+        previous = by_folder.get(folder)
+        current_files = sorted((path, len(body), hashlib.sha256(body).hexdigest())
+                               for path, body in files.items()
+                               if path.startswith("applications/" + folder + "/")
+                               or path == "resumes/variants/" + folder + ".tex")
+        previous_files = sorted((item["path"], item["bytes"], item["sha256"])
+                                for item in previous.get("source_files", [])) if previous else []
+        if (previous is not None and current_files and current_files == previous_files
+                and previous.get("source_registry_key") == key
+                and previous.get("source_registry_row") == row):
+            unchanged.append(folder)
+        else:
+            changed[key] = row
+    return changed, sorted(unchanged)
+
+
 def capture(repository, source_ref, base_ref, staging, identity_observations=None,
-            compatibility_registry=None, orphan_observations=None):
+            compatibility_registry=None, orphan_observations=None, previous_records=()):
     repository = Path(repository)
     source = git_bytes(repository, "rev-parse", source_ref).decode().strip()
     base = git_bytes(repository, "rev-parse", base_ref).decode().strip()
@@ -119,6 +154,7 @@ def capture(repository, source_ref, base_ref, staging, identity_observations=Non
         raw_registry, compatibility = _private_compatibility_registry(repository, compatibility_registry, files)
         raw_observations = Path(orphan_observations).read_bytes()
         registry, identities = orphan_registry(files, json.loads(raw_observations), compatibility)
+        registry, unchanged = select_changed_orphans(files, registry, previous_records)
         existing = json.loads(files.get("audit/identity-observations.json", b"{}"))
         if set(existing) & set(identities):
             raise ValueError("Duplicate identity observation source")
@@ -136,6 +172,7 @@ def capture(repository, source_ref, base_ref, staging, identity_observations=Non
             "derived_registry_path": "applications/registry.json",
             "derived_registry_is_operational": False,
             "derived_registry_scope": "explicit_hash_bound_tracked_orphans_only",
+            "byte_identical_prior_packets_skipped": unchanged,
             "orphan_observations_sha256": hashlib.sha256(raw_observations).hexdigest(),
             "historical_only": True, "replay_allowed": False}, sort_keys=True).encode()
         if Path(compatibility_registry).read_bytes() != raw_registry:
@@ -186,10 +223,10 @@ def main():
                 or entries[0].get("sha256") != hashlib.sha256(baseline_bytes).hexdigest()):
             raise ValueError("Baseline differs from the authenticated restored archive receipt")
     repository = Path(__file__).resolve().parents[1]
+    baseline = json.loads(baseline_bytes)
     source, base, files = capture(repository, args.source, args.base, args.staging,
                                  args.identity_observations, args.compatibility_registry,
-                                 args.orphan_observations)
-    baseline = json.loads(baseline_bytes)
+                                 args.orphan_observations, baseline['records'])
     delta = application_delta(files, source_commit=source, base_commit=base, previous_records=baseline['records'])
     merged = combine_exports([baseline, delta])
     members = {"source/" + path: args.staging / "source" / path for path in files}

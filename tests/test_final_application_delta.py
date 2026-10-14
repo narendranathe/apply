@@ -8,7 +8,7 @@ from pathlib import Path
 
 from cloud.applications import fold_applications
 from cloud.migration import application_delta, combine_exports
-from scripts.archive_application_delta import capture, orphan_registry
+from scripts.archive_application_delta import capture, orphan_registry, select_changed_orphans
 
 
 def fixture():
@@ -32,6 +32,35 @@ def fixture():
 
 
 class FinalApplicationDeltaTests(unittest.TestCase):
+    def test_unchanged_source_packet_is_skipped_but_changed_attempt_appends_unknown(self):
+        files, observations = fixture()
+        registry, identities = orphan_registry(files, observations, {})
+        files["applications/registry.json"] = json.dumps(registry).encode()
+        files["audit/identity-observations.json"] = json.dumps(identities).encode()
+        baseline = application_delta(files, source_commit="a" * 40, base_commit="b" * 40)
+        changed, unchanged = select_changed_orphans(files, registry, baseline["records"])
+        self.assertFalse(changed)
+        self.assertEqual(len(unchanged), 2)
+        folder = observations["observations"][1]["folder"]
+        state_path = "applications/" + folder + "/status.json"
+        files[state_path] = json.dumps({"status": "applied", "claimed_by": "legacy-agent",
+                                       "claimed_at": "2026-10-14", "submitted_on": "2026-10-14"}).encode()
+        observations["observations"][1]["status_sha256"] = hashlib.sha256(files[state_path]).hexdigest()
+        registry, identities = orphan_registry(files, observations, {})
+        selected, unchanged = select_changed_orphans(files, registry, baseline["records"])
+        self.assertEqual(len(selected), 1)
+        self.assertEqual(len(unchanged), 1)
+        files["applications/registry.json"] = json.dumps(selected).encode()
+        files["audit/identity-observations.json"] = json.dumps(identities).encode()
+        delta = application_delta(files, source_commit="c" * 40, base_commit="a" * 40,
+                                  previous_records=baseline["records"])
+        apps = [r for r in delta["records"] if r["kind"] == "applications"]
+        self.assertEqual(len(apps), 1)
+        self.assertEqual(apps[0]["status"], "submission_unknown")
+        self.assertFalse(apps[0]["payload"]["receipt_verified"])
+        merged = combine_exports([baseline, delta])
+        self.assertTrue(all(row in merged["records"] for row in baseline["records"]))
+
     def test_raw_applied_is_unknown_and_draft_is_never_qa_ready(self):
         files, observations = fixture()
         registry, identities = orphan_registry(files, observations, {})
