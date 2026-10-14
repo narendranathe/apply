@@ -34,7 +34,9 @@ API_ERROR_CODES = frozenset({
     "database_connection_unavailable", "gateway_timeout", "service_overload",
 })
 OPERATIONS = frozenset({"retrieve_data_source", "query_data_source", "list_block_children",
-                        "retrieve_page_property", "create_page", "notion_request"})
+                        "retrieve_page_property", "create_page", "notion_request",
+                        "decode_cloud_envelope", "verify_cloud_properties", "verify_cloud_body",
+                        "verify_create_readback"})
 
 
 def _safe_status(status):
@@ -62,7 +64,13 @@ class NotionError(RuntimeError):
 
 
 class ConflictError(NotionError):
-    pass
+    def __init__(self, message, *, operation='notion_request'):
+        super().__init__(message)
+        self.operation = operation
+
+    def diagnostics(self):
+        return {'http_status': None, 'error_code': 'unknown',
+                'operation': self.operation if self.operation in OPERATIONS else 'notion_request'}
 
 
 class AmbiguousWriteError(NotionError):
@@ -331,15 +339,15 @@ class NotionStore:
         try:
             record = validate_record(json.loads(_text(props.get("Cloud Envelope"))))
         except (ValueError, TypeError, KeyError):
-            raise ConflictError("Cloud envelope is malformed or has a payload hash mismatch") from None
+            raise ConflictError("Cloud envelope is malformed or has a payload hash mismatch", operation='decode_cloud_envelope') from None
         expected = {"Cloud ID": record["id"], "Cloud Kind": record["kind"], "Cloud Hash": record["hash"],
                     "Cloud Status": record["status"], "Section": "Cloud", "Type": "Reference", "Status": "Done",
                     "Name": display_title(record)}
         if any(_text(props.get(k)) != v for k, v in expected.items()):
-            raise ConflictError("Cloud machine-owned properties were manually edited")
+            raise ConflictError("Cloud machine-owned properties were manually edited", operation='verify_cloud_properties')
         blocks = self._blocks(page["id"])
         if _text(props.get("Cloud Managed Hash")) != _managed_hash(props, blocks):
-            raise ConflictError("Cloud body or machine-owned properties were manually edited")
+            raise ConflictError("Cloud body or machine-owned properties were manually edited", operation='verify_cloud_body')
         record["notion_page_id"] = page["id"]
         record["notion_url"] = page.get("url", "")
         return record
@@ -509,6 +517,39 @@ class NotionStore:
                 records.append(record)
         return records
 
+    def latest_index_manifest(self) -> dict | None:
+        """One server-sorted manifest read; never download every past index.
+
+        Both independent identity projections are searched. A malformed newest
+        candidate blocks the read instead of silently falling back to stale state.
+        """
+        fragment = canonical_json({'kind': 'index_manifests'})[1:-1]
+        response = self._request('POST', '/data_sources/' + self.data_source_id + '/query', {
+            'filter': {'or': [
+                {'property': 'Cloud Kind', 'rich_text': {'equals': 'index_manifests'}},
+                {'property': 'Cloud Envelope', 'rich_text': {'contains': fragment}},
+                *({'and': [{'property': 'Section', 'select': {'equals': 'Cloud'}},
+                           {'property': field, 'rich_text': {'is_empty': True}}]}
+                  for field in ('Cloud ID', 'Cloud Kind', 'Cloud Envelope'))]},
+            'sorts': [{'timestamp': 'created_time', 'direction': 'descending'}], 'page_size': 1})
+        if (response.get('request_status', {}).get('type') == 'incomplete'
+                or not isinstance(response.get('results'), list)
+                or not isinstance(response.get('has_more'), bool)):
+            raise PaginationError('Index lookup is incomplete')
+        results = response['results']
+        if not results:
+            return None
+        if len(results) != 1:
+            raise ConflictError('Index lookup returned an invalid bounded result')
+        candidate = self._decode_cloud(results[0])
+        if candidate['kind'] != 'index_manifests':
+            raise ConflictError('Index candidate identity is inconsistent')
+        # A second independent exact search verifies uniqueness of this manifest.
+        verified = self.get(candidate['id'])
+        if not verified or any(verified[k] != candidate[k] for k in CORE_KEYS):
+            raise ConflictError('Index manifest readback is inconsistent')
+        return verified
+
     def put(self, record: dict) -> dict:
         """Return a fully verified existing row or exact post-create readback.
 
@@ -552,9 +593,10 @@ class NotionStore:
         try:
             readback = self.get(record_id)
         except NotionError as error:
-            safe = error.diagnostics() if isinstance(error, (NotionAPIError, AmbiguousWriteError)) else None
+            safe = error.diagnostics() if isinstance(error, (NotionAPIError, AmbiguousWriteError, ConflictError)) else None
             raise AmbiguousWriteError("Write readback failed; reconcile before any replay", diagnostics=safe) from None
         if not readback or any(readback[k] != record[k] for k in CORE_KEYS):
-            raise AmbiguousWriteError("Write did not read back exactly; reconcile before any replay")
+            raise AmbiguousWriteError("Write did not read back exactly; reconcile before any replay",
+                                      diagnostics={'operation': 'verify_create_readback'})
         self._uncertain.discard(record_id)
         return readback
