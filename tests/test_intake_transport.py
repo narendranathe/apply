@@ -7,6 +7,11 @@ from cloud.intake_transport import generate_keys, seal, unseal
 
 
 class IntakeTransportTests(unittest.TestCase):
+    def test_intake_private_key_is_scanned_but_public_key_is_permitted(self):
+        from scripts.security_check import unsafe
+        self.assertTrue(unsafe('config.json', ('{"agent_intake_private_key":"' + 'a' * 44 + '"}').encode()))
+        self.assertFalse(unsafe('config/agent-intake-public-key.json', ('{"public_key":"' + 'a' * 44 + '"}').encode()))
+
     def test_roundtrip_private_payload_never_enters_workflow_input(self):
         private, public = generate_keys()
         source = {'message': 'SYNTHETIC PRIVATE MESSAGE', 'actor': 'fixture-agent'}
