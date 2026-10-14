@@ -15,6 +15,7 @@ class RunnerDiagnosticsTests(unittest.TestCase):
         output = io.StringIO()
         with patch.dict('os.environ', {'NOTION_TOKEN': 'fixture-private-token', 'CLOUD_ENABLED': 'false'}), \
                 patch('sys.argv', ['cloud.orchestrator', '--mode', 'dry-run']), \
+                patch('cloud.baseline.restore_baseline', return_value=({'records': []}, 'a' * 64)), \
                 patch.object(NotionStore, '_transport', side_effect=error) as transport, \
                 contextlib.redirect_stdout(output), contextlib.redirect_stderr(io.StringIO()):
             with self.assertRaises(SystemExit) as exit_result:
