@@ -40,6 +40,33 @@ def example(**changes):
 
 
 class MigrationTests(unittest.TestCase):
+    def test_uncertain_readback_stops_all_later_imports(self):
+        store = MemoryStore()
+        store.get = lambda key: None
+        rows = [event_record(example(event_id='first')), event_record(example(event_id='second'))]
+        result = reconcile_records(rows, store, dry_run=False, private_destination=True)
+        self.assertEqual(store.writes, 1)
+        self.assertEqual(result['blocked'], 1)
+        self.assertEqual(len(result['results']), 1)
+
+    def test_bounded_import_uses_validated_stable_order(self):
+        rows = [event_record(example(event_id='b')), event_record(example(event_id='a'))]
+        store, reads = MemoryStore(), []
+        def read(key):
+            reads.append(key)
+            return None
+        store.get = read
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'export.json'
+            path.write_text(json.dumps({'schema': 'apply-historical-export/v1', 'records': rows, 'blocked': []}))
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                self.assertEqual(migrate_main(['--input', str(path), '--limit', '1'], store=store), 0)
+        self.assertEqual(reads, ['a'])
+        result = json.loads(output.getvalue())
+        self.assertEqual((result['processed_records'], result['total_records'], result['next_offset']), (1, 2, 1))
+        self.assertEqual(store.writes, 0)
+
     def test_precision_and_source_actor_are_not_invented(self):
         self.assertEqual(precision("2026-09-22"), "date")
         self.assertEqual(precision("2026-09-22T12:00:01.123Z"), "fractional_seconds:3")

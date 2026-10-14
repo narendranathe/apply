@@ -5,7 +5,13 @@ on:
       mode:
         type: choice
         default: dry-run
-        options: [dry-run, import]
+        options: [dry-run, import, inspect, snapshot, verify, readiness]
+      offset:
+        type: string
+        default: '0'
+      limit:
+        type: string
+        default: '100'
 permissions:
   contents: read
   actions: read
@@ -15,7 +21,7 @@ concurrency:
 jobs:
   reconcile:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
@@ -50,14 +56,31 @@ jobs:
       - name: Reconcile without replaying historical effects
         env:
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          MIGRATION_BACKUP_KEY: ${{ secrets.MIGRATION_BACKUP_KEY }}
           GITHUB_TOKEN: ${{ github.token }}
           IMPORT_MODE: ${{ inputs.mode }}
+          IMPORT_OFFSET: ${{ inputs.offset || '0' }}
+          IMPORT_LIMIT: ${{ inputs.limit || '100' }}
         run: |
-          if [ "$IMPORT_MODE" = 'import' ]; then
-            python scripts/migrate_history.py --input .migration-private/restored/combined-historical-records.json --write --private-destination-verified
+          if [ "$IMPORT_MODE" = 'inspect' ]; then
+            python scripts/inspect_cloud_readback.py .migration-private/restored/combined-historical-records.json
+          elif [ "$IMPORT_MODE" = 'import' ]; then
+            python scripts/migrate_history.py --input .migration-private/restored/combined-historical-records.json --write --private-destination-verified --offset "$IMPORT_OFFSET" --limit "$IMPORT_LIMIT"
+          elif [ "$IMPORT_MODE" = 'snapshot' ] || [ "$IMPORT_MODE" = 'verify' ] || [ "$IMPORT_MODE" = 'readiness' ]; then
+            python scripts/cloud_maintenance.py --input .migration-private/restored/combined-historical-records.json --mode "$IMPORT_MODE"
           else
-            python scripts/migrate_history.py --input .migration-private/restored/combined-historical-records.json
+            python scripts/migrate_history.py --input .migration-private/restored/combined-historical-records.json --offset "$IMPORT_OFFSET" --limit "$IMPORT_LIMIT"
           fi
+      - name: Encrypted source snapshot and aggregate evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: reconciliation-evidence-${{ github.run_id }}
+          path: |
+            run-output/*.aesgcm
+            run-output/maintenance-summary.json
+          retention-days: 14
+          if-no-files-found: ignore
       - name: Remove plaintext staging
         if: always()
         run: python -c "import shutil; from pathlib import Path; shutil.rmtree('.migration-private', ignore_errors=True); Path('/tmp/apply-runner-recovery-key.bin').unlink(missing_ok=True)"

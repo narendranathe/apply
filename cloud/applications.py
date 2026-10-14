@@ -254,13 +254,18 @@ def persist_packet(store, application_id, job, packet):
     return {**_safe_packet(packet), "record_id": identity}
 
 
-def run_applications(store, config, dry_run=True, *, feed=None, transport=None, prepare=None):
+def run_applications(store, config, dry_run=True, *, feed=None, transport=None, prepare=None, effect_guard=None,
+                     preview_packets=False):
     """Process independently; return only redacted aggregate evidence.
 
     Injection keywords are for deterministic sandbox tests. Production uses
     official transports and evidence-checked preparation, never a config flag
     that certifies a fixture resume.
     """
+    if preview_packets:
+        from cloud.orchestrator import ShadowStore
+        if not dry_run or not isinstance(store, ShadowStore):
+            raise ValueError('Private preview packets require a shadow store')
     settings = config.get("applications", config)
     now = dt.datetime.now(dt.timezone.utc)
     summary = {"lane": "applications", "dry_run": dry_run, "feed_checked": False,
@@ -390,6 +395,10 @@ def run_applications(store, config, dry_run=True, *, feed=None, transport=None, 
                 records[application_id] = current or {"id": application_id, "status": status, "payload": {**base, "application_id": application_id}}
                 continue
             summary["prepared"] += 1
+            if preview_packets:
+                # Recoverable research materials go only to private staging;
+                # the orchestrator encrypts that staging before runner cleanup.
+                persist_packet(store, application_id, job, packet)
             if not dry_run:
                 current = transition(store, application_id, "prepared", {"packet": packet_reference}, current)
             if not permitted(employer, now):
@@ -426,6 +435,8 @@ def run_applications(store, config, dry_run=True, *, feed=None, transport=None, 
             action_time = dt.datetime.now(dt.timezone.utc)
             if daily_attempt_count(fresh_records, action_time) >= maximum:
                 raise SubmissionBlocked("daily_application_pacing_reached")
+            if effect_guard is not None:
+                effect_guard()  # Before intent/provider request; preserve recovery time.
             attempt = {"started_at": action_time.isoformat(), "idempotency_key": application_id,
                        "resume_hash": packet["resume_sha256"], "answers_hash": packet["answers_hash"],
                        "payload_hash": digest({"fields": packet["fields"], "resume_hash": packet["resume_sha256"], "posting_id": job["posting_id"]})}

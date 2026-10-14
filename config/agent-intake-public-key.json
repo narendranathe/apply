@@ -1,0 +1,5 @@
+{
+  "schema": "apply-agent-intake-public-key/v1",
+  "algorithm": "X25519-HKDF-SHA256-AES256GCM",
+  "public_key": "V215oAr8px+KkUAjQkqQvLrwn+10oxMe/hbjQuWAogY="
+}

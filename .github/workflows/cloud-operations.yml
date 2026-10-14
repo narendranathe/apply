@@ -1,5 +1,5 @@
 name: Unified cloud operations
-run-name: 'cloud:${{ inputs.mode || ''live'' }}:${{ inputs.lane || github.event.schedule }}'
+run-name: 'cloud:${{ inputs.mode || (vars.CLOUD_ENABLED == ''true'' && ''live'' || ''research-only'') }}:${{ inputs.lane || github.event.schedule }}'
 on:
   schedule:
     - cron: '0 6 * * *'
@@ -15,7 +15,7 @@ on:
       mode:
         type: choice
         default: dry-run
-        options: [dry-run, live]
+        options: [dry-run, research-only, live]
 permissions:
   contents: read
   actions: read
@@ -24,9 +24,9 @@ concurrency:
   cancel-in-progress: false
 jobs:
   orchestrate:
-    if: github.event_name == 'workflow_dispatch' || vars.CLOUD_ENABLED == 'true'
+    if: github.event_name == 'workflow_dispatch' || vars.CLOUD_ENABLED == 'true' || vars.CLOUD_RESEARCH_ENABLED == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
@@ -44,15 +44,16 @@ jobs:
           PRIVATE=$(gh api "repos/$GITHUB_REPOSITORY" --jq '.private')
           test "$PRIVATE" = 'true'
           echo "DESTINATION_PRIVATE=$PRIVATE" >> "$GITHUB_ENV"
-      - name: Run one coordinated writer
+      - name: Run one coordinated operation
         env:
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
           MIGRATION_BACKUP_KEY: ${{ secrets.MIGRATION_BACKUP_KEY }}
           CLOUD_ENABLED: ${{ vars.CLOUD_ENABLED }}
+          CLOUD_RESEARCH_ENABLED: ${{ vars.CLOUD_RESEARCH_ENABLED }}
           CLOUD_GITHUB_TOKEN: ${{ github.token }}
           ORIGINATING_CRON: ${{ github.event.schedule }}
           REQUESTED_LANE: ${{ inputs.lane || 'all' }}
-          REQUESTED_MODE: ${{ inputs.mode || 'live' }}
+          REQUESTED_MODE: ${{ inputs.mode || (vars.CLOUD_ENABLED == 'true' && 'live' || 'research-only') }}
         run: python -m cloud.orchestrator --cron "$ORIGINATING_CRON" --lane "$REQUESTED_LANE" --mode "$REQUESTED_MODE" --reconcile
       - name: Private aggregate run evidence
         if: always()

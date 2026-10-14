@@ -9,7 +9,7 @@ import sys
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from cloud.migration import SCHEMA, export_history, merge_history, reconcile_records
+from cloud.migration import SCHEMA, combine_exports, export_history, merge_history, reconcile_records
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -41,7 +41,11 @@ def main(argv=None, *, store=None, private_verifier=None):
     p.add_argument("--merge-notion-events", type=Path)
     p.add_argument("--write", action="store_true")
     p.add_argument("--private-destination-verified", action="store_true")
+    p.add_argument("--offset", type=int, default=0)
+    p.add_argument("--limit", type=int)
     args = p.parse_args(argv)
+    if args.offset < 0 or args.limit is not None and args.limit < 1:
+        p.error("Invalid bounded import range")
     if args.journal:
         if not args.output:
             p.error("--output in an ignored private directory is required")
@@ -75,6 +79,13 @@ def main(argv=None, *, store=None, private_verifier=None):
             return 0
         if export.get("blocked") and args.write:
             p.error("Source conflicts must be reconciled before import")
+        records = export['records']
+        if args.offset or args.limit is not None:
+            # Validate all identities before slicing; collisions cannot hide in
+            # another chunk. Stable order permits audited, bounded continuation.
+            records = combine_exports([export])['records']
+        total = len(records)
+        records = records[args.offset:args.offset + args.limit if args.limit is not None else None]
         # Import late so source export works without cloud credentials/dependencies.
         from cloud.notion import NotionStore
         if store is None and not os.environ.get("NOTION_TOKEN"):
@@ -88,13 +99,19 @@ def main(argv=None, *, store=None, private_verifier=None):
                 if not private_verified:
                     print(json.dumps({"status": "blocked", "reason": "github_private_destination_unverified"}))
                     return 2
-            report = reconcile_records(export["records"], store, dry_run=not args.write,
+            report = reconcile_records(records, store, dry_run=not args.write,
                                        private_destination=private_verified)
         except Exception as error:
-            print(json.dumps({"status": "blocked", "reason": "history_reconciliation_failed",
-                              "error_type": type(error).__name__}))
+            from cloud.notion import AmbiguousWriteError, NotionAPIError
+            failure = {"status": "blocked", "reason": "history_reconciliation_failed",
+                       "error_type": type(error).__name__}
+            if isinstance(error, (NotionAPIError, AmbiguousWriteError)):
+                failure['notion'] = error.diagnostics()
+            print(json.dumps(failure))
             return 2
-        print(json.dumps({k: v for k, v in report.items() if k != "results"}, sort_keys=True))
+        print(json.dumps({**{k: v for k, v in report.items() if k != "results"},
+                          'offset': args.offset, 'processed_records': len(report['results']),
+                          'total_records': total, 'next_offset': min(total, args.offset + len(records))}, sort_keys=True))
         if report["conflicted"] or report["blocked"]:
             return 2
     else:

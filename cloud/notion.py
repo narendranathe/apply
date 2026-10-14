@@ -13,7 +13,7 @@ import os
 import random
 import time
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote
+from urllib.parse import quote, quote_from_bytes, unquote_to_bytes
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from .records import canonical_json, content_hash, display_title, make_record, validate_record
@@ -34,7 +34,9 @@ API_ERROR_CODES = frozenset({
     "database_connection_unavailable", "gateway_timeout", "service_overload",
 })
 OPERATIONS = frozenset({"retrieve_data_source", "query_data_source", "list_block_children",
-                        "retrieve_page_property", "create_page", "notion_request"})
+                        "retrieve_page_property", "create_page", "notion_request",
+                        "decode_cloud_envelope", "verify_cloud_properties", "verify_cloud_body",
+                        "verify_create_readback"})
 
 
 def _safe_status(status):
@@ -62,11 +64,27 @@ class NotionError(RuntimeError):
 
 
 class ConflictError(NotionError):
-    pass
+    def __init__(self, message, *, operation='notion_request'):
+        super().__init__(message)
+        self.operation = operation
+
+    def diagnostics(self):
+        return {'http_status': None, 'error_code': 'unknown',
+                'operation': self.operation if self.operation in OPERATIONS else 'notion_request'}
 
 
 class AmbiguousWriteError(NotionError):
     """A write may have succeeded. Persist an exception and reconcile first."""
+    def __init__(self, message, *, diagnostics=None):
+        super().__init__(message)
+        self._diagnostics = diagnostics
+
+    def diagnostics(self):
+        value = self._diagnostics if isinstance(self._diagnostics, dict) else {}
+        code, operation = value.get('error_code'), value.get('operation')
+        return {'http_status': _safe_status(value.get('http_status')),
+                'error_code': code if isinstance(code, str) and code in API_ERROR_CODES else 'unknown',
+                'operation': operation if isinstance(operation, str) and operation in OPERATIONS else 'notion_request'}
 
 
 class PaginationError(NotionError):
@@ -116,6 +134,44 @@ def _rich_text(text: str) -> list[dict]:
     return [{"type": "text", "text": {"content": chunk}} for chunk in chunks]
 
 
+def _owned_rich_text(items: list[dict]) -> list[dict]:
+    """Canonical text segmentation retains formatting, links, and other values.
+
+    Notion may join adjacent text items on read. Rebuild identical runs with
+    the original 2000-character write chunks so stored managed hashes remain
+    valid without changing the page or accepting a meaningful edit.
+    """
+    result, metadata, content = [], None, []
+
+    def flush():
+        if metadata is not None:
+            text = "".join(content)
+            for chunk in [text[i:i + 2000] for i in range(0, len(text), 2000)] or [""]:
+                result.append({**metadata, "text": {**metadata["text"], "content": chunk}})
+
+    for item in items:
+        owned = {k: v for k, v in item.items() if k not in {"plain_text", "href"}}
+        if owned.get("annotations") == {"bold": False, "italic": False, "strikethrough": False,
+                                        "underline": False, "code": False, "color": "default"}:
+            owned.pop("annotations")
+        if isinstance(owned.get("text"), dict):
+            owned["text"] = dict(owned["text"])
+            if owned["text"].get("link") is None:
+                owned["text"].pop("link", None)
+        if owned.get("type") == "text" and isinstance(owned.get("text", {}).get("content"), str):
+            value = owned["text"].pop("content")
+            if owned != metadata:
+                flush()
+                metadata, content = owned, []
+            content.append(value)
+        else:
+            flush()
+            metadata, content = None, []
+            result.append(owned)
+    flush()
+    return result
+
+
 def _owned_body(blocks: list[dict]) -> list[dict]:
     """Stable block projection excludes server IDs/timestamps, retains content."""
     result = []
@@ -124,14 +180,7 @@ def _owned_body(blocks: list[dict]) -> list[dict]:
         body = dict(block.get(kind, {}))
         for key in ("rich_text", "caption"):
             if key in body:
-                body[key] = [{k: v for k, v in item.items() if k not in {"plain_text", "href"}}
-                             for item in body[key]]
-                for item in body[key]:
-                    if item.get("annotations") == {"bold": False, "italic": False, "strikethrough": False,
-                                                    "underline": False, "code": False, "color": "default"}:
-                        item.pop("annotations")
-                    if item.get("text", {}).get("link") is None:
-                        item.get("text", {}).pop("link", None)
+                body[key] = _owned_rich_text(body[key])
         if body.get("color") == "default":
             body.pop("color")
         if kind == "code" and body.get("caption") == []:
@@ -216,7 +265,8 @@ class NotionStore:
             except NotionAPIError as exc:
                 exc.operation = operation
                 if write and exc.status >= 500 and exc.status != 529:
-                    raise AmbiguousWriteError("Notion write outcome is uncertain; reconcile the record ID before retry") from None
+                    raise AmbiguousWriteError("Notion write outcome is uncertain; reconcile the record ID before retry",
+                                              diagnostics=exc.diagnostics()) from None
                 retryable = ((exc.status in {429, 529} and exc.rate_limit_reason != "public_api_request_blocked")
                              or not write and exc.status in {500, 502, 503, 504})
                 if not retryable or attempt == self.max_attempts - 1:
@@ -289,15 +339,15 @@ class NotionStore:
         try:
             record = validate_record(json.loads(_text(props.get("Cloud Envelope"))))
         except (ValueError, TypeError, KeyError):
-            raise ConflictError("Cloud envelope is malformed or has a payload hash mismatch") from None
+            raise ConflictError("Cloud envelope is malformed or has a payload hash mismatch", operation='decode_cloud_envelope') from None
         expected = {"Cloud ID": record["id"], "Cloud Kind": record["kind"], "Cloud Hash": record["hash"],
                     "Cloud Status": record["status"], "Section": "Cloud", "Type": "Reference", "Status": "Done",
                     "Name": display_title(record)}
         if any(_text(props.get(k)) != v for k, v in expected.items()):
-            raise ConflictError("Cloud machine-owned properties were manually edited")
+            raise ConflictError("Cloud machine-owned properties were manually edited", operation='verify_cloud_properties')
         blocks = self._blocks(page["id"])
         if _text(props.get("Cloud Managed Hash")) != _managed_hash(props, blocks):
-            raise ConflictError("Cloud body or machine-owned properties were manually edited")
+            raise ConflictError("Cloud body or machine-owned properties were manually edited", operation='verify_cloud_body')
         record["notion_page_id"] = page["id"]
         record["notion_url"] = page.get("url", "")
         return record
@@ -309,7 +359,10 @@ class NotionStore:
         for name, prop in list(props.items()):
             kind = prop.get("type")
             if prop.get("id") and kind in {"rich_text", "title", "relation", "people"} and (prop.get("has_more") or len(prop.get(kind, [])) >= 25):
-                items = self._paginate("GET", "/pages/" + page["id"] + "/properties/" + quote(prop["id"], safe=""))
+                # API IDs are already URL encoded. Canonicalize once, also
+                # accepting raw IDs, without encoding their percent signs twice.
+                property_id = quote_from_bytes(unquote_to_bytes(prop["id"]), safe="")
+                items = self._paginate("GET", "/pages/" + page["id"] + "/properties/" + property_id)
                 if any(item.get("type") != kind for item in items):
                     raise ConflictError("Notion page property has incompatible paginated items")
                 props[name] = dict(prop, **{kind: [item[kind] for item in items]}, has_more=False)
@@ -464,7 +517,79 @@ class NotionStore:
                 records.append(record)
         return records
 
+    def latest_index_manifest(self) -> dict | None:
+        """One server-sorted manifest read; never download every past index.
+
+        Both independent identity projections are searched. A malformed newest
+        candidate blocks the read instead of silently falling back to stale state.
+        """
+        fragment = canonical_json({'kind': 'index_manifests'})[1:-1]
+        response = self._request('POST', '/data_sources/' + self.data_source_id + '/query', {
+            'filter': {'or': [
+                {'property': 'Cloud Kind', 'rich_text': {'equals': 'index_manifests'}},
+                {'property': 'Cloud Envelope', 'rich_text': {'contains': fragment}},
+                *({'and': [{'property': 'Section', 'select': {'equals': 'Cloud'}},
+                           {'property': field, 'rich_text': {'is_empty': True}}]}
+                  for field in ('Cloud ID', 'Cloud Kind', 'Cloud Envelope'))]},
+            'sorts': [{'timestamp': 'created_time', 'direction': 'descending'}], 'page_size': 1})
+        if (response.get('request_status', {}).get('type') == 'incomplete'
+                or not isinstance(response.get('results'), list)
+                or not isinstance(response.get('has_more'), bool)):
+            raise PaginationError('Index lookup is incomplete')
+        results = response['results']
+        if not results:
+            return None
+        if len(results) != 1:
+            raise ConflictError('Index lookup returned an invalid bounded result')
+        candidate = self._decode_cloud(results[0])
+        if candidate['kind'] != 'index_manifests':
+            raise ConflictError('Index candidate identity is inconsistent')
+        # A second independent exact search verifies uniqueness of this manifest.
+        verified = self.get(candidate['id'])
+        if not verified or any(verified[k] != candidate[k] for k in CORE_KEYS):
+            raise ConflictError('Index manifest readback is inconsistent')
+        return verified
+
+    def index_source_records(self) -> list[dict]:
+        """Fresh authoritative sources, excluding old generated index versions.
+
+        Independent property/envelope paths retain corruption detection. Flatten
+        into OR-of-ANDs to respect Notion's two compound-level limit. Generated
+        task snapshots are excluded only when both kind and schema agree.
+        """
+        generated = ('entity_projections', 'index_manifests', 'index_changes')
+        not_kind = [{'property': 'Cloud Kind', 'rich_text': {'does_not_equal': kind}} for kind in generated]
+        not_envelope = [{'property': 'Cloud Envelope', 'rich_text': {
+            'does_not_contain': canonical_json({'kind': kind})[1:-1]}} for kind in generated]
+        managed = [{'property': 'Section', 'select': {'equals': 'Cloud'}},
+                   {'property': 'Cloud ID', 'rich_text': {'is_not_empty': True}},
+                   {'property': 'Cloud Envelope', 'rich_text': {'is_not_empty': True}}]
+        original_task = [
+            {'property': 'Cloud Kind', 'rich_text': {'does_not_equal': 'agent_tasks'}},
+            {'property': 'Cloud Envelope', 'rich_text': {
+                'does_not_contain': canonical_json({'schema': 'agent-index/v1'})[1:-1]}}]
+        branches = [{'and': [identity, *exclusions, task]} for identity in managed
+                    for exclusions in (not_kind, not_envelope) for task in original_task]
+        branches += [{'and': [managed[0], {'property': field, 'rich_text': {'is_empty': True}}]}
+                     for field in ('Cloud ID', 'Cloud Kind', 'Cloud Envelope')]
+        pages = self._pages({'or': branches})
+        records, seen = [], set()
+        for page in pages:
+            row = self._decode_cloud(page)
+            if row['id'] in seen:
+                raise ConflictError('Duplicate source identity in index query')
+            seen.add(row['id'])
+            if row['kind'] in generated or (row['kind'] == 'agent_tasks' and row['payload'].get('schema') == 'agent-index/v1'):
+                continue
+            records.append(row)
+        return records
+
     def put(self, record: dict) -> dict:
+        """Return a fully verified existing row or exact post-create readback.
+
+        A successful return covers the immutable envelope, machine properties,
+        and managed body. Uncertain writes/readbacks raise instead of returning.
+        """
         record = validate_record(record)
         record_id = record["id"]
         self.preflight()  # Fresh schema and exact-identity read before every write.
@@ -501,9 +626,19 @@ class NotionStore:
             raise
         try:
             readback = self.get(record_id)
-        except NotionError:
-            raise AmbiguousWriteError("Write readback failed; reconcile before any replay") from None
+            # A successful create can precede data-source query visibility.
+            # Only an absent result is polled, while the ID stays quarantined.
+            # No creation retry, conflict retry, or inferred success is allowed.
+            for delay in (1, 2, 4):
+                if readback is not None:
+                    break
+                self.sleeper(delay)
+                readback = self.get(record_id)
+        except NotionError as error:
+            safe = error.diagnostics() if isinstance(error, (NotionAPIError, AmbiguousWriteError, ConflictError)) else None
+            raise AmbiguousWriteError("Write readback failed; reconcile before any replay", diagnostics=safe) from None
         if not readback or any(readback[k] != record[k] for k in CORE_KEYS):
-            raise AmbiguousWriteError("Write did not read back exactly; reconcile before any replay")
+            raise AmbiguousWriteError("Write did not read back exactly; reconcile before any replay",
+                                      diagnostics={'operation': 'verify_create_readback'})
         self._uncertain.discard(record_id)
         return readback
