@@ -1,0 +1,89 @@
+% Google - Analytics Engineer, Austin, TX (LinkedIn 4477916471)
+% Tailored variant of master. Arc F primary (promoted for analytics engineering) + Arc F page 2.
+% Thesis: six years split evenly between owning business outcomes and engineering the systems
+% behind them; turns business questions into trusted data products.
+% Mode: 2-page. Gate: PASS with flags (see changelog.md). Titles HR-verifiable, never adjusted.
+\documentclass[letterpaper,10pt]{article}
+\input{v8preamble}
+\begin{document}
+\resumeheader\multipage
+\summary{\textbf{Analytics Engineer} who turns business questions into trusted data products: six years split evenly between owning business outcomes and engineering the systems behind them. Fabric semantic layer with self-serve analytics, SSIS and CDC pipelines across 400 databases and 70 TB, AI/ML integrated into the reporting stack. Brings modeling discipline and stakeholder translation to cloud analytics.}
+
+\section{Technical Skills}
+\skillrow{Analytics Engineering}{SQL, T-SQL, dbt-style transformation governance, data modeling, semantic models, metric definitions, data validation}
+\skillrow{BI \& Visualization}{Power BI, Tableau, Microsoft Fabric, dashboards, self-serve analytics, stakeholder requirements}
+\skillrow{Data Pipelines}{SSIS, ETL, CDC, Kafka, Spark Structured Streaming, Delta Lake, idempotent pipelines, GitHub}
+\skillrow{Python \& AI}{Python, FastAPI, PyTorch, MLflow, LightGBM, LLM APIs, retrieval-augmented generation (RAG), pgvector}
+
+\section{Experience}
+\roleheader{Data Engineer}{ExponentHR}{July 2024 - Present}{Dallas, TX}
+\rolecontext{Payroll platform: 400 databases, 70 TB, 10 servers, 15-minute refresh. Owns ingestion, releases, recovery, and AI layer on top.}
+\begin{itemize}
+\item Migrated reporting onto Microsoft Fabric semantic models with natural-language-to-SQL access, making ad-hoc analysis \textbf{self-serve}: query time from 12 seconds to under 4, tickets down 40 percent, worth \$243K a year in analyst capacity.
+\item Reengineered CDC (change-data-capture) ETL from full-table reloads to idempotent incremental merge-upserts in \textbf{SQL}, cutting pipeline runtime from 30 minutes to under 8 minutes and compute cost 67 percent, with failed runs rerunning clean.
+\item Surfaced SSIS execution history in SQL for IT and business visibility, with control-table-driven validation that turns silent data drift into an alertable failure, enforcing \textbf{data integrity} standards so metrics ship on time and accurately.
+\item Compressed release cycles from 3 months to \textbf{14 days} by owning CI/CD through Azure DevOps, aligning dev, test, IT, and business stakeholders on shared Scrum priorities and removing about 11 weeks of idle handoff time from every release.
+\item Built a business-context harness for the team's \textbf{AI} coding agents, mapping table relationships and row meaning from schema metadata plus hand-written business annotations, so agents write correct SQL joins and diagnose defects faster.
+\item Automated Git and Azure DevOps API workflows in \textbf{Python} for real-time delivery visibility, saving the team 15-plus hours every sprint, about 390 hours or \$23K a year, and eliminating manual status reporting.
+\item Shipped proactive monitoring and self-healing recovery for SQL Agent jobs across three failure modes (missed, stuck, silent), closing a detection gap before CDC log retention could make a failure unrecoverable and protecting delivery \textbf{SLAs}.
+\item Hardened the database copy-and-restore pipeline into a fully idempotent process, closing four latent failure modes including orphaned CDC cleanup jobs and replication races, freeing 5,000 engineering hours a year worth about \textbf{\$300K}.
+\end{itemize}
+
+\roleheader{Data Engineer}{Missouri S\&T}{Aug. 2023 - July 2024}{Rolla, MO}
+\rolecontext{Research and platform infrastructure: anomaly-detection pipelines, alert tuning, and the Kubernetes migration.}
+\begin{itemize}
+\item Delivered Azure AI Anomaly Detector pipelines that select an algorithm per time-series profile, reaching \textbf{95 percent} accuracy and catching a production memory leak 4 hours before it would have caused an outage.
+\item Coauthored a peer-reviewed NLP study comparing VADER (lexicon-based) and RoBERTa (transformer-based) sentiment analysis on museum reviews, validating machine-labeled sentiment against visitor ratings; published 2025.
+\item Optimized anomaly-detection hosting by migrating from static VMs to AKS (Azure Kubernetes Service) with pod autoscaling, consolidating 20 nodes to 4-8 and lifting CPU use from 12 to 64 percent, cutting spend \textbf{\$3,200} a month.
+\end{itemize}
+
+\roleheader{Product Intern}{C2FO}{June 2023 - Aug. 2023}{Kansas City, KS}
+\rolecontext{B2B fintech working-capital platform: SQL product analytics and requirement definition for a preferred-offers tool.}
+\begin{itemize}
+\item Traced offer-acceptance drops with SQL-driven behavior analysis, turning findings into product decisions with the owning team.
+\item Standardized requirements for a preferred-offers tool in product requirement documents built from stakeholder interviews across product and operations, cutting resource-allocation time for the feature roughly in half.
+\end{itemize}
+
+\roleheader{Business Intelligence Analyst}{Udaan}{Sept. 2020 - Mar. 2021}{Nashik, India}
+\rolecontext{Business intelligence for a new-city B2B marketplace launch: demand forecasting, GMV tracking, and category penetration.}
+\begin{itemize}
+\item Delivered 400 percentage points of city GMV growth to Rs. 5 Cr a month for a new-city B2B launch, matching the incumbent competitor, with Rs. 3.9 Cr in December at 1.3x month-on-month three months after launch.
+\item Built demand-forecasting and inventory models in Power BI, with Excel macros for daily inventory reporting and Data Studio for market-penetration planning, lifting ROI 7 percent for the launch city in the launch quarter.
+\item Shipped a business continuity plan that kept delivery cycles running through application downtime, then root-caused recurring value-chain failures and rewrote the process flows behind them, cutting vendor onboarding time and stock-outs.
+\end{itemize}
+
+\roleheader{Business Analyst}{Zomato}{Mar. 2018 - Sept. 2020}{Hyderabad, India}
+\rolecontext{Marketplace analytics across South India: competitive intelligence, search relevance, and a 300-restaurant partner portfolio.}
+\begin{itemize}
+\item Grew portfolio unit economics from minus 18 to plus 2 rupees per order across a 300-restaurant portfolio by rebalancing discount sharing against advertising revenue mix, moving the portfolio from loss-making to profitable.
+\item Automated real-time competitor tracking across pricing, delivery times, and coverage, setting the refresh cadence so pricing decisions ran on current signals and contributing to a \textbf{9 percent} share gain.
+\item Owned contextual search signals (time, location, cuisine affinity) feeding ranking across millions of daily queries, evaluating signal quality to lift search-to-conversion; analyst scope, never model training.
+\item Delivered 200 percent campaign revenue growth with funnel instrumentation and A/B tests on discount strategy, reallocating spend to what converted; Tableau dashboards tracked menu-to-cart and cart-to-order conversion.
+\end{itemize}
+
+\section{Projects}
+\projheader{JobScout}{Python, SQLite, GitHub Actions, TF-IDF}{2025}
+\begin{itemize}
+\item Monitors 109 career pages with TF-IDF matching against 95+ resume variants, sending Discord and Telegram alerts on new matches; zero-cost GitHub Actions architecture on SQLite WAL, with self-healing circuit breakers isolating failing scrapers.
+\end{itemize}
+\projheader{AutoApply AI}{Chrome MV3, FastAPI, pgvector, React}{2026}
+\begin{itemize}
+\item Shipped a Chrome extension plus FastAPI backend automating job discovery through application tracking, with a six-provider LLM routing cascade and \textbf{pgvector} vector-database retrieval grounding answers in prior work history.
+\item Delivered 11 ATS adapters handling shadow-DOM isolation and offline queuing across 40+ endpoints and a nine-page dashboard, backed by 355 backend tests; private deployment, public launch gated on security fixes.
+\end{itemize}
+\projheader{Real-Time Fraud Detection}{Kafka, LightGBM, MLflow, FastAPI, Docker}{2026}
+\begin{itemize}
+\item Scores Kafka-streamed events (100+ TPS producer) in FastAPI with an MLflow-tracked LightGBM classifier; idempotent writes make replays no-ops, with Prometheus and Grafana observability and per-request P99 latency of \textbf{1.12 ms}.
+\item Trained and evaluated on 100K synthetic transactions at a 2 percent fraud rate, containerized end to end; synthetic data by design, with production-shaped streaming, serving, and experiment tracking throughout.
+\end{itemize}
+\projheader{FinTune}{Mistral-7B, QLoRA, FastAPI, PyTorch}{2026}
+\begin{itemize}
+\item Built financial-sentiment fine-tuning on Mistral-7B with QLoRA (parameter-efficient fine-tuning), serving it behind FastAPI with pre-inference \textbf{PII guardrails} and KL-divergence drift monitoring on outputs.
+\item Hardened serving with a three-state circuit breaker that reloads the model, sheds batch size under memory pressure, or falls back to a quantized model; 35+ tests cover data, model, guardrails, serving, and recovery.
+\end{itemize}
+
+\section{Education \& Certifications}
+\eduline{\textbf{Missouri S\&T} - MS Information Science and Technology, GPA 4.0 \hfill Jan. 2022 - Dec. 2023}
+\eduline{\textbf{GVP College of Engineering} - B.Tech Mechanical Engineering \hfill 2017}
+\eduline{DP-700 Microsoft Certified Fabric Data Engineer Associate $|$ CSPO $|$ Publication DOI 10.1080/10495142.2025.2525123}
+\end{document}
