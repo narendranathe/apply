@@ -29,6 +29,7 @@ class RunnerDiagnosticsTests(unittest.TestCase):
         self.assertEqual(result, {
             'status': 'blocked', 'error_type': 'NotionAPIError',
             'reason': 'inspect_private_reconciliation_records',
+            'cloud_operation': 'calculate_research_share',
             'notion': {'http_status': 400, 'error_code': 'validation_error',
                        'operation': 'query_data_source'},
         })

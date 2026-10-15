@@ -57,6 +57,76 @@ def live_store():
 
 
 class ResearchFallbackTests(unittest.TestCase):
+    def test_stage_failures_identify_only_static_operation_without_replacing_exception(self):
+        cases = (
+            ('stage_application_suppression', 'cloud.records.validate_record', 'applications'),
+            ('calculate_research_share', 'cloud.reporting.effective_research_share', 'accepted'),
+            ('run_accepted_outreach', 'cloud.orchestrator.run_outreach', 'accepted'),
+            ('run_first_touch_outreach', 'cloud.orchestrator.run_outreach', 'first_touch'),
+            ('discover_jobs', 'cloud.discovery.run_discovery', 'first_touch'),
+            ('run_applications', 'cloud.applications.run_applications', 'applications'),
+            ('report_run', 'cloud.reporting.run_reporting', 'accepted'),
+            ('publish_agent_index', 'cloud.orchestrator._publish_agent_index', 'accepted'),
+        )
+        for operation, target, lane in cases:
+            with self.subTest(operation=operation), ExitStack() as stack:
+                self.pipeline(stack)
+                error = ValueError('private-contact message-and-token /private/source/path')
+                error._cloud_operation = 'forged-private-operation'
+                probe = stack.enter_context(patch(target, side_effect=error))
+                config = research_config()
+                if operation == 'stage_application_suppression':
+                    config['_suppression_baseline'] = {'records': [record('private-id', 'applications', {})]}
+                base = ReadOnlyStore()
+                with self.assertRaises(ValueError) as caught:
+                    execute(base, config, NOW, requested=lane, mode='research-only')
+                self.assertIs(caught.exception, error)
+                self.assertEqual(_failure_summary(error), {
+                    'status': 'blocked', 'error_type': 'ValueError',
+                    'reason': 'inspect_private_reconciliation_records', 'cloud_operation': operation})
+                self.assertEqual(probe.call_count, 1)
+                self.assertEqual(base.puts, [])
+
+    def test_unknown_or_private_stage_annotations_never_enter_failure_summary(self):
+        for value in ('private-contact-token', {'operation': 'private-message'}, None, 7):
+            with self.subTest(value=value):
+                error = ValueError('private-response-body')
+                error._cloud_operation = value
+                self.assertEqual(_failure_summary(error), {
+                    'status': 'blocked', 'error_type': 'ValueError',
+                    'reason': 'inspect_private_reconciliation_records'})
+
+    def test_main_baseline_and_backup_failures_have_safe_operation_and_notion_schema(self):
+        from cloud.notion import AmbiguousWriteError
+        cases = (
+            ('restore_authenticated_baseline', 'cloud.baseline.restore_baseline'),
+            ('backup_research_artifact', 'cloud.backup.backup_store'),
+        )
+        for operation, target in cases:
+            with self.subTest(operation=operation), tempfile.TemporaryDirectory() as folder, ExitStack() as stack:
+                config_path = Path(folder) / 'config.json'
+                config_path.write_text(json.dumps({'notion_data_source_id': 'synthetic', 'reconcile_lookback_days': 0}))
+                stack.enter_context(patch('sys.argv', ['cloud.orchestrator', '--config', str(config_path),
+                    '--mode', 'research-only', '--output', str(Path(folder) / 'summary.json')]))
+                stack.enter_context(patch.dict('os.environ', {'DESTINATION_PRIVATE': 'true',
+                    'CLOUD_RESEARCH_ENABLED': 'true', 'NOTION_TOKEN': 'synthetic-secret'}, clear=True))
+                stack.enter_context(patch('cloud.notion.NotionStore', return_value=ReadOnlyStore()))
+                stack.enter_context(patch('cloud.baseline.restore_baseline', return_value=({'records': []}, 'a' * 64)))
+                self.pipeline(stack)
+                error = AmbiguousWriteError('private-body-token', diagnostics={
+                    'http_status': 403, 'error_code': 'restricted_resource',
+                    'operation': 'retrieve_page_property', 'body': 'private-message'})
+                probe = stack.enter_context(patch(target, side_effect=error))
+                with self.assertRaises(AmbiguousWriteError) as caught:
+                    main()
+                self.assertIs(caught.exception, error)
+                self.assertEqual(_failure_summary(error), {
+                    'status': 'blocked', 'error_type': 'AmbiguousWriteError',
+                    'reason': 'inspect_private_reconciliation_records', 'cloud_operation': operation,
+                    'notion': {'http_status': 403, 'error_code': 'restricted_resource',
+                               'operation': 'retrieve_page_property'}})
+                self.assertEqual(probe.call_count, 1)
+
     def test_archived_uncertain_applications_suppress_preview_without_base_writes(self):
         import tests.test_applications as fixtures
         from cloud.applications import application_key, digest, run_applications
