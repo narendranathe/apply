@@ -1,9 +1,10 @@
 """Research fallback stages evidence only; live effects retain strict gates."""
-from contextlib import ExitStack, redirect_stdout
+from contextlib import ExitStack, redirect_stderr, redirect_stdout
 from datetime import datetime, timezone
 import io
 import json
 from pathlib import Path
+import runpy
 import tempfile
 import unittest
 from unittest.mock import Mock, patch
@@ -57,6 +58,55 @@ def live_store():
 
 
 class ResearchFallbackTests(unittest.TestCase):
+    def test_private_packet_preview_rejects_base_writer_and_live_mode(self):
+        from cloud.applications import run_applications
+        for store, dry_run in ((ReadOnlyStore(), True), (ShadowStore(), False)):
+            with self.subTest(dry_run=dry_run), patch('cloud.applications.fetch_feed') as feed:
+                with self.assertRaisesRegex(ValueError, 'Private preview packets require a shadow store'):
+                    run_applications(store, {}, dry_run=dry_run, preview_packets=True)
+                feed.assert_not_called()
+                self.assertEqual(store.records, {})
+
+    def test_module_entrypoint_uses_the_same_shadow_store_for_research_packets(self):
+        # Hosted Actions invokes ``python -m cloud.orchestrator``. Importing
+        # execute directly cannot detect a second __main__ class identity.
+        with tempfile.TemporaryDirectory() as folder, ExitStack() as stack:
+            config_path = Path(folder) / 'config.json'
+            output = Path(folder) / 'summary.json'
+            config_path.write_text(json.dumps({'notion_data_source_id': 'synthetic',
+                                              'reconcile_lookback_days': 0}))
+            stack.enter_context(patch('sys.argv', ['cloud.orchestrator', '--config', str(config_path),
+                '--mode', 'research-only', '--lane', 'applications', '--output', str(output)]))
+            stack.enter_context(patch.dict('os.environ', {'DESTINATION_PRIVATE': 'true',
+                'CLOUD_RESEARCH_ENABLED': 'true', 'CLOUD_ENABLED': 'false',
+                'NOTION_TOKEN': 'synthetic-secret'}, clear=True))
+            base = ReadOnlyStore()
+            stack.enter_context(patch('cloud.notion.NotionStore', return_value=base))
+            stack.enter_context(patch('cloud.baseline.restore_baseline', return_value=({'records': []}, 'a' * 64)))
+            stack.enter_context(patch('cloud.reporting.effective_research_share', return_value=.6))
+            stack.enter_context(patch('cloud.reporting.run_reporting', return_value={'counts': {}}))
+            feed = stack.enter_context(patch('cloud.applications.fetch_feed', return_value={
+                'exported_at': datetime.now(timezone.utc).isoformat(), 'jobs': []}))
+            backup = stack.enter_context(patch('cloud.backup.backup_store', return_value={
+                'records': 1, 'sha256': 'a' * 64, 'restore_verified': True,
+                'path': 'run-output/cloud-backup-fixture.aesgcm'}))
+            stdout = io.StringIO()
+            with redirect_stdout(stdout), redirect_stderr(io.StringIO()):
+                namespace = runpy.run_module('cloud.orchestrator', run_name='__main__')
+            self.assertIs(namespace['ShadowStore'], ShadowStore)
+            self.assertIs(namespace['Blocked'], Blocked)
+            self.assertTrue(issubclass(namespace['IndexPreviewStore'], ShadowStore))
+            feed.assert_called_once()
+            self.assertEqual(base.puts, [])
+            summary = json.loads(output.read_text())
+            self.assertTrue(summary['results'][0]['feed_checked'])
+            self.assertEqual(summary['results'][0]['submission_attempts'], 0)
+            self.assertEqual(summary['results'][0]['applied_verified'], 0)
+            self.assertFalse(summary['persistent'])
+            self.assertFalse(summary['research_artifact']['operational_source_of_truth'])
+            self.assertIsInstance(backup.call_args.args[0], ShadowStore)
+            self.assertNotIn('synthetic-secret', stdout.getvalue())
+
     def test_stage_failures_identify_only_static_operation_without_replacing_exception(self):
         cases = (
             ('stage_application_suppression', 'cloud.records.validate_record', 'applications'),

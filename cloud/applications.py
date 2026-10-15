@@ -19,6 +19,7 @@ from scripts.jobscout_feed import candidates, fetch_feed, parse_dt, feed_metadat
 from .preparation import digest, grade_job, prepare_packet
 from .submission import SubmissionBlocked, adapter_for, normalize, permitted, timestamp
 from .notion import NotionError
+from .shadow import ShadowStore
 
 
 STATUSES = {"discovered", "qualified", "prepared", "submission_eligible", "submitting", "applied_verified",
@@ -263,7 +264,6 @@ def run_applications(store, config, dry_run=True, *, feed=None, transport=None, 
     that certifies a fixture resume.
     """
     if preview_packets:
-        from cloud.orchestrator import ShadowStore
         if not dry_run or not isinstance(store, ShadowStore):
             raise ValueError('Private preview packets require a shadow store')
     settings = config.get("applications", config)

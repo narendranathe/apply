@@ -89,6 +89,8 @@ def select_contacts(contacts, observations, lane, limit):
 
 
 def run_outreach(store, config, lane, now, dry_run=True):
+    from cloud.coordination_quarantine import ContactQuarantines
+    quarantines = ContactQuarantines(store.query(kind='exceptions'))
     contacts = store.query(kind='contacts')
     observations = store.current_contact_observations() if hasattr(store, 'current_contact_observations') else []
     source_key = lambda value: str(value or '').replace('-', '').lower()
@@ -118,7 +120,10 @@ def run_outreach(store, config, lane, now, dry_run=True):
                 contact['identity_verified'] = False
                 contact['history_complete'] = False
         company_id = contact.get('company_id')
+        hold = quarantines.hold_for([item])
         blocked = gate(contact, now, lane, len(counts.get(company_id, set())) if known_counts else None)
+        if hold and blocked not in {'suppressed', 'pending', 'ambiguous', 'delivery_unknown'}:
+            blocked = hold['reason']
         if not blocked and contact.get('source_notion_id') and not source:
             blocked = 'fresh_source_unavailable'
         blocked = blocked or (None if proof else 'verified_proof_missing')
@@ -128,6 +133,8 @@ def run_outreach(store, config, lane, now, dry_run=True):
         payload = {'contact_id': item['id'], 'company_id': company_id, 'lane': lane,
                    'observed_at': now.isoformat(), 'inbox': 'not checked', 'blocker': blocked,
                    'action': 'verify_exact_identity_and_history' if blocked else 'human_execute_draft'}
+        if hold:
+            payload['coordination_quarantine'] = hold
         if not blocked:
             name = contact.get('name', '').split(' ')[0]
             if lane == 'first_touch':

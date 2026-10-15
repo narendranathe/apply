@@ -12,6 +12,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Iterable
 
 from .applications import StateConflict, fold_applications, matching_application
+from .coordination_quarantine import ContactQuarantines
 from .records import content_hash, make_record, stable_id, validate_record
 from .reporting import _confirmed, _human_confirmation
 
@@ -287,6 +288,9 @@ def _next_action(projection, latest, now):
     kind, state, payload = projection["entity_type"], projection["state"], latest["payload"]
     if projection["suppression"]["suppressed"]:
         return None
+    if any(reason.startswith("coordination_") for reason in projection["blockers"]):
+        return _task(projection, "reconcile_uncertain_action", "Legacy coordination remains quarantined; no retry is authorized.",
+                     "research_propose", 100, status="blocked")
     if state in {"delivery_unknown", "submission_unknown", "submitting", "needs_reconciliation"}:
         return _task(projection, "reconcile_uncertain_action", "Prior effect is uncertain; retries are blocked.",
                      "research_propose", 100, status="reconciliation")
@@ -346,6 +350,8 @@ def build_index(records: Iterable[dict], now: datetime, previous_manifest: dict 
     """
     if not isinstance(now, datetime) or now.tzinfo is None:
         raise ValueError("Index requires an aware source timestamp")
+    records = list(records)
+    quarantines = ContactQuarantines(records)
     now = now.astimezone(timezone.utc)
     conflicts, sources = [], {}
     for raw in records:
@@ -514,6 +520,13 @@ def build_index(records: Iterable[dict], now: datetime, previous_manifest: dict 
         if suppressed:
             state = "suppressed"
             blockers.append("global_opt_out")
+        hold = None
+        if kind in {"contact", "thread"}:
+            contact_ids = [entity_id] if kind == "contact" else related.get("contact_ids", [])
+            contact_rows = rows + [row for identity in contact_ids for row in groups.get(identity, [])]
+            hold = quarantines.hold_for(contact_rows, contact_ids=contact_ids)
+            if hold:
+                blockers.append(hold["reason"])
         projection = {"schema": SCHEMA, "entity_id": entity_id, "entity_type": kind,
                       "state": state, "current_state": state, "last_verified_action": last_action,
                       "source": _source(payload), "source_record_id": payload.get("derived_from", latest["id"]),
@@ -523,8 +536,8 @@ def build_index(records: Iterable[dict], now: datetime, previous_manifest: dict 
                       "confidence": "verified" if last_action or _live_contact(payload, now) else "unverified",
                       "blockers": sorted(set(blockers)), "related_ids": related,
                       "owner": payload.get("owner") if isinstance(payload.get("owner"), str) else "unassigned",
-                      "suppression": {"suppressed": suppressed, "retry_blocked": state in {"delivery_unknown", "submission_unknown", "submitting", "applied_verified", "pending"}},
-                      "evidence_refs": sorted({row["id"] for row, _ in confirmed} | {last_action["evidence_ref"]} if last_action else {payload.get("derived_from", latest["id"])}),
+                      "suppression": {"suppressed": suppressed, "retry_blocked": bool(hold) or state in {"delivery_unknown", "submission_unknown", "submitting", "applied_verified", "pending"}},
+                      "evidence_refs": sorted(({row["id"] for row, _ in confirmed} | {last_action["evidence_ref"]} if last_action else {payload.get("derived_from", latest["id"])}) | set(hold["evidence_refs"] if hold else [])),
                       "history_ids": [row["id"] for row in ordered[-MAX_HISTORY:]], "history_count": len(ordered),
                       "history_truncated": len(ordered) > MAX_HISTORY,
                       "source_version": content_hash(sorted((row["id"], row["hash"], row["status"]) for row in history.values()))}
