@@ -2,6 +2,7 @@
 import argparse
 import json
 import os
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -14,10 +15,30 @@ CRONS = {'0 6 * * *': 'accepted', '30 6 * * *': 'first_touch'}
 MODES = ('dry-run', 'research-only', 'live')
 RUNTIME_SECONDS = 4500
 RECOVERY_RESERVE_SECONDS = 1200
+# Static stage names only: never derive diagnostics from records, URLs or paths.
+CLOUD_OPERATIONS = frozenset({
+    'restore_authenticated_baseline', 'stage_application_suppression',
+    'calculate_research_share', 'check_application_coverage', 'read_run_state',
+    'stage_run_marker', 'run_accepted_outreach', 'run_first_touch_outreach',
+    'discover_jobs', 'run_applications', 'report_run', 'publish_agent_index',
+    'backup_research_artifact', 'backup_operational_records', 'write_run_summary',
+})
 
 
 class Blocked(RuntimeError):
     pass
+
+
+@contextmanager
+def _cloud_stage(operation):
+    """Annotate the original exception with one fixed stage; never retry a call."""
+    if type(operation) is not str or operation not in CLOUD_OPERATIONS:
+        raise ValueError('invalid_cloud_operation')
+    try:
+        yield
+    except Exception as error:
+        error._cloud_operation = operation
+        raise
 
 
 class ShadowStore:
@@ -107,6 +128,9 @@ def _failure_summary(error):
     from cloud.notion import AmbiguousWriteError, NotionAPIError
     failure = {'status': 'blocked', 'error_type': type(error).__name__,
                'reason': str(error) if isinstance(error, Blocked) else 'inspect_private_reconciliation_records'}
+    operation = getattr(error, '_cloud_operation', None)
+    if type(operation) is str and operation in CLOUD_OPERATIONS:
+        failure['cloud_operation'] = operation
     if isinstance(error, (NotionAPIError, AmbiguousWriteError)):
         failure['notion'] = error.diagnostics()
     return failure
@@ -194,9 +218,10 @@ def execute(store, config, now=None, cron='', requested='all', dry_run=True, rec
         # Historical applications suppress preview preparation before import;
         # an archived observation never grants live execution authority.
         from cloud.records import validate_record
-        for row in config['_suppression_baseline']['records']:
-            if row['kind'] == 'applications':
-                working.put(validate_record(row))
+        with _cloud_stage('stage_application_suppression'):
+            for row in config['_suppression_baseline']['records']:
+                if row['kind'] == 'applications':
+                    working.put(validate_record(row))
     baseline = config.get('_reconciled_export') if not dry_run else None
     if baseline is not None:
         working._reconciled_export = baseline
@@ -205,10 +230,12 @@ def execute(store, config, now=None, cron='', requested='all', dry_run=True, rec
         budget.require_effect_capacity()
         if baseline is not None:
             from cloud.baseline_guard import verify_application_coverage
-            verify_application_coverage(working, baseline)
+            with _cloud_stage('check_application_coverage'):
+                verify_application_coverage(working, baseline)
     from cloud.reporting import effective_research_share
     config = {**config, 'outreach': dict(config.get('outreach', {}))}
-    config['outreach']['research_ai_share'] = effective_research_share(working, config, now)
+    with _cloud_stage('calculate_research_share'):
+        config['outreach']['research_ai_share'] = effective_research_share(working, config, now)
     lanes = selected_lanes(cron, requested)
     # Every production wake checks all due lanes: GitHub can replace a pending run.
     if not dry_run:
@@ -217,45 +244,58 @@ def execute(store, config, now=None, cron='', requested='all', dry_run=True, rec
         reconcile = True
     if baseline is not None and 'applications' in lanes:
         from cloud.baseline_guard import verify_application_coverage
-        verify_application_coverage(working, baseline)  # Before any preparation.
+        with _cloud_stage('check_application_coverage'):
+            verify_application_coverage(working, baseline)  # Before any preparation.
     results = []
     for day, lane, missed in due_slots(now, lanes, config.get('reconcile_lookback_days', 2), reconcile):
         budget.check_request()
         run_id = f'{"research:" if research_only else ""}run:{day}:{lane}'
-        if working.get(run_id + ':completed'):
+        with _cloud_stage('read_run_state'):
+            completed = working.get(run_id + ':completed')
+        if completed:
             results.append({'lane': lane, 'date': day, 'status': 'already_completed'})
             continue
-        if working.get(run_id + ':started'):
+        with _cloud_stage('read_run_state'):
+            started = working.get(run_id + ':started')
+        if started:
             # A crashed run could have external effects. Do not recycle its lease.
             payload = {'run_id': run_id, 'reason': 'unfinished_run_requires_reconciliation', 'retry_external_effects': False}
-            working.put(record(run_id + ':dead_letter', 'audit_events', payload, 'needs_reconciliation'))
+            with _cloud_stage('stage_run_marker'):
+                working.put(record(run_id + ':dead_letter', 'audit_events', payload, 'needs_reconciliation'))
             results.append({'lane': lane, 'date': day, 'status': 'needs_reconciliation'})
             continue
         marker = {'date': day, 'lane': lane, 'actor': 'github-actions', 'dry_run': dry_run,
                   'mode': mode, 'persistent': not dry_run}
-        working.put(record(run_id + ':started', 'agent_runs', marker, 'research_started' if research_only else 'started'))
+        with _cloud_stage('stage_run_marker'):
+            working.put(record(run_id + ':started', 'agent_runs', marker, 'research_started' if research_only else 'started'))
         # Historical gaps create durable skipped slots; never replay old applications/outreach.
         if missed:
             summary = {'lane': lane, 'date': day, 'status': 'missed_research_only', 'external_effects': 0}
         elif lane == 'applications':
             from cloud.applications import run_applications
-            summary = run_applications(working, config, dry_run=dry_run,
-                                       effect_guard=require_effect_capacity if not dry_run else None,
-                                       **({'preview_packets': True} if research_only else {}))
+            with _cloud_stage('run_applications'):
+                summary = run_applications(working, config, dry_run=dry_run,
+                                           effect_guard=require_effect_capacity if not dry_run else None,
+                                           **({'preview_packets': True} if research_only else {}))
         else:
-            summary = run_outreach(working, config.get('outreach', {}), lane, now.astimezone(ZONE), dry_run)
+            with _cloud_stage('run_accepted_outreach' if lane == 'accepted' else 'run_first_touch_outreach'):
+                summary = run_outreach(working, config.get('outreach', {}), lane, now.astimezone(ZONE), dry_run)
             if lane == 'first_touch':
                 from cloud.discovery import run_discovery
-                summary['discovery'] = run_discovery(working, config, now)
+                with _cloud_stage('discover_jobs'):
+                    summary['discovery'] = run_discovery(working, config, now)
         if research_only:
             summary = {**summary, 'mode': mode, 'persistent': False, 'external_effects': 0}
-        working.put(record(run_id + ':completed', 'agent_runs', {**marker, 'summary': summary},
-                           'research_completed' if research_only else 'completed'))
+        with _cloud_stage('stage_run_marker'):
+            working.put(record(run_id + ':completed', 'agent_runs', {**marker, 'summary': summary},
+                               'research_completed' if research_only else 'completed'))
         results.append(summary)
     from cloud.reporting import run_reporting
     budget.check_request()
-    reporting = run_reporting(working, config, now, dry_run=dry_run)
-    index = _publish_agent_index(working, now, dry_run, budget)
+    with _cloud_stage('report_run'):
+        reporting = run_reporting(working, config, now, dry_run=dry_run)
+    with _cloud_stage('publish_agent_index'):
+        index = _publish_agent_index(working, now, dry_run, budget)
     if dry_run and preview_sink is not None:
         preview_sink(list(working.records.values()))
     return {'mode': mode, 'persistent': not dry_run, 'dry_run': dry_run, 'timezone': str(ZONE), 'results': results,
@@ -295,14 +335,16 @@ def main():
     _attach_budget(store, budget)
     if args.mode != 'live':
         from cloud.baseline import restore_baseline
-        config['_suppression_baseline'], _ = restore_baseline()
+        with _cloud_stage('restore_authenticated_baseline'):
+            config['_suppression_baseline'], _ = restore_baseline()
     if args.mode == 'live':
         from cloud.backup import validate_key
         validate_key()
         # Validate activation before a failure witness may append an audit row.
         live_gate(store, config)
         from cloud.baseline import restore_baseline
-        baseline, manifest_hash = restore_baseline()
+        with _cloud_stage('restore_authenticated_baseline'):
+            baseline, manifest_hash = restore_baseline()
         cutover = store.get('deployment:cutover:v2')
         if not cutover or cutover['payload'].get('historical_manifest_sha256') != manifest_hash:
             raise Blocked('authenticated_baseline_differs_from_cutover')
@@ -317,15 +359,18 @@ def main():
         from cloud.backup import backup_store
         staged = ShadowStore()
         staged.records = {row['id']: row for row in preview}
-        result['research_artifact'] = backup_store(staged)
+        with _cloud_stage('backup_research_artifact'):
+            result['research_artifact'] = backup_store(staged)
         result['research_artifact']['operational_source_of_truth'] = False
     if args.mode == 'live':
         from cloud.backup import backup_store
-        result['backup'] = backup_store(store)
+        with _cloud_stage('backup_operational_records'):
+            result['backup'] = backup_store(store)
     output = Path(args.output)
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(result, sort_keys=True, indent=2) + '\n')
-    print(json.dumps(result, sort_keys=True))
+    with _cloud_stage('write_run_summary'):
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(json.dumps(result, sort_keys=True, indent=2) + '\n')
+        print(json.dumps(result, sort_keys=True))
 
 
 if __name__ == '__main__':
