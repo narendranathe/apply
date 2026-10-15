@@ -49,3 +49,9 @@ The original checklist remains the deployment contract. This status records what
 | Fully cloud-hosted while Mac is off | FAIL until hosted Notion validation and the single cutover pass |
 
 See [full migration report](../MIGRATION_REPORT.md) and [cutover runbook](../runbooks/CUTOVER.md) for direct evidence links and exact next actions.
+
+## October 15 superseding checkpoint
+
+The October 12 credential/controller blockers above are resolved: the runner authenticates to Notion, 728 historical records passed fresh exact readback, a complete 986-page source snapshot passed encrypted restore, and the user confirmed Milo is stopped. Additional history and one unverified contact are preserved in append-only pre-cutover archives. These are not a final cutover delta.
+
+Production remains disabled. Final local-state capture, six outstanding coordination claims, desktop writer retirement, a completed populated hosted research validation and actual delivery of the configured 06:00/06:30 Chicago schedules remain readiness gates. No scheduled run had appeared by 08:25 Chicago on October 15. Both desktop schedules remain active. Authorized live LinkedIn access and employer-authorized submission credentials are capability exceptions; history import does not establish either. Follow the current [runbook checkpoint](../runbooks/CUTOVER.md#october-15-preservation-checkpoint), preserving the single-writer and no-uncertain-retry safeguards.

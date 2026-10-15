@@ -1,5 +1,7 @@
 # Cloud migration V2 execution report
 
+**October 15 continuation:** The October 12 narrative below is historical. `NOTION_TOKEN` is now configured and authenticated imports, 728-record fresh readback and a complete 986-page encrypted source snapshot have passed. Milo is stopped by direct user confirmation. Production remains disabled; the research fallback is configured. Current evidence, additional source captures and the unresolved scheduler/cutover gates are maintained in the [cutover runbook](runbooks/CUTOVER.md#october-15-preservation-checkpoint). Do not repeat the old credential request or restart the migration.
+
 As of October 12, 2026, engineering and historical preservation are merged into the private default branch. Workflows are registered, with `CLOUD_ENABLED=false`. Production is disabled. **Fully cloud-hosted while the Mac is off: FAIL**, pending runner credentials, hosted Notion validation and a coordinated cutover. Existing local schedules remain active.
 
 ## Direct links
@@ -52,7 +54,7 @@ Native IANA timezone schedules and winter/summer DST behavior are validated. Ori
 
 [ATS capability details and primary sources](ATS_CAPABILITIES.md) distinguish public job reading from submission permission. No browser profiles, cookies or desktop sessions are migrated. LinkedIn has no automated sending adapter; inbox access is **not checked**, and invitations/messages require human execution absent a specifically permitted integration.
 
-## Remaining direct actions and expenses
+## October 12 remaining actions and expenses (historical)
 
 1. Save a limited-scope Notion integration token as `NOTION_TOKEN` in [Actions secrets](https://github.com/narendranathe/apply/settings/secrets/actions), granting read/insert/update access to the existing Hiring & Outreach database. Do not paste it in chat. Only `MIGRATION_BACKUP_KEY` is currently present.
 2. Identify the controller/cadence behind the new Milo application commits and how to stop that writer at the cutover boundary. Existing working automations stay active until replacements validate.
