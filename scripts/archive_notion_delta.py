@@ -2,12 +2,13 @@
 """Encrypt a fresh Notion snapshot and append history without claiming cutover.
 
 All reads are local. Source contacts, queue rows and bodies are preserved as
-exact archived bytes; only new immutable history and a pre-cutover audit are
-normalized. This tool does not contact Notion or retire/activate any writer.
+exact archived bytes. New contacts remain unverified observations; history
+and pre-cutover audits never activate or retire a writer.
 """
 from __future__ import annotations
 
 import argparse
+from copy import deepcopy
 from datetime import datetime
 import json
 from pathlib import Path
@@ -17,8 +18,10 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from cloud.cutover import CORE, build_source_delta
+from cloud.linkedin_ingestion import _contact_urls
 from cloud.migration import combine_exports
-from cloud.records import content_hash, make_record, validate_record
+from cloud.notion import _text
+from cloud.records import content_hash, make_record, stable_id, validate_record
 from scripts.archive_local_state import json_bytes, read_source, sha, validate_baseline, write_private
 from scripts.encrypted_backup import create_backup
 
@@ -41,6 +44,108 @@ def _private_directories(path):
         current = current.parent
     for directory in reversed(missing):
         directory.mkdir(mode=0o700)
+
+
+def _source_identity(value):
+    if not isinstance(value, str) or not value:
+        return None
+    if re.fullmatch(r"[0-9a-fA-F]{32}|[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}", value):
+        return value.replace("-", "").lower()
+    return value
+
+
+def _contact_aliases(payload):
+    aliases = _contact_urls(payload)
+    properties = payload.get("properties", {})
+    if not isinstance(properties, dict):
+        raise ValueError("Malformed contact source properties")
+    for name in ("Contact Key", "Link", "Profile URL", "LinkedIn URL", "LinkedIn"):
+        value = properties.get(name)
+        if isinstance(value, dict):
+            value = value.get("url") if value.get("type") == "url" else _text(value)
+        aliases |= _contact_urls({"url": value})
+    return aliases
+
+
+def _new_contact_records(source, baseline, reference):
+    contacts = [row for row in baseline["records"] if row["kind"] == "contacts"]
+    known = {_source_identity(row["payload"].get("source_notion_id")) for row in contacts}
+    alias_owners = {}
+    for row in contacts:
+        owner = _source_identity(row["payload"].get("source_notion_id")) or row["id"]
+        for alias in _contact_aliases(row["payload"]):
+            alias_owners.setdefault(alias, set()).add(owner)
+    native = []
+    for entry in source["pages"]:
+        page, blocks = entry["page"], entry["blocks"]
+        props = page["properties"]
+        if _text(props.get("Type")) != "Contact" or _text(props.get("Cloud ID")) or _text(props.get("Cloud Envelope")):
+            continue
+        identity = _source_identity(page["id"])
+        aliases = _contact_aliases({"properties": props})
+        native.append((identity, aliases, page, blocks))
+        for alias in aliases:
+            alias_owners.setdefault(alias, set()).add(identity)
+    result = []
+    for identity, aliases, page, blocks in native:
+        if identity in known:
+            continue  # Existing immutable contacts and suppression stay exact.
+        if len(aliases) > 1 or any(alias_owners[alias] != {identity} for alias in aliases):
+            raise ValueError("New contact profile alias conflicts require reconciliation")
+        props = page["properties"]
+        no_contact = props.get("No Contact", {}).get("checkbox", False)
+        if not isinstance(no_contact, bool):
+            raise ValueError("Malformed contact suppression source")
+        suppressed = no_contact or _text(props.get("Status")) == "Suppressed"
+        record_id = stable_id("contact", identity)
+        payload = {"schema": "apply-unverified-notion-contact/v1", "contact_id": record_id,
+                   "source": "authenticated_notion_snapshot", "source_notion_id": page["id"],
+                   "source_notion_url": page.get("url", ""), "name": _text(props.get("Name")),
+                   "profile_url": next(iter(aliases), ""), "properties": deepcopy(props), "body": deepcopy(blocks),
+                   "observed_at": source["captured_at"], "historical_status": _text(props.get("Status")),
+                   "state": "suppressed" if suppressed else "needs_verification", "suppressed": suppressed,
+                   "no_contact": no_contact,
+                   "identity_verified": False, "history_complete": False, "live_state_verified": False,
+                   "requires_refresh": True, "historical_only": True, "replay_allowed": False,
+                   "provenance": {"source": "authenticated_notion_snapshot", "archive_reference": deepcopy(reference),
+                       "source_last_edited_at": page.get("last_edited_time"),
+                       "source_member_sha256": content_hash({"properties": props, "body": blocks})}}
+        result.append(make_record("contacts", payload, record_id, "Suppressed" if suppressed else "Needs verification"))
+    return result
+
+
+def _prior_source_audit(baseline, current, snapshot_hash, raw_hash):
+    expected_id = "source-pre-cutover-snapshot:" + snapshot_hash
+    candidates = [row for row in baseline["records"] if row["id"] == expected_id or
+                  (row["kind"] == "audit_events" and isinstance(row["payload"], dict)
+                   and row["payload"].get("schema") == "apply-source-cutover-audit/v1"
+                   and row["payload"].get("raw_snapshot_sha256") == snapshot_hash)]
+    if not candidates:
+        return None
+    if len(candidates) != 1:
+        raise ValueError("Conflicting prior source audits")
+    row = candidates[0]
+    payload = row["payload"]
+    if not isinstance(payload, dict):
+        raise ValueError("Conflicting prior source audit")
+    reference = payload.get("archive_reference", {})
+    flags = {"boundary_complete": False, "local_actors_retired": False, "cloud_authoritative": False,
+             "history_reconciliation_pending": True, "external_effects": False,
+             "baseline_history_unchanged": True, "historical_only": True, "replay_allowed": False}
+    same_fields = ("captured_at", "raw_snapshot_sha256", "source_members_sha256", "source_member_hashes", "contact_payloads_replaced")
+    if (row["id"] != expected_id or row["kind"] != "audit_events" or row["status"] != "pre_cutover_capture"
+            or payload.get("schema") != "apply-source-cutover-audit/v1" or payload.get("capture_purpose") != "pre_cutover"
+            or any(payload.get(name) is not value for name, value in flags.items())
+            or any(payload.get(name) != current.get(name) for name in same_fields)
+            or not isinstance(reference, dict) or reference.get("member") != RAW_MEMBER
+            or reference.get("member_sha256") != raw_hash or reference.get("snapshot_sha256") != snapshot_hash
+            or not isinstance(reference.get("archive"), str)
+            or not re.fullmatch(r"migration-archives/[A-Za-z0-9][A-Za-z0-9._-]*\.aesgcm", reference["archive"])
+            or not isinstance(payload.get("source_counts"), dict)
+            or {k: v for k, v in payload.get("source_counts", {}).items() if k != "new_outreach_events"}
+               != {k: v for k, v in current["source_counts"].items() if k != "new_outreach_events"}):
+        raise ValueError("Conflicting prior source audit; recapture without rewriting evidence")
+    return row
 
 
 def capture_notion_delta(*, snapshot_path, baseline_path, baseline_receipt_path,
@@ -84,11 +189,14 @@ def capture_notion_delta(*, snapshot_path, baseline_path, baseline_receipt_path,
     if len(audits) != 1 or audits[0]["payload"].get("schema") != "apply-source-cutover-audit/v1":
         raise ValueError("Expected one source snapshot audit")
     audit = audits[0]
+    prior_audit = _prior_source_audit(baseline, audit["payload"], snapshot_hash, sha(raw))
     payload = {**audit["payload"], "capture_purpose": "pre_cutover", "boundary_complete": False,
                "local_actors_retired": False, "cloud_authoritative": False,
                "history_reconciliation_pending": True, "external_effects": False}
     audit = make_record("audit_events", payload, "source-pre-cutover-snapshot:" + snapshot_hash, "pre_cutover_capture")
-    delta["records"] = [row for row in delta["records"] if row["kind"] != "audit_events"] + [audit]
+    contacts = _new_contact_records(source, baseline, reference)
+    delta["records"] = ([row for row in delta["records"] if row["kind"] != "audit_events"]
+                        + ([] if prior_audit else [audit]) + contacts)
     merged = combine_exports([baseline, delta])
     merged_by_id = {row["id"]: row for row in merged["records"]}
     if any(any(merged_by_id[row["id"]][field] != row[field] for field in CORE) for row in baseline["records"]):
@@ -115,6 +223,7 @@ def capture_notion_delta(*, snapshot_path, baseline_path, baseline_receipt_path,
     receipt.update({"archive": reference["archive"], "normalized_member": NORMALIZED_MEMBER,
                     "canonical_records": len(merged["records"]), "baseline_records": len(baseline["records"]),
                     "delta_records": len(delta["records"]), "new_outreach_events": new_history,
+                    "new_contacts": len(contacts), "source_audit_reused": prior_audit is not None,
                     "snapshot_pages": len(source["pages"]), "snapshot_sha256": snapshot_hash,
                     "raw_snapshot_member_sha256": sha(raw), "baseline_sha256": sha(baseline_body),
                     "historical_manifest_sha256": content_hash(merged), "capture_purpose": "pre_cutover",
@@ -141,7 +250,7 @@ def main():
         baseline_receipt_path=args.baseline_receipt, staging=args.staging, key=args.key,
         output=args.output, private_destination_verified=args.private_destination_verified)
     fields = ("archive_sha256", "archive_bytes", "canonical_records", "baseline_records", "delta_records",
-              "new_outreach_events", "snapshot_pages", "restore_verified", "capture_purpose",
+              "new_outreach_events", "new_contacts", "source_audit_reused", "snapshot_pages", "restore_verified", "capture_purpose",
               "boundary_complete", "local_actors_retired", "cloud_authoritative")
     print(json.dumps({field: receipt[field] for field in fields}, sort_keys=True))
 

@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from cloud.migration import event_record
 from cloud.records import content_hash, make_record
@@ -19,7 +20,7 @@ def fixture(root):
     private = root / ".migration-private"
     private.mkdir(mode=0o700)
     old = event(company="Reviewed immutable source metadata")
-    contact = make_record("contacts", {"source_notion_id": "contact", "suppressed": True}, "contact:old", "suppressed")
+    contact = make_record("contacts", {"source_notion_id": "native-contact", "suppressed": True}, "contact:old", "suppressed")
     baseline = export([event_record(old), contact])
     baseline_body = json_bytes(baseline)
     baseline_path = private / "baseline.json"
@@ -56,7 +57,161 @@ def rewrite_snapshot(kwargs, mutate):
     kwargs["snapshot_path"].write_bytes(json_bytes(value))
 
 
+def add_new_contact(kwargs, *, no_contact=False, status="Accepted"):
+    def append(wrapper):
+        wrapper["snapshot"]["pages"].append({"page": {"id": "new-native-contact",
+            "url": "https://app.notion.com/p/fixture-new-contact", "last_edited_time": "2026-10-14T21:00:00Z",
+            "properties": {"Type": prop("Contact", "select"), "Name": prop("Synthetic candidate", "title"),
+                "Contact Key": prop("https://uk.linkedin.com/in/fixture-new/?trk=public-profile"),
+                "Company": prop("Unverified source label"), "Role Key": prop("Unverified source role"),
+                "Status": prop(status, "select"), "No Contact": prop(no_contact, "checkbox")}},
+            "blocks": [{"type": "paragraph", "has_children": False, "paragraph": {"rich_text": [
+                {"type": "text", "text": {"content": "Synthetic source claim: invitation sent and accepted."}}]}}]})
+    rewrite_snapshot(kwargs, append)
+
+
+def next_capture(kwargs, receipt, *, suffix="next"):
+    return {**kwargs, "baseline_path": kwargs["staging"] / receipt["normalized_member"],
+            "baseline_receipt_path": kwargs["output"].with_suffix(".receipt.json"),
+            "staging": kwargs["staging"].parent / ("capture-" + suffix),
+            "output": kwargs["output"].parent / (suffix + ".aesgcm")}
+
+
 class NotionDeltaArchiveTests(unittest.TestCase):
+    def test_new_contact_is_exact_unverified_source_without_inferred_outcomes(self):
+        from scripts.archive_notion_delta import capture_notion_delta
+        with tempfile.TemporaryDirectory() as folder:
+            kwargs, baseline, _ = fixture(Path(folder))
+            add_new_contact(kwargs)
+            source = json.loads(kwargs["snapshot_path"].read_bytes())["snapshot"]["pages"][-1]
+            receipt = capture_notion_delta(**kwargs)
+            merged = json.loads((kwargs["staging"] / receipt["normalized_member"]).read_bytes())
+            added = [row for row in merged["records"] if row["kind"] == "contacts" and row["id"] != "contact:old"]
+            self.assertEqual(len(added), 1)
+            self.assertEqual(receipt["new_contacts"], 1)
+            row = added[0]
+            payload = row["payload"]
+            self.assertEqual(row["status"], "Needs verification")
+            self.assertEqual(payload["state"], "needs_verification")
+            self.assertEqual(payload["properties"], source["page"]["properties"])
+            self.assertEqual(payload["body"], source["blocks"])
+            self.assertEqual(payload["name"], "Synthetic candidate")
+            self.assertEqual(payload["profile_url"], "https://www.linkedin.com/in/fixture-new")
+            self.assertEqual(payload["source_notion_id"], source["page"]["id"])
+            for flag in ("identity_verified", "history_complete", "live_state_verified"):
+                self.assertIs(payload[flag], False)
+            self.assertTrue(payload["requires_refresh"])
+            self.assertFalse(payload["suppressed"])
+            for field in ("company_id", "role_id", "genuine_reply", "receipt", "confirmation_evidence", "last_touch_at"):
+                self.assertNotIn(field, payload)
+            self.assertEqual(payload["provenance"]["archive_reference"]["archive"], "migration-archives/pre-cutover-notion.aesgcm")
+            for old in baseline["records"]:
+                self.assertIn(old, merged["records"])
+
+    def test_duplicate_profile_alias_in_baseline_or_native_candidates_is_blocked(self):
+        from scripts.archive_notion_delta import capture_notion_delta
+        for mode in ("baseline", "native"):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as folder:
+                kwargs, baseline, _ = fixture(Path(folder))
+                add_new_contact(kwargs)
+                if mode == "baseline":
+                    baseline["records"][1] = make_record("contacts", {**baseline["records"][1]["payload"],
+                        "profile_aliases": ["http://www.linkedin.com/in/fixture-new/#experience"]}, "contact:old", "suppressed")
+                    body = json_bytes(baseline)
+                    kwargs["baseline_path"].write_bytes(body)
+                    old_receipt = json.loads(kwargs["baseline_receipt_path"].read_bytes())
+                    old_receipt["files"][0].update(sha256=sha(body), bytes=len(body))
+                    kwargs["baseline_receipt_path"].write_bytes(json_bytes(old_receipt))
+                else:
+                    rewrite_snapshot(kwargs, lambda w: w["snapshot"]["pages"][-2]["page"]["properties"].update(
+                        {"Type": prop("Contact", "select"), "Contact Key": prop("https://www.linkedin.com/in/fixture-new/")}))
+                with self.assertRaisesRegex(ValueError, "contact.*alias"):
+                    capture_notion_delta(**kwargs)
+                self.assertFalse(kwargs["output"].exists())
+
+    def test_new_suppression_and_old_opt_out_cannot_be_cleared(self):
+        from scripts.archive_notion_delta import capture_notion_delta
+        for no_contact, status in ((True, "Accepted"), (False, "Suppressed")):
+            with self.subTest(no_contact=no_contact, status=status), tempfile.TemporaryDirectory() as folder:
+                kwargs, baseline, _ = fixture(Path(folder))
+                add_new_contact(kwargs, no_contact=no_contact, status=status)
+                rewrite_snapshot(kwargs, lambda w: w["snapshot"]["pages"][2]["page"]["properties"].update(
+                    {"No Contact": prop(False, "checkbox"), "Status": prop("Accepted", "select")}))
+                receipt = capture_notion_delta(**kwargs)
+                merged = json.loads((kwargs["staging"] / receipt["normalized_member"]).read_bytes())
+                contacts = [row for row in merged["records"] if row["kind"] == "contacts"]
+                self.assertIn(baseline["records"][1], contacts)
+                new = next(row for row in contacts if row["id"] != "contact:old")
+                self.assertEqual(new["status"], "Suppressed")
+                self.assertEqual(new["payload"]["state"], "suppressed")
+                self.assertTrue(new["payload"]["suppressed"])
+                self.assertFalse(new["payload"]["identity_verified"])
+
+    def test_same_snapshot_reuses_original_audit_and_never_overwrites_archive(self):
+        from scripts.archive_notion_delta import capture_notion_delta
+        with tempfile.TemporaryDirectory() as folder:
+            kwargs, _, _ = fixture(Path(folder))
+            add_new_contact(kwargs)
+            # The existing archive format preserved raw contacts but did not
+            # normalize new contacts. Its authenticated output is immutable.
+            with patch("scripts.archive_notion_delta._new_contact_records", return_value=[], create=True):
+                first = capture_notion_delta(**kwargs)
+            old_ciphertext = kwargs["output"].read_bytes()
+            old_export = json.loads((kwargs["staging"] / first["normalized_member"]).read_bytes())
+            old_audit = next(row for row in old_export["records"] if row["status"] == "pre_cutover_capture")
+            second_kwargs = next_capture(kwargs, first)
+            second = capture_notion_delta(**second_kwargs)
+            merged = json.loads((second_kwargs["staging"] / second["normalized_member"]).read_bytes())
+            self.assertTrue(second["source_audit_reused"])
+            self.assertEqual(second["new_contacts"], 1)
+            self.assertEqual(second["delta_records"], 1)
+            self.assertEqual(second["new_outreach_events"], 0)
+            self.assertEqual(len(merged["records"]), len(old_export["records"]) + 1)
+            self.assertEqual([row for row in merged["records"] if row["status"] == "pre_cutover_capture"], [old_audit])
+            for old in old_export["records"]:
+                self.assertIn(old, merged["records"])
+            self.assertEqual(kwargs["output"].read_bytes(), old_ciphertext)
+            third_kwargs = next_capture(second_kwargs, second, suffix="third")
+            third = capture_notion_delta(**third_kwargs)
+            self.assertEqual(third["delta_records"], 0)
+            self.assertEqual(third["canonical_records"], second["canonical_records"])
+
+    def test_conflicting_prior_audit_cannot_be_reused_or_rewritten(self):
+        from scripts.archive_notion_delta import capture_notion_delta
+        for mutate in (lambda p: p.update(boundary_complete=True), lambda p: p.update(local_actors_retired=True),
+                       lambda p: p.update(capture_purpose="final"), lambda p: p.update(schema="other"),
+                       lambda p: p["archive_reference"].update(member_sha256="0" * 64),
+                       lambda p: p.update(source_member_hashes={}), lambda p: p.update(source_counts=[])):
+            with self.subTest(mutate=mutate), tempfile.TemporaryDirectory() as folder:
+                kwargs, _, _ = fixture(Path(folder))
+                first = capture_notion_delta(**kwargs)
+                second_kwargs = next_capture(kwargs, first)
+                baseline = json.loads(second_kwargs["baseline_path"].read_bytes())
+                old = next(row for row in baseline["records"] if row["status"] == "pre_cutover_capture")
+                payload = deepcopy(old["payload"])
+                mutate(payload)
+                baseline["records"][baseline["records"].index(old)] = make_record(old["kind"], payload, old["id"], old["status"])
+                body = json_bytes(baseline)
+                second_kwargs["baseline_path"].write_bytes(body)
+                receipt = json.loads(second_kwargs["baseline_receipt_path"].read_bytes())
+                member_id = sha(receipt["normalized_member"].encode())
+                next(row for row in receipt["files"] if row["member_id"] == member_id).update(sha256=sha(body), bytes=len(body))
+                second_kwargs["baseline_receipt_path"].write_bytes(json_bytes(receipt))
+                with self.assertRaisesRegex(ValueError, "prior source audit"):
+                    capture_notion_delta(**second_kwargs)
+                self.assertFalse(second_kwargs["output"].exists())
+
+    def test_same_inner_snapshot_with_changed_raw_bytes_cannot_reuse_audit(self):
+        from scripts.archive_notion_delta import capture_notion_delta
+        with tempfile.TemporaryDirectory() as folder:
+            kwargs, _, _ = fixture(Path(folder))
+            first = capture_notion_delta(**kwargs)
+            second_kwargs = next_capture(kwargs, first)
+            kwargs["snapshot_path"].write_bytes(json_bytes(json.loads(kwargs["snapshot_path"].read_bytes())))
+            with self.assertRaisesRegex(ValueError, "prior source audit"):
+                capture_notion_delta(**second_kwargs)
+            self.assertFalse(second_kwargs["output"].exists())
+
     def test_exact_raw_restore_and_new_history_preserve_every_baseline_core(self):
         from scripts.archive_notion_delta import capture_notion_delta
         with tempfile.TemporaryDirectory() as folder:
