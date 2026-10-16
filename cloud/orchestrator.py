@@ -14,8 +14,8 @@ from cloud.shadow import Blocked, ShadowStore
 ZONE = ZoneInfo('America/Chicago')
 CRONS = {'0 6 * * *': 'accepted', '30 6 * * *': 'first_touch'}
 MODES = ('dry-run', 'research-only', 'live')
-RUNTIME_SECONDS = 4500
-RECOVERY_RESERVE_SECONDS = 1200
+RUNTIME_SECONDS = 7200
+RECOVERY_RESERVE_SECONDS = 1800
 # Static stage names only: never derive diagnostics from records, URLs or paths.
 CLOUD_OPERATIONS = frozenset({
     'restore_authenticated_baseline', 'stage_application_suppression',

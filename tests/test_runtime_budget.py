@@ -6,6 +6,25 @@ from cloud.submission import SubmissionBlocked
 
 
 class RuntimeBudgetTests(unittest.TestCase):
+    def test_production_budget_allows_population_before_receipt_reserve(self):
+        from cloud.orchestrator import RECOVERY_RESERVE_SECONDS, RUNTIME_SECONDS
+
+        for configuration in ((), (RUNTIME_SECONDS, RECOVERY_RESERVE_SECONDS)):
+            with self.subTest(configuration=configuration):
+                now = [0]
+                budget = RuntimeBudget(*configuration, clock=lambda: now[0])
+                now[0] = 5399
+                budget.require_effect_capacity()
+                budget.check_request()
+                now[0] = 5400
+                with self.assertRaises(SubmissionBlocked):
+                    budget.require_effect_capacity()
+                now[0] = 7199
+                budget.check_request()
+                now[0] = 7200
+                with self.assertRaises(BudgetExceeded):
+                    budget.check_request()
+
     def test_expired_budget_prevents_request(self):
         now = [0]
         budget = RuntimeBudget(100, 20, clock=lambda: now[0])
