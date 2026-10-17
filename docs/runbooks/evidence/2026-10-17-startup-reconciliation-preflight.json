@@ -1,0 +1,100 @@
+{
+  "after": {
+    "archive_sha256": "457bc0bd3d2aeb8e3c67c64d338c95ad72438141a0509df1cb21de5778701086",
+    "artifact_id": 12104416528,
+    "artifact_zip_sha256": "84f07a6b598ab53417412a10c46341451e832eef196cc298f795eb38e21b3278",
+    "member_sha256": "8b3cd254c0a66a9301c893a0ce183ec2ecd412dc455931cf37e8954a823aecad",
+    "pages": 1005,
+    "run_id": "39041567449",
+    "state_sha256": "6896966da5eb55978c1b54991623b3a6c349abecbfe561648a9ebd9f1199bc13"
+  },
+  "before": {
+    "archive_sha256": "847fa6f18ce611cc591c0f6c99aaee88342ab7832feda30830ec97b6866c67bc",
+    "artifact_id": 12076048059,
+    "artifact_zip_sha256": "f2eb84e1d9b98e4ec74afa133e1363f0db732c9a42d4fa2c729f146597495ef9",
+    "member_sha256": "a38cf6e9f82296d6688f4a40ea0da060c3939ffe80cc5ce50a925f6017fbe4c1",
+    "pages": 1004,
+    "run_id": "38968157943",
+    "state_sha256": "8400cc62934a3bd67bf115917e8aeaf95cde6deb66f53f94d9076cc539c887ea"
+  },
+  "cloud_enabled_changed": false,
+  "delta": {
+    "added_record_core_sha256": "91485479fab6056818b5a06382ebaa8d54a1c82b3eb316673f3592ebd9a9c1b4",
+    "added_records": [
+      "writer-failure:39039307942"
+    ],
+    "baseline_records": 757,
+    "baseline_unchanged": 757,
+    "historical_manifest_sha256": "505295bb6da160c2ecbb4f846f81a5238a275ffe43b0fea7cf35f443628add8f",
+    "raw_pages_unchanged": 1004,
+    "ready_core_sha256": "ee2712cecffa56250275edb98b9a591027befb95b5e0d8b48f2de538cf644f04"
+  },
+  "historical_manifest_sha256": "505295bb6da160c2ecbb4f846f81a5238a275ffe43b0fea7cf35f443628add8f",
+  "incident": {
+    "diagnostic": {
+      "error_type": "Blocked",
+      "reason": "previous_failed_writer_requires_reconciliation",
+      "status": "blocked"
+    },
+    "failed_job": {
+      "id": 117418898422,
+      "steps_sha256": "9fb587da9f7fe302e9c0496d036ed7de677a470956fea9f72ecd5d273b71d35d"
+    },
+    "failed_run": {
+      "conclusion": "failure",
+      "created_at": "2026-10-17T14:19:07Z",
+      "display_title": "cloud:live:30 6 * * *",
+      "event": "schedule",
+      "head_branch": "main",
+      "head_sha": "e6c6141f9ba1233116d43e7439e191491ca92d78",
+      "id": 39040229897,
+      "path": ".github/workflows/cloud-operations.yml",
+      "run_attempt": 1,
+      "run_started_at": "2026-10-17T14:19:07Z",
+      "status": "completed",
+      "updated_at": "2026-10-17T14:24:32Z"
+    },
+    "log_sha256": "d73914637a9109411752fd0c359de5387b04cdc9b9a85fed3b2dd0075590ca4d",
+    "predecessor": {
+      "evidence": {
+        "jobs": {
+          "filter": "all",
+          "observed_jobs": 0,
+          "pages_checked": [
+            1
+          ],
+          "per_page": 100,
+          "total_count": 0
+        },
+        "jobs_api_url": "https://api.github.com/repos/narendranathe/apply/actions/runs/39039307942/jobs?filter=all&per_page=100&page=1",
+        "run": {
+          "conclusion": "cancelled",
+          "display_title": "cloud:live:all",
+          "event": "workflow_dispatch",
+          "head_branch": "main",
+          "head_sha": "e6c6141f9ba1233116d43e7439e191491ca92d78",
+          "id": 39039307942,
+          "path": ".github/workflows/cloud-operations.yml",
+          "run_attempt": 1,
+          "status": "completed",
+          "updated_at": "2026-10-17T14:19:08Z"
+        },
+        "run_url": "https://github.com/narendranathe/apply/actions/runs/39039307942"
+      },
+      "external_effects_reconciled": true,
+      "github_run_id": "39039307942",
+      "reason": "cancelled_without_allocated_job",
+      "retry_external_effects": false,
+      "schema": "apply-zero-job-writer-resolution/v1"
+    },
+    "source_contract": {
+      ".github/workflows/cloud-operations.yml": "85ee5287db4846e7cb13f94c6436b24ee0dd418fe5e20cbf0e0e709075bc7dd2",
+      "cloud/orchestrator.py": "bd645d245ef6dadb08b3c4dae05a0aa45f9b5875eb01ade4ebc32da16df7b18d",
+      "cloud/runtime_guard.py": "1ba86d90c16ad06a4c6a1ea0049e3c73009fc03f274b117b93ee1ba19c6a6080"
+    }
+  },
+  "notion_writes": 0,
+  "operation": "read_only_startup_reconciliation_preflight",
+  "provider_requests": 0,
+  "verified": true
+}

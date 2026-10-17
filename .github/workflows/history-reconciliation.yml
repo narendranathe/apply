@@ -6,7 +6,7 @@ on:
       mode:
         type: choice
         default: dry-run
-        options: [dry-run, import, inspect, snapshot, verify, readiness, activate]
+        options: [dry-run, import, inspect, snapshot, verify, readiness, activate, reconcile-startup]
       offset:
         type: string
         default: '0'
@@ -64,7 +64,9 @@ jobs:
           IMPORT_LIMIT: ${{ inputs.limit || '100' }}
           CLOUD_ENABLED: ${{ vars.CLOUD_ENABLED }}
         run: |
-          if [ "$IMPORT_MODE" = 'activate' ]; then
+          if [ "$IMPORT_MODE" = 'reconcile-startup' ]; then
+            python scripts/reconcile_startup.py
+          elif [ "$IMPORT_MODE" = 'activate' ]; then
             python scripts/activate_cloud.py
           elif [ "$IMPORT_MODE" = 'inspect' ]; then
             python scripts/inspect_cloud_readback.py .migration-private/restored/combined-historical-records.json
