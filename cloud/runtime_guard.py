@@ -5,7 +5,74 @@ import re
 from urllib.request import Request, urlopen
 
 ZERO_JOB_SCHEMA = 'apply-zero-job-writer-resolution/v1'
+STARTUP_RESOLUTION_SCHEMA = 'apply-pinned-startup-writer-resolution/v1'
 CORE = ('id', 'kind', 'payload', 'status', 'hash')
+STARTUP_RUN_FIELDS = ('id', 'display_title', 'head_sha', 'head_branch', 'status', 'conclusion',
+                      'event', 'run_attempt', 'path', 'updated_at', 'created_at', 'run_started_at')
+
+
+def _startup_resolution_matches(identity, marker, fetch, repository):
+    """Keep an automatic startup clearance bound to its exact original attempt.
+
+    The central reconciler establishes the historical source/log/snapshot
+    proof once. Every subsequent wake independently checks the current run and
+    complete job/step evidence, without replaying that expensive investigation.
+    """
+    from cloud.records import content_hash, validate_record
+    try:
+        canonical = validate_record(marker)
+        payload = canonical['payload']
+        if not (canonical['id'] == 'writer-resolution:' + identity
+                and canonical['kind'] == 'audit_events'
+                and canonical['status'] == 'reconciled_no_business_execution'
+                and payload.get('schema') == STARTUP_RESOLUTION_SCHEMA
+                and payload.get('github_run_id') == identity
+                and payload.get('reason') == 'startup_guard_blocked_before_business_execution'
+                and payload.get('external_effects_reconciled') is True
+                and payload.get('retry_external_effects') is False):
+            return False
+        evidence = payload['evidence']
+        proof, expected_job = evidence['incident']['failed_run'], evidence['incident']['failed_job']
+        if not (isinstance(proof, dict) and set(proof) == set(STARTUP_RUN_FIELDS)
+                and type(proof['id']) is int and str(proof['id']) == identity
+                and proof['status'] == 'completed' and proof['conclusion'] == 'failure'
+                and proof['head_branch'] == 'main' and isinstance(proof['display_title'], str)
+                and proof['display_title'].startswith('cloud:live:')
+                and isinstance(proof['head_sha'], str) and re.fullmatch('[0-9a-f]{40}', proof['head_sha'])
+                and evidence.get('commit') == proof['head_sha']
+                and proof['event'] in {'schedule', 'workflow_dispatch'}
+                and type(proof['run_attempt']) is int and proof['run_attempt'] >= 1
+                and isinstance(proof['path'], str)
+                and proof['path'].partition('@')[0] == '.github/workflows/cloud-operations.yml'
+                and all(isinstance(proof[key], str) and proof[key]
+                        for key in ('updated_at', 'created_at', 'run_started_at'))
+                and evidence.get('run_url') == 'https://github.com/' + repository + '/actions/runs/' + identity
+                and isinstance(expected_job, dict) and set(expected_job) == {'id', 'steps_sha256'}
+                and type(expected_job['id']) is int and expected_job['id'] > 0
+                and isinstance(expected_job['steps_sha256'], str)
+                and re.fullmatch('[0-9a-f]{64}', expected_job['steps_sha256'])):
+            return False
+        run_path = '/actions/runs/' + identity
+        actual = fetch(run_path)
+        if not isinstance(actual, dict) or any(actual.get(key) != value for key, value in proof.items()):
+            return False
+        jobs = fetch(run_path + '/jobs?filter=all&per_page=100&page=1')
+        if not (isinstance(jobs, dict) and type(jobs.get('total_count')) is int
+                and jobs['total_count'] == 1 and isinstance(jobs.get('jobs'), list) and len(jobs['jobs']) == 1
+                and not any(jobs.get(field) for field in
+                            ('_next_page', 'has_more', 'next_cursor', 'incomplete_results'))):
+            return False
+        job = jobs['jobs'][0]
+        if not (isinstance(job, dict) and job.get('id') == expected_job['id']
+                and job.get('name') == 'orchestrate' and job.get('status') == 'completed'
+                and job.get('conclusion') == 'failure' and 'ubuntu-latest' in job.get('labels', [])
+                and 'self-hosted' not in job.get('labels', []) and isinstance(job.get('steps'), list)
+                and content_hash(job['steps']) == expected_job['steps_sha256']):
+            return False
+        after = fetch(run_path)
+        return isinstance(after, dict) and all(after.get(key) == value for key, value in proof.items())
+    except Exception:
+        return False
 
 
 def _zero_job_cancellation(identity, listed, fetch, repository):
@@ -111,6 +178,10 @@ def verify_previous_writers(store, transport=None):
         def resolved(identity):
             marker = store.get('writer-resolution:' + identity)
             payload = marker.get('payload', {}) if marker else {}
+            schema = payload.get('schema')
+            if isinstance(schema, str) and schema.startswith('apply-pinned-startup-writer-resolution/'):
+                return (schema == STARTUP_RESOLUTION_SCHEMA
+                        and _startup_resolution_matches(identity, marker, request_path, repository))
             # A later rerun can allocate jobs under the same GitHub run ID.
             # Automatic zero-job evidence must therefore be rechecked below.
             return bool(payload.get('schema') != ZERO_JOB_SCHEMA

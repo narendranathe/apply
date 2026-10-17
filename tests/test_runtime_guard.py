@@ -9,6 +9,7 @@ from unittest.mock import patch
 from cloud.notion import AmbiguousWriteError
 from cloud.orchestrator import Blocked
 from cloud.outreach import record
+from cloud.records import content_hash
 from cloud.runtime_guard import verify_previous_writers
 
 
@@ -174,6 +175,94 @@ class CancelledWriterTests(unittest.TestCase):
         self.verify(store, github)
         self.assertEqual(store.writes, [])
         self.assertEqual(len(github.calls), 1)
+
+
+class PinnedStartupResolutionTests(unittest.TestCase):
+    verify = CancelledWriterTests.verify
+
+    def fixture(self):
+        failed = {**cancelled(), 'conclusion': 'failure',
+                  'created_at': '2026-10-17T15:20:00Z', 'run_started_at': '2026-10-17T15:21:00Z'}
+        github, store = GitHub([failed]), Store()
+        steps = [{'number': 1, 'name': 'Set up job', 'status': 'completed', 'conclusion': 'success'},
+                 {'number': 7, 'name': 'Run one coordinated operation', 'status': 'completed', 'conclusion': 'failure'}]
+        github.jobs['123'] = {'total_count': 1, 'jobs': [{'id': 777, 'name': 'orchestrate',
+            'status': 'completed', 'conclusion': 'failure', 'labels': ['ubuntu-latest'], 'steps': steps}]}
+        payload = {'schema': 'apply-pinned-startup-writer-resolution/v1', 'github_run_id': '123',
+            'reason': 'startup_guard_blocked_before_business_execution',
+            'external_effects_reconciled': True, 'retry_external_effects': False,
+            'evidence': {'run_url': 'https://github.com/narendranathe/apply/actions/runs/123',
+                'commit': failed['head_sha'], 'incident': {'failed_run': deepcopy(failed),
+                    'failed_job': {'id': 777, 'steps_sha256': content_hash(steps)}}}}
+        store.rows['writer-resolution:123'] = record('writer-resolution:123', 'audit_events', payload,
+                                                    'reconciled_no_business_execution')
+        return github, store
+
+    def assert_fenced(self, github, store):
+        with self.assertRaisesRegex(Blocked, 'previous_failed_writer_requires_reconciliation'):
+            self.verify(store, github)
+        self.assertEqual([row['id'] for row in store.writes], ['writer-failure:123'])
+
+    def test_exact_startup_proof_is_accepted_only_after_fresh_readonly_run_and_job_checks(self):
+        github, store = self.fixture()
+        before = deepcopy(store.rows)
+        self.verify(store, github)
+        self.assertEqual(store.rows, before)
+        self.assertEqual(store.writes, [])
+        self.assertEqual(sum(call.endswith('/actions/runs/123') for call in github.calls), 2)
+        self.assertEqual(sum('/actions/runs/123/jobs?' in call for call in github.calls), 1)
+
+    def test_later_attempt_or_changed_run_metadata_never_inherits_startup_resolution(self):
+        for field, value in (('run_attempt', 2), ('status', 'in_progress'), ('head_sha', 'b' * 40),
+                             ('head_branch', 'other'), ('conclusion', 'cancelled'),
+                             ('path', '.github/workflows/other.yml'), ('updated_at', '2026-10-18T00:00:00Z')):
+            with self.subTest(field=field):
+                github, store = self.fixture()
+                github.actual['123'][field] = value
+                self.assert_fenced(github, store)
+
+    def test_changed_allocated_jobs_steps_or_partial_api_retains_fence(self):
+        for mode in ('new_job', 'wrong_job', 'queued', 'changed_steps', 'partial', 'missing_jobs', 'api_error', 'next_page'):
+            with self.subTest(mode=mode):
+                github, store = self.fixture()
+                jobs = github.jobs['123']
+                if mode == 'new_job':
+                    jobs['total_count'] = 2
+                    jobs['jobs'].append({**deepcopy(jobs['jobs'][0]), 'id': 778})
+                if mode == 'wrong_job': jobs['jobs'][0]['id'] = 778
+                if mode == 'queued': jobs['jobs'][0]['status'] = 'queued'
+                if mode == 'changed_steps': jobs['jobs'][0]['steps'][1]['conclusion'] = 'success'
+                if mode == 'partial': jobs['jobs'] = []
+                if mode == 'missing_jobs': jobs.pop('jobs')
+                if mode == 'api_error': github.jobs['123'] = RuntimeError('Private upstream content')
+                if mode == 'next_page': github.headers = {'Link': '<https://api.github.com/example?page=2>; rel="next"'}
+                self.assert_fenced(github, store)
+
+    def test_absent_or_changing_actual_run_evidence_retains_fence(self):
+        github, store = self.fixture()
+        github.actual['123'] = {}
+        self.assert_fenced(github, store)
+        github, store = self.fixture()
+        github.after_jobs = lambda row: row.update(run_attempt=2)
+        self.assert_fenced(github, store)
+
+    def test_invalid_canonical_audit_scope_or_proof_never_gets_manual_fallback(self):
+        for mode in ('hash', 'identity', 'kind', 'status', 'payload_id', 'reason', 'retry', 'job_digest', 'proof_fields', 'schema'):
+            with self.subTest(mode=mode):
+                github, store = self.fixture()
+                row = store.rows['writer-resolution:123']
+                if mode == 'hash': row['hash'] = '0' * 64
+                if mode == 'identity': row['id'] = 'writer-resolution:other'
+                if mode == 'kind': row['kind'] = 'reports'
+                if mode == 'status': row['status'] = 'unverified'
+                if mode == 'payload_id': row['payload']['github_run_id'] = '124'
+                if mode == 'reason': row['payload']['reason'] = 'manual_override'
+                if mode == 'retry': row['payload']['retry_external_effects'] = True
+                if mode == 'job_digest': row['payload']['evidence']['incident']['failed_job']['steps_sha256'] = '0' * 64
+                if mode == 'proof_fields': row['payload']['evidence']['incident']['failed_run'].pop('run_attempt')
+                if mode == 'schema': row['payload']['schema'] = 'apply-pinned-startup-writer-resolution/v2'
+                if mode != 'hash': row['hash'] = content_hash(row['payload'])
+                self.assert_fenced(github, store)
 
 
 if __name__ == '__main__':
