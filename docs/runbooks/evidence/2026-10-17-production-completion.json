@@ -1,5 +1,11 @@
 {
   "actual_ats_permission_configured": false,
+  "actual_external_evidence": {
+    "all_outreach_core_equal_baseline": true,
+    "attempt_objects": 0,
+    "new_outreach_events": 0,
+    "receipt_objects": 0
+  },
   "actual_live_inbox_access": false,
   "agent_brief": {
     "actual_input_tokens": null,
@@ -59,7 +65,8 @@
   "ready_core_sha256": "ee2712cecffa56250275edb98b9a591027befb95b5e0d8b48f2de538cf644f04",
   "request_budget_seconds": 7200,
   "rerun_external_delta": null,
-  "rerun_status": "pending",
+  "rerun_status": "success",
+  "rerun_url": "https://github.com/narendranathe/apply/actions/runs/39084147465",
   "schema": "apply-production-completion-proof/v1",
   "slot_statuses": {
     "executed": 3,
