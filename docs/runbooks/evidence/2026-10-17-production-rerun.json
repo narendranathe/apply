@@ -1,0 +1,73 @@
+{
+  "actual_external_effects_repeated": 0,
+  "added_record_families": {
+    "agent_tasks": 5,
+    "entity_projections": 5,
+    "funnel_reports": 1,
+    "index_changes": 15,
+    "index_manifests": 1,
+    "sync_cursors": 1
+  },
+  "agent_reader_verified": true,
+  "applied_verified_this_date": 0,
+  "archive_authenticated_here": true,
+  "archive_authentication_external_required": false,
+  "backup_ciphertext_sha256": "eb05e5230fa3be34b01c43c6c5d86f16c56da5e552f90d645eb96f67cd91ae86",
+  "backup_pages": 2071,
+  "commit": "71ead8d5d4d5ca1e443ce1bb455301294627006d",
+  "coordinated_step_seconds": 2733,
+  "date": "2026-10-17",
+  "historical_readback": {
+    "blocked": 0,
+    "conflicted": 0,
+    "families": {
+      "application_packets": 9,
+      "applications": 10,
+      "audit_events": 45,
+      "companies": 75,
+      "contacts": 155,
+      "conversation_observations": 7,
+      "exceptions": 6,
+      "jobs": 18,
+      "notion_observations": 28,
+      "outreach_events": 366,
+      "queue_observations": 38
+    },
+    "records": 757,
+    "unchanged": 757
+  },
+  "hosted_conclusion": "success",
+  "index_complete": true,
+  "index_records_exact": 484,
+  "job_seconds": 2815,
+  "job_timeout_headroom_seconds": 6185,
+  "job_timeout_seconds": 9000,
+  "linkedin_sent": 0,
+  "mac_dependency": false,
+  "native_datasource_schema_unchanged": true,
+  "network_requests": 0,
+  "notion_writes": 0,
+  "operational_completion": true,
+  "persistent_markers": 18,
+  "physical_mac_poweroff_test": false,
+  "previous_logical_source_pages_unchanged": 2043,
+  "prior_run": "https://github.com/narendranathe/apply/actions/runs/39044020158",
+  "production_run": "https://github.com/narendranathe/apply/actions/runs/39084147465",
+  "provider_requests": 0,
+  "request_budget_headroom_seconds": 4467,
+  "request_budget_seconds": 7200,
+  "rerun_external_delta": {
+    "new_attempts": 0,
+    "new_outreach_events": 0,
+    "new_receipts": 0
+  },
+  "schema": "apply-production-rerun-proof/v1",
+  "slot_statuses": {
+    "already_completed": 9
+  },
+  "submission_attempts_reported_this_run": 0,
+  "submission_attempts_this_date": 0,
+  "submission_unknown_this_date": 0,
+  "summary_sha256": "2bf523956c11e47e950a45ea6e2d06a48d53ba4bb9703039ddf5382be86bc905",
+  "verified": true
+}
