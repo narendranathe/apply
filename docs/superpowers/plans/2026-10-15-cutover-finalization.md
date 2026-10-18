@@ -21,7 +21,7 @@
 - [x] Implement final capture using existing stable source/WAL, normalization and authenticated restore primitives. Include full native Notion bytes, both logs, SQLite, actual paused automation configurations, terminal-worker readbacks and direct-user Milo confirmation. Keep ready records outside normalized history.
 - [x] After hosted replacement passes, pause both desktop schedules through the app tool, read back unchanged prompts/configuration and terminal workers, and capture the final source delta. Persist exact quarantine evidence through the sole writer with post-write readback.
 - [x] Deploy the final archive/code through passing CI, import only missing exact records, and run all lanes in research-only mode on the final main commit.
-- [ ] Reconcile the actual unstarted cancellation and subsequent guard-only failure using complete GitHub job metadata, pinned source/log proof, authenticated before/after snapshots and fresh central readback. A failed or interrupted business writer retains its fence.
+- [x] Reconcile the actual unstarted cancellation and subsequent guard-only failure using complete GitHub job metadata, pinned source/log proof, authenticated before/after snapshots and fresh central readback. The central operation 39042791719 and its authenticated 1,006-page backup passed. A failed or interrupted business writer retains its fence.
 - [ ] Run guarded finalization, freshly verify the ready record, then enable production and dispatch on main. Verify persistent completion markers and encrypted recovery; rerun and confirm no repeated external effects.
 - [ ] Record actual schedule delivery and remaining capability exceptions. If a prerequisite fails, preserve the safe scheduled research fallback and report the exact blocker.
 
