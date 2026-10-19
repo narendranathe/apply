@@ -351,6 +351,14 @@ def run_applications(store, config, dry_run=True, *, feed=None, transport=None, 
             if existing and (existing["payload"].get("attempt") or existing["status"] not in {"discovered", "needs_user_fact", "submission_blocked", "qualified", "prepared"}):
                 summary["duplicates"] += 1
                 continue
+            # Verification may reject or temporarily fail before a canonical
+            # job is returned. Keep the fresh dedup match bound to this work
+            # so that rejection records an exception against the known
+            # application instead of recreating it under a feed URL alias.
+            current = existing
+            if existing:
+                application_id = (existing["payload"].get("application_id")
+                                  or existing["payload"].get("dedup_key") or existing["id"])
             employer = _employer(lead, settings)
             adapter = adapter_for(employer, transport)
             job = adapter.verify(lead)
@@ -364,7 +372,9 @@ def run_applications(store, config, dry_run=True, *, feed=None, transport=None, 
                 summary["duplicates"] += 1
                 continue
             key = application_key(job["company"], job["requisition_id"])
-            application_id = existing["payload"].get("application_id") if existing else "application:" + digest(key)
+            application_id = ((existing["payload"].get("application_id")
+                               or existing["payload"].get("dedup_key") or existing["id"])
+                              if existing else "application:" + digest(key))
             current = existing
             base = {"company": job["company"], "role": job["title"], "requisition_id": job["requisition_id"],
                     "posting_id": job["posting_id"], "url": job["url"], "url_aliases": sorted(set(job["aliases"])),
