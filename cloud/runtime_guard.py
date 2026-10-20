@@ -182,6 +182,10 @@ def verify_previous_writers(store, transport=None):
             if isinstance(schema, str) and schema.startswith('apply-pinned-startup-writer-resolution/'):
                 return (schema == STARTUP_RESOLUTION_SCHEMA
                         and _startup_resolution_matches(identity, marker, request_path, repository))
+            from cloud.scheduled_reconciliation import FAILURES, SCHEMA, scheduled_resolution_matches
+            if identity in FAILURES or (isinstance(schema, str)
+                                        and schema.startswith('apply-pinned-scheduled-writer-resolution/')):
+                return schema == SCHEMA and scheduled_resolution_matches(identity, marker, request_path, repository)
             # A later rerun can allocate jobs under the same GitHub run ID.
             # Automatic zero-job evidence must therefore be rechecked below.
             return bool(payload.get('schema') != ZERO_JOB_SCHEMA

@@ -122,6 +122,19 @@ def due_slots(now, lanes, lookback_days=2, reconcile=False):
     return slots
 
 
+def _reconciled_slot(store, identity, resolution):
+    if not resolution:
+        return False
+    from cloud.scheduled_reconciliation import FAILED, SLOT, slot_resolution_matches
+    schema = resolution.get('payload', {}).get('schema')
+    if identity == SLOT or (isinstance(schema, str)
+                            and schema.startswith('apply-pinned-scheduled-slot-resolution/')):
+        return slot_resolution_matches(identity, resolution, store.get('writer-resolution:' + FAILED))
+    payload = resolution.get('payload', {})
+    return bool(payload.get('run_id') == identity
+                and payload.get('external_effects_reconciled') is True and payload.get('evidence'))
+
+
 def live_gate(store, config):
     if config.get('destination_private') is not True:
         raise Blocked('private_repository_required')
@@ -138,9 +151,7 @@ def live_gate(store, config):
     started = {x['id'].removesuffix(':started'): x for x in store.query(kind='agent_runs') if x['id'].endswith(':started')}
     for identity in started:
         resolution = store.get(identity + ':reconciled')
-        cleared = bool(resolution and resolution.get('payload', {}).get('run_id') == identity
-                       and resolution.get('payload', {}).get('external_effects_reconciled') is True
-                       and resolution.get('payload', {}).get('evidence'))
+        cleared = _reconciled_slot(store, identity, resolution)
         if not store.get(identity + ':completed') and not cleared:
             store.put(record(identity + ':dead_letter', 'audit_events', {'run_id': identity, 'reason': 'unfinished_run_requires_reconciliation', 'retry_external_effects': False}, 'needs_reconciliation'))
             raise Blocked('unresolved_previous_writer_run')
@@ -220,6 +231,11 @@ def execute(store, config, now=None, cron='', requested='all', dry_run=True, rec
         with _cloud_stage('read_run_state'):
             started = working.get(run_id + ':started')
         if started:
+            resolution = working.get(run_id + ':reconciled')
+            if _reconciled_slot(working, run_id, resolution):
+                results.append({'lane': lane, 'date': day, 'status': resolution['status'],
+                                'external_effects': 0, 'retry_external_effects': False})
+                continue
             # A crashed run could have external effects. Do not recycle its lease.
             payload = {'run_id': run_id, 'reason': 'unfinished_run_requires_reconciliation', 'retry_external_effects': False}
             with _cloud_stage('stage_run_marker'):
