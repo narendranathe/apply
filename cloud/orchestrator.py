@@ -86,6 +86,7 @@ def _failure_summary(error):
     """Keep API and uncertain-write diagnostics within the same safe schema."""
     from cloud.notion import AmbiguousWriteError, NotionAPIError
     from cloud.applications import StateConflict
+    from cloud.index_publisher import IndexPublicationError
     failure = {'status': 'blocked', 'error_type': type(error).__name__,
                'reason': str(error) if isinstance(error, Blocked) else 'inspect_private_reconciliation_records'}
     if isinstance(error, StateConflict) and len(error.args) == 1:
@@ -97,6 +98,11 @@ def _failure_summary(error):
         failure['cloud_operation'] = operation
     if isinstance(error, (NotionAPIError, AmbiguousWriteError)):
         failure['notion'] = error.diagnostics()
+    if isinstance(error, IndexPublicationError):
+        diagnostics = IndexPublicationError.diagnostics(error)
+        failure['reason'] = diagnostics['error_code']
+        if 'notion' in diagnostics:
+            failure['notion'] = diagnostics['notion']
     return failure
 
 
