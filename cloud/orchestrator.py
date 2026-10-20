@@ -2,6 +2,7 @@
 import argparse
 import json
 import os
+import re
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -23,6 +24,7 @@ CLOUD_OPERATIONS = frozenset({
     'stage_run_marker', 'run_accepted_outreach', 'run_first_touch_outreach',
     'discover_jobs', 'run_applications', 'report_run', 'publish_agent_index',
     'backup_research_artifact', 'backup_operational_records', 'write_run_summary',
+    'consume_agent_queue', 'verify_agent_worker_context',
 })
 APPLICATION_FAILURE_CODES = frozenset({
     'ambiguous_application_revision', 'application_pacing_timezone_unverified',
@@ -171,8 +173,38 @@ def _attach_budget(store, budget):
         store._orchestrator_budget = budget
 
 
+def _agent_worker_authority():
+    """Use deployment-owned grants inside the reserved hosted orchestrator only.
+
+    This is called after activation, baseline and previous-writer verification.
+    Neither an intake envelope nor the cloud configuration supplies authority.
+    """
+    from cloud.agent_dispatcher import CONCURRENCY_GROUP
+    if (os.environ.get('GITHUB_ACTIONS') != 'true'
+            or os.environ.get('GITHUB_REF') != 'refs/heads/main'
+            or os.environ.get('GITHUB_REPOSITORY') != 'narendranathe/apply'
+            or os.environ.get('GITHUB_JOB') != 'orchestrate'
+            or os.environ.get('GITHUB_EVENT_NAME') not in {'schedule', 'workflow_dispatch'}
+            or os.environ.get('GITHUB_WORKFLOW_REF') !=
+                'narendranathe/apply/.github/workflows/cloud-operations.yml@refs/heads/main'
+            or not re.fullmatch('[0-9]+', os.environ.get('GITHUB_RUN_ID', ''))):
+        raise Blocked('trusted_central_agent_worker_required')
+    workflow = Path('.github/workflows/cloud-operations.yml').read_text()
+    if not re.search(r'^concurrency:\n  group: hiring-outreach-single-writer\n  cancel-in-progress: false\n',
+                     workflow, re.MULTILINE):
+        raise Blocked('agent_worker_concurrency_contract_required')
+    registry = json.loads(Path('config/agents.json').read_text())
+    if (registry.get('schema') != 'apply-github-agent-registry/v1'
+            or not isinstance(registry.get('actors'), dict)):
+        raise Blocked('trusted_agent_registry_required')
+    return registry['actors'], {'concurrency_group': CONCURRENCY_GROUP,
+        'reservation_verified': True, 'orchestrator_verified': True,
+        'run_id': os.environ['GITHUB_RUN_ID']}
+
+
 def execute(store, config, now=None, cron='', requested='all', dry_run=True, reconcile=False,
-            *, mode=None, budget=None, preview_sink=None):
+            *, mode=None, budget=None, preview_sink=None,
+            agent_registry=None, writer_context=None):
     mode = mode or ('dry-run' if dry_run else 'live')
     if mode not in MODES:
         raise Blocked('unknown_mode')
@@ -219,6 +251,14 @@ def execute(store, config, now=None, cron='', requested='all', dry_run=True, rec
         from cloud.baseline_guard import verify_application_coverage
         with _cloud_stage('check_application_coverage'):
             verify_application_coverage(working, baseline)  # Before any preparation.
+    worker = {'status': 'skipped_nonpersistent' if dry_run else 'not_configured',
+              'external_effects': 0}
+    if not dry_run and (agent_registry is not None or writer_context is not None):
+        from cloud.agent_worker import run_agent_worker
+        with _cloud_stage('consume_agent_queue'):
+            require_effect_capacity()
+            worker = run_agent_worker(working, config, trusted_registry=agent_registry,
+                writer_context=writer_context, now=now, effect_guard=require_effect_capacity)
     results = []
     for day, lane, missed in due_slots(now, lanes, config.get('reconcile_lookback_days', 2), reconcile):
         budget.check_request()
@@ -279,6 +319,7 @@ def execute(store, config, now=None, cron='', requested='all', dry_run=True, rec
     return {'mode': mode, 'persistent': not dry_run, 'dry_run': dry_run, 'timezone': str(ZONE), 'results': results,
             'reporting': {**reporting, 'persistent': not dry_run},
             'agent_index': index,
+            'agent_worker': worker,
             'runtime_budget': {'seconds': RUNTIME_SECONDS, 'receipt_backup_reserve_seconds': RECOVERY_RESERVE_SECONDS},
             'staged_record_counts': {kind: sum(row['kind'] == kind for row in working.records.values())
                                      for kind in sorted({row['kind'] for row in working.records.values()})} if dry_run else {},
@@ -315,6 +356,7 @@ def main():
         from cloud.baseline import restore_baseline
         with _cloud_stage('restore_authenticated_baseline'):
             config['_suppression_baseline'], _ = restore_baseline()
+    agent_registry, writer_context = None, None
     if args.mode == 'live':
         from cloud.backup import validate_key
         validate_key()
@@ -329,9 +371,12 @@ def main():
         config['_reconciled_export'] = baseline
         from cloud.runtime_guard import verify_previous_writers
         verify_previous_writers(store)
+        with _cloud_stage('verify_agent_worker_context'):
+            agent_registry, writer_context = _agent_worker_authority()
     preview = []
     result = execute(store, config, cron=args.cron, requested=args.lane, mode=args.mode,
                      reconcile=args.reconcile, budget=budget,
+                     agent_registry=agent_registry, writer_context=writer_context,
                      preview_sink=preview.extend if args.mode == 'research-only' else None)
     if args.mode == 'research-only':
         from cloud.backup import backup_store

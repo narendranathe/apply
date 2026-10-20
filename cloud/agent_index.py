@@ -11,7 +11,8 @@ from collections import Counter, defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import Iterable
 
-from .applications import StateConflict, fold_applications, matching_application
+from .applications import StateConflict, canonical_url, employer_identity, fold_applications, matching_application
+from .submission import normalize
 from .coordination_quarantine import ContactQuarantines
 from .records import content_hash, make_record, stable_id, validate_record
 from .reporting import _confirmed, _human_confirmation
@@ -222,6 +223,8 @@ def _dispatch_task_visibility(tasks, projection_records, sources):
     Task snapshots and their independent cursors expose dispatch availability.
     """
     result = []
+    terminal_results = {row["payload"]["action_id"]: row for row in sources.values()
+                        if valid_terminal_result(row, sources)}
     for task_record in tasks:
         task = task_record["payload"]
         entity_id, action_type = task["entity_id"], task["type"]
@@ -277,10 +280,181 @@ def _dispatch_task_visibility(tasks, projection_records, sources):
             payload["reconciliation_action_ids"] = sorted(candidates)
         else:
             # Preserve other genuine source blockers, if any.
-            payload["status"] = "blocked" if task["status"] == "blocked" else "queued"
+            terminal = terminal_results.get(complete[0])
+            payload["status"] = ("blocked" if task["status"] == "blocked" else
+                                 terminal["status"] if terminal else "queued")
             payload["queued_action_ids"] = complete
+            if terminal:
+                payload["action_result_id"] = terminal["id"]
+                payload["blocking_conditions"] = sorted(set(payload.get("blocking_conditions", [])
+                    + terminal["payload"].get("blocking_conditions", [])))
         identity = stable_id("agent_task_dispatch", task["task_id"], content_hash(payload))
         result.append(make_record("agent_tasks", payload, identity, payload["status"]))
+    return result
+
+
+def valid_terminal_result(row, sources):
+    """Validate one immutable terminal result against the complete admission.
+
+    A timestamp/status cannot supersede a queued acknowledgement. Revision 1
+    requires exact linkage to its immutable acknowledgement, execution marker,
+    intake, reservation and every output; conflicting chains remain fenced.
+    """
+    if row.get("kind") != "agent_action_results" or row.get("payload", {}).get("schema") != "apply-agent-result/v1":
+        return False
+    try:
+        from .agent_dispatcher import _queue_and_result, _semantic_reservation
+        p, action_id = row["payload"], row["payload"]["action_id"]
+        intake = sources[action_id]
+        queue, ack = _queue_and_result(intake)
+        reservation = _semantic_reservation(intake)
+        execution = sources[stable_id("agent_action_execution", action_id)]
+        ep = execution["payload"]
+        outputs = p["output_hashes"]
+        if (row["id"] != stable_id("agent_action_result", action_id, 1)
+                or row["status"] not in {"blocked", "completed"} or p.get("status") != row["status"]
+                or p.get("revision") != 1 or p.get("previous_record_id") != ack["id"]
+                or p.get("actor") != intake["payload"]["actor"]
+                or p.get("entity_id") != intake["payload"]["action"]["entity_id"]
+                or p.get("external_effect") is not False or not _stamp(p.get("occurred_at"))
+                or sources.get(queue["id"]) != queue or sources.get(ack["id"]) != ack
+                or sources.get(reservation["id"]) != reservation
+                or execution["kind"] != "agent_action_executions" or execution["status"] != "started"
+                or ep.get("schema") != "apply-agent-execution/v1" or ep.get("status") != "started"
+                or ep.get("external_effect") is not False or ep.get("action_id") != action_id
+                or ep.get("actor") != p["actor"] or not ep.get("run_id") or not _stamp(ep.get("started_at"))
+                or ep.get("evidence_hashes") != intake["payload"].get("evidence_hashes")
+                or ep.get("expected_projection_hash") != intake["payload"].get("expected_projection_hash")
+                or p.get("execution_id") != execution["id"] or p.get("execution_hash") != execution["hash"]
+                or not isinstance(outputs, dict) or not isinstance(p.get("evidence_refs"), list)
+                or not isinstance(p.get("blocking_conditions"), list)):
+            return False
+        for key, expected in (("intake_hash", intake), ("queue_hash", queue),
+                              ("reservation_hash", reservation), ("queued_ack_hash", ack)):
+            if p.get(key) != expected["hash"] or ep.get(key) != expected["hash"]:
+                return False
+        if any(not isinstance(ref, str) or not ref for ref in p["evidence_refs"]):
+            return False
+        if not set(intake["payload"]["evidence_refs"]) | set(outputs) <= set(p["evidence_refs"]):
+            return False
+        if any(sources.get(ref, {}).get("hash") != value for ref, value in outputs.items()):
+            return False
+        if any(sources.get(ref, {}).get("hash") != value
+               for ref, value in intake["payload"].get("evidence_hashes", {}).items()):
+            return False
+        if row["status"] == "completed":
+            return (p.get("verified") is True and not p["blocking_conditions"] and bool(outputs)
+                    and _completed_action_outputs(p, intake, sources))
+        return p.get("verified") is False and bool(p["blocking_conditions"]) and p.get("outcome") == "action_blocked"
+    except (KeyError, TypeError, ValueError, AttributeError):
+        return False
+
+
+def _completed_action_outputs(result, intake, sources):
+    """A finished result proves its specific work, never a caller's label."""
+    action = intake["payload"]["action"]
+    rows = [sources[ref] for ref in result["output_hashes"]]
+    execution = sources[result["execution_id"]]["payload"]
+    context_source = sources.get(execution.get("source_record_id"), {})
+    outcome = result.get("outcome")
+    if action["type"] == "research" and outcome == "research_verified":
+        if len(rows) != 1 or rows[0]["kind"] != "agent_research_evidence" or rows[0]["status"] != "verified":
+            return False
+        p = rows[0]["payload"]
+        source = sources.get(p.get("source_record_id"), {})
+        job, reads = p.get("official_job"), p.get("official_reads")
+        return bool(p.get("action_id") == intake["id"] and p.get("entity_id") == action["entity_id"]
+            and p.get("source_record_hash") == source.get("hash") and source.get("kind") in {"jobs", "applications"}
+            and source.get("id") == execution.get("source_record_id")
+            and source.get("hash") == execution.get("source_record_hash")
+            and intake["payload"].get("evidence_hashes", {}).get(source.get("id")) == source.get("hash")
+            and isinstance(job, dict) and job.get("open") is True and p.get("official_job_hash") == content_hash(job)
+            and isinstance(job.get("evidence_url"), str) and job["evidence_url"].startswith("https://")
+            and isinstance(reads, list) and reads and all(isinstance(read, dict) and read.get("method") == "GET"
+                and read.get("http_status") == 200 and isinstance(read.get("url"), str)
+                and read["url"].startswith("https://") and isinstance(read.get("response_sha256"), str)
+                and len(read["response_sha256"]) == 64 for read in reads))
+    if action["type"] == "prepare_application" and outcome == "application_prepared":
+        applications = [row for row in rows if row["kind"] == "applications"]
+        packets = [row for row in rows if row["kind"] == "application_packets"]
+        if len(rows) != 2 or len(applications) != 1 or len(packets) != 1:
+            return False
+        app, packet = applications[0], packets[0]
+        p, a = packet["payload"], app["payload"]
+        return bool(app["status"] in {"prepared", "submission_blocked"} and not a.get("attempt")
+            and context_source.get("hash") == execution.get("source_record_hash")
+            and intake["payload"].get("evidence_hashes", {}).get(context_source.get("id")) == context_source.get("hash")
+            and _same_application_target(context_source.get("payload", {}), a)
+            and packet["status"] == "verified" and p.get("application_id") == a.get("application_id")
+            and a.get("packet", {}).get("record_id") == packet["id"]
+            and isinstance(p.get("qa"), dict) and p["qa"].get("verified") is True and not p.get("missing")
+            and all(isinstance(p.get(key), str) and len(p[key]) == 64
+                    for key in ("resume_sha256", "source_sha256", "answers_hash")))
+    if action["type"] in {"conversation_observed", "manual_action_observed"} and outcome in {
+            "verified_observation_recorded", "verified_observation_already_recorded"}:
+        if len(rows) != 1 or rows[0]["kind"] != "conversation_events":
+            return False
+        event = rows[0]
+        proof = _evidence(event, _stamp(result["occurred_at"]))
+        related = _related(event["payload"])
+        if (not proof or proof["outcome"] != action.get("outcome")
+                or _stamp(proof["confirmed_at"]) != _stamp(action.get("occurred_at"))
+                or not any(action["entity_id"] in related.get(key, []) for key in ("contact_ids", "thread_ids"))):
+            return False
+        if outcome == "verified_observation_already_recorded":
+            return any(source and source["hash"] == expected
+                and source["kind"] in {"conversation_sources", "manual_action_sources", "conversation_events",
+                    "outreach_events", "conversation_observations", "contact_observations"}
+                and _evidence(source, _stamp(result["occurred_at"])) == proof
+                and _related(source["payload"]) == related
+                for ref, expected in intake["payload"].get("evidence_hashes", {}).items()
+                for source in [sources.get(ref)])
+        source = sources.get(event["payload"].get("source_record_id"), {})
+        return bool(source and source["hash"] == event["payload"].get("source_record_hash")
+            and intake["payload"].get("evidence_hashes", {}).get(source["id"]) == source["hash"]
+            and _evidence(source, _stamp(result["occurred_at"])) == proof
+            and _related(source["payload"]) == related)
+    return False
+
+
+def _same_application_target(source, application):
+    source = {**source, **(source.get("job") if isinstance(source.get("job"), dict) else {})}
+    if employer_identity(source.get("company")) != employer_identity(application.get("company")):
+        return False
+    left, right = source.get("requisition_id"), application.get("requisition_id")
+    if left and right:
+        return normalize(left) == normalize(right)
+    return bool(source.get("url") and application.get("url")
+                and canonical_url(source["url"]) == canonical_url(application["url"]))
+
+
+def _action_results(sources, conflicts):
+    result = {}
+    for row in sorted(sources.values(), key=lambda item: item["id"]):
+        if row["kind"] != "agent_action_results":
+            continue
+        p = row["payload"]
+        identity = p.get("action_id")
+        if not isinstance(identity, str) or not identity:
+            continue
+        if p.get("schema") == "apply-agent-result/v1":
+            if not valid_terminal_result(row, sources):
+                conflicts.append({"record_id": row["id"], "reason": "invalid_agent_result_chain"})
+            else:
+                result[identity] = row["id"]
+        elif (row["id"] == "action-result:" + identity
+                and row["status"] in {"queued", "duplicate", "blocked", "needs_reconciliation", "completed"}
+                and p.get("status") == row["status"] and p.get("external_effect") is False
+                and isinstance(p.get("actor"), str) and p["actor"]
+                and isinstance(p.get("evidence_refs"), list)
+                and all(isinstance(ref, str) and ref for ref in p["evidence_refs"])):
+            result.setdefault(identity, row["id"])
+    for row in sources.values():
+        if row["kind"] == "agent_action_executions":
+            identity = row["payload"].get("action_id")
+            terminal = sources.get(stable_id("agent_action_result", identity, 1), {})
+            if not valid_terminal_result(terminal, sources):
+                conflicts.append({"record_id": row["id"], "reason": "partial_agent_execution_requires_reconciliation"})
     return result
 
 
@@ -371,6 +545,7 @@ def build_index(records: Iterable[dict], now: datetime, previous_manifest: dict 
         if row["kind"] in {"import_manifests", "migration_manifests", "source_snapshots"}:
             if row["payload"].get("complete") is False or row["payload"].get("conflicts") or row["status"] in {"incomplete", "conflicted", "partial"}:
                 conflicts.append({"record_id": row["id"], "reason": "partial_or_conflicted_source"})
+    action_results = _action_results(sources, conflicts)
     verified_identities = {}
     for row in sorted(sources.values(), key=lambda item: item["id"]):
         proof = _receipt(row, now) if row["kind"] == "applications" else _evidence(row, now)
@@ -689,15 +864,6 @@ def build_index(records: Iterable[dict], now: datetime, previous_manifest: dict 
                 "source_cursor": cursor, "previous_cursor": previous.get("source_cursor"),
                 "source_snapshot_hash": snapshot_hash, "generated_at": now.isoformat(),
                 "complete": complete, "conflicts": conflicts, "counts": counts, "campaign_brief": brief}
-    manifest["action_results"] = {
-        row["payload"]["action_id"]: row["id"] for row in sources.values()
-        if row["kind"] == "agent_action_results" and isinstance(row["payload"].get("action_id"), str)
-        and row["payload"]["action_id"] and row["id"] == "action-result:" + row["payload"]["action_id"]
-        and row["status"] in {"queued", "duplicate", "blocked", "needs_reconciliation", "completed"}
-        and row["payload"].get("status") == row["status"] and row["payload"].get("external_effect") is False
-        and isinstance(row["payload"].get("actor"), str) and row["payload"]["actor"]
-        and isinstance(row["payload"].get("evidence_refs"), list)
-        and all(isinstance(value, str) and value for value in row["payload"]["evidence_refs"])
-    }
+    manifest["action_results"] = action_results
     outputs.append(make_record("index_manifests", manifest, stable_id("index_manifest", content_hash(manifest)), "complete" if complete else "incomplete"))
     return outputs
