@@ -1,0 +1,19 @@
+{
+  "artifact_sha256": "82119f79efc80ce9de6e89bddf391306f5c53702f52e27f99d4a36c6c82fa363",
+  "authenticated_research_records": 1268,
+  "cloud_hosted": true,
+  "dry_run": true,
+  "external_effects": 0,
+  "linkedin_inbox": "not checked",
+  "linkedin_sent": 0,
+  "mode": "research-only",
+  "new_application_attempts": 0,
+  "new_verified_cloud_submissions": 0,
+  "notion_writes_by_local_validator": 0,
+  "operational_source_of_truth": false,
+  "persistent": false,
+  "provider_requests_by_local_validator": 0,
+  "run_url": "https://github.com/narendranathe/apply/actions/runs/39317421284",
+  "schema": "apply-research-fallback-proof/v1",
+  "verified": true
+}

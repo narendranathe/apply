@@ -1,0 +1,155 @@
+{
+  "added_record_count": 72,
+  "added_record_families": {
+    "agent_runs": 5,
+    "audit_events": 1,
+    "conversation_observations": 63,
+    "jobs": 3
+  },
+  "after": {
+    "archive_sha256": "88fb6d5dce537cb794f001c71ad780834978f25fa821f677fc39b10e38d92864",
+    "artifact_id": 12218723202,
+    "artifact_zip_sha256": "7c2535ebfbd4191274cdb2b610c4fdee21886eadbab0cdbe0e98e8bee9a07060",
+    "member_sha256": "dc0d62fed0d9bd7a7cc1abdd47753ab177386034973088382447ae5cac80e52c",
+    "pages": 2143,
+    "run_id": "39317412711",
+    "state_sha256": "d7e842c955ce8c5e7024e3805982fb6ef39e14967ce01a5aa14b8b3e3de219c2"
+  },
+  "application_records_added": 0,
+  "before": {
+    "archive_sha256": "eb05e5230fa3be34b01c43c6c5d86f16c56da5e552f90d645eb96f67cd91ae86",
+    "artifact_id": 12121013271,
+    "artifact_zip_sha256": "7625cecb175d12b865d9aa7e63ea10dc743497246b5637ba98206f8430a77ff7",
+    "member_sha256": "2bc3cb6ae0bd048365f9cd8b06d509b572f3e95c6b986ac4c0808cb470300408",
+    "pages": 2071,
+    "run_id": "39084147465",
+    "state_sha256": "3784e27b2564d87a79e411f39a018cb820eb77f4549440e3389f7786f47b4d35"
+  },
+  "configured_employer_permissions_absent": true,
+  "expected_resolutions": {
+    "run:2026-10-18:applications:reconciled": "d60003d90aeb764dbc796c035dfa16579242ebbff118ee5fa07f23949e82ff74",
+    "writer-resolution:39135562489": "1144f539f9ec6b7bef5db5156c9e9f06ddab9a5f06d51e5db06003c1f0ce048c",
+    "writer-resolution:39137302215": "1f90acc6a7f10da5aea5088d0d08230eab5f7c8d71505e5e9b99e9c25f3eaab2",
+    "writer-resolution:39293466126": "93e4d84320442f4bfcbbd23ce3a5d6d6c7b2cd3d69d51667f4eed01f8db3ba89",
+    "writer-resolution:39295904880": "ef1e3d8eae622bd07193574ecad364302bf83bdda7e69378cd846d0da29d078f"
+  },
+  "failed_slot": "run:2026-10-18:applications",
+  "historical_records_unchanged": 757,
+  "incidents": {
+    "39135562489": {
+      "diagnostic": {
+        "cloud_operation": "run_applications",
+        "error_type": "StateConflict",
+        "reason": "inspect_private_reconciliation_records",
+        "status": "blocked"
+      },
+      "failed_job": {
+        "id": 117699246989,
+        "steps_sha256": "03e043fa7458dc908c7108858dc1d309c55ba513ce1cd5c7c9bf2f49adf6ac50"
+      },
+      "failed_run": {
+        "conclusion": "failure",
+        "created_at": "2026-10-18T14:20:41Z",
+        "display_title": "cloud:live:0 6 * * *",
+        "event": "schedule",
+        "head_branch": "main",
+        "head_sha": "b3c845f84760088594635db46b6e3bfca2098391",
+        "id": 39135562489,
+        "path": ".github/workflows/cloud-operations.yml",
+        "run_attempt": 1,
+        "run_started_at": "2026-10-18T14:20:41Z",
+        "status": "completed",
+        "updated_at": "2026-10-18T14:42:25Z"
+      },
+      "log_sha256": "63c58c5b9c0ebec5413b7eaee07c9ddfcd61f593c27263ce99ed1cd458afe2d3"
+    },
+    "39137302215": {
+      "diagnostic": {
+        "error_type": "Blocked",
+        "reason": "unresolved_previous_writer_run",
+        "status": "blocked"
+      },
+      "failed_job": {
+        "id": 117704327822,
+        "steps_sha256": "301718aeb7c179e03e0853ed5c17da8a9b0de92a59f9bcd3ba7c0dcf202d439d"
+      },
+      "failed_run": {
+        "conclusion": "failure",
+        "created_at": "2026-10-18T14:43:52Z",
+        "display_title": "cloud:live:30 6 * * *",
+        "event": "schedule",
+        "head_branch": "main",
+        "head_sha": "b3c845f84760088594635db46b6e3bfca2098391",
+        "id": 39137302215,
+        "path": ".github/workflows/cloud-operations.yml",
+        "run_attempt": 1,
+        "run_started_at": "2026-10-18T14:43:52Z",
+        "status": "completed",
+        "updated_at": "2026-10-18T14:45:35Z"
+      },
+      "log_sha256": "43f9fed404591d6ef29653827e0b661594cfd937970f2f86f6f2989336cde6d7"
+    },
+    "39293466126": {
+      "diagnostic": {
+        "error_type": "Blocked",
+        "reason": "unresolved_previous_writer_run",
+        "status": "blocked"
+      },
+      "failed_job": {
+        "id": 118199824098,
+        "steps_sha256": "b92dd84640eb176c19e8dc0d696037bd94deb32a5a72a6bfc94c76e7cca9b0de"
+      },
+      "failed_run": {
+        "conclusion": "failure",
+        "created_at": "2026-10-19T17:21:52Z",
+        "display_title": "cloud:live:0 6 * * *",
+        "event": "schedule",
+        "head_branch": "main",
+        "head_sha": "b3c845f84760088594635db46b6e3bfca2098391",
+        "id": 39293466126,
+        "path": ".github/workflows/cloud-operations.yml",
+        "run_attempt": 1,
+        "run_started_at": "2026-10-19T17:21:52Z",
+        "status": "completed",
+        "updated_at": "2026-10-19T17:23:26Z"
+      },
+      "log_sha256": "0d34d2a52402aaf5a1363a7dbb28b8c57fcba7340d63fa7e82ac4559690559e5"
+    },
+    "39295904880": {
+      "diagnostic": {
+        "error_type": "Blocked",
+        "reason": "unresolved_previous_writer_run",
+        "status": "blocked"
+      },
+      "failed_job": {
+        "id": 118208229499,
+        "steps_sha256": "32df6bf9b73e7f18fb11ff010e364caabee724c29ac229721a49a063a7eb8ed8"
+      },
+      "failed_run": {
+        "conclusion": "failure",
+        "created_at": "2026-10-19T17:38:49Z",
+        "display_title": "cloud:live:30 6 * * *",
+        "event": "schedule",
+        "head_branch": "main",
+        "head_sha": "b3c845f84760088594635db46b6e3bfca2098391",
+        "id": 39295904880,
+        "path": ".github/workflows/cloud-operations.yml",
+        "run_attempt": 1,
+        "run_started_at": "2026-10-19T17:38:49Z",
+        "status": "completed",
+        "updated_at": "2026-10-19T17:40:37Z"
+      },
+      "log_sha256": "ae4beedea0504dad71cccf0a2732330aa299e3cb3bf80733d12e2ab28298e6cf"
+    }
+  },
+  "new_attempts": 0,
+  "new_outreach_events": 0,
+  "new_receipts": 0,
+  "notion_writes": 0,
+  "original_hidden_conflict_code_exact_attribution": false,
+  "pinned_failed_commit": "b3c845f84760088594635db46b6e3bfca2098391",
+  "prior_logical_pages_unchanged": 2071,
+  "provider_requests": 0,
+  "schema": "apply-scheduled-recovery-preflight/v1",
+  "verified": true
+}
