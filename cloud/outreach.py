@@ -4,6 +4,7 @@ from hashlib import sha256
 import json
 from pathlib import Path
 from cloud.records import content_hash
+from cloud.shadow import ShadowStore
 
 
 def stamp(value):
@@ -157,5 +158,8 @@ def run_outreach(store, config, lane, now, dry_run=True):
             result['drafts'] += 1
         # Observations/drafts are immutable, source-dated, never a delivery claim.
         identity = 'plan:' + sha256(f"{now.date()}:{lane}:{item['id']}".encode()).hexdigest()
+        # Private previews can revisit a live plan without reusing its identity.
+        if dry_run or isinstance(store, ShadowStore):
+            identity = 'preview:' + identity
         store.put(record(identity, 'conversation_observations', payload, 'needs_verification' if blocked else 'draft'))
     return result

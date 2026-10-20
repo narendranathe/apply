@@ -24,6 +24,13 @@ CLOUD_OPERATIONS = frozenset({
     'discover_jobs', 'run_applications', 'report_run', 'publish_agent_index',
     'backup_research_artifact', 'backup_operational_records', 'write_run_summary',
 })
+APPLICATION_FAILURE_CODES = frozenset({
+    'ambiguous_application_revision', 'application_pacing_timezone_unverified',
+    'application_attempt_date_unverified', 'application_changed_before_transition',
+    'invalid_application_transition', 'application_transition_readback_failed',
+    'application_audit_readback_failed', 'application_packet_readback_failed',
+    'historical_application_readback_failed', 'application_claim_changed',
+})
 
 
 @contextmanager
@@ -76,8 +83,13 @@ def _publish_agent_index(working, now, dry_run, budget):
 def _failure_summary(error):
     """Keep API and uncertain-write diagnostics within the same safe schema."""
     from cloud.notion import AmbiguousWriteError, NotionAPIError
+    from cloud.applications import StateConflict
     failure = {'status': 'blocked', 'error_type': type(error).__name__,
                'reason': str(error) if isinstance(error, Blocked) else 'inspect_private_reconciliation_records'}
+    if isinstance(error, StateConflict) and len(error.args) == 1:
+        code = error.args[0]
+        if type(code) is str and code in APPLICATION_FAILURE_CODES:
+            failure['reason'] = code
     operation = getattr(error, '_cloud_operation', None)
     if type(operation) is str and operation in CLOUD_OPERATIONS:
         failure['cloud_operation'] = operation
