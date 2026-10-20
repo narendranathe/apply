@@ -13,6 +13,14 @@ from .agent_index import GENERATED_KINDS, SCHEMA, build_index
 from .records import content_hash, validate_record
 
 CORE = ("id", "kind", "payload", "status", "hash")
+INDEX_PUBLICATION_ERROR_CODES = frozenset({
+    "authoritative_source_invalid", "authoritative_source_identity_conflict",
+    "authoritative_snapshot_unavailable", "authoritative_snapshot_invalid",
+    "previous_index_unavailable", "previous_index_invalid",
+    "index_write_uncertain_stop_no_retry", "index_write_readback_mismatch_stop_no_retry",
+    "index_readback_uncertain_stop_no_retry", "index_readback_mismatch_stop_no_retry",
+    "index_builder_manifest_invalid",
+})
 
 
 class IndexPublicationError(RuntimeError):
@@ -20,6 +28,37 @@ class IndexPublicationError(RuntimeError):
     def __init__(self, code):
         self.code = code
         super().__init__(code)
+
+    def diagnostics(self):
+        """Retain only fixed publication codes and sanitized Notion evidence.
+
+        Wrappers deliberately suppress upstream exception text. Their context
+        can still supply the Notion client's three safe diagnostic fields.
+        """
+        from .notion import AmbiguousWriteError, ConflictError, NotionAPIError
+        result = {'error_code': self.code if type(self.code) is str
+                  and self.code in INDEX_PUBLICATION_ERROR_CODES else 'index_publication_failed'}
+        sanitizers = {NotionAPIError: NotionAPIError.diagnostics,
+                      AmbiguousWriteError: AmbiguousWriteError.diagnostics,
+                      ConflictError: ConflictError.diagnostics}
+        pending, seen = [self], set()
+        while pending and len(seen) < 16:
+            error = pending.pop()
+            if id(error) in seen:
+                continue
+            seen.add(id(error))
+            sanitize = sanitizers.get(type(error))
+            if sanitize is not None:
+                # Use the client's sanitizer, never an upstream override.
+                try:
+                    result['notion'] = sanitize(error)
+                    return result
+                except Exception:
+                    pass
+            for nested in (error.__context__, error.__cause__):
+                if isinstance(nested, BaseException):
+                    pending.append(nested)
+        return result
 
 
 def _canonical(row):
