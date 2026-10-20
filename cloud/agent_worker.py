@@ -130,6 +130,49 @@ def _admission(store, queue):
     return intake, reservation, ack
 
 
+def _complete_admission_family(store, queues):
+    """A failed dispatcher may stop before creating its queue row.
+
+    Inspect all admission/execution families before new work, including orphan
+    intents/results. Absence from the queue cannot clear an uncertain append.
+    """
+    intakes = _query(store, 'agent_proposals') + _query(store, 'agent_observations')
+    known = {row['id']: row for row in intakes}
+    expected_queues, expected_reservations, expected_acks = {}, {}, {}
+    try:
+        if len(known) != len(intakes):
+            raise ValueError('ambiguous_intake')
+        for row in intakes:
+            canonical = _envelope(row)
+            queue, ack = _queue_and_result(canonical)
+            reservation = _semantic_reservation(canonical)
+            expected_queues[queue['id']] = queue
+            expected_reservations[reservation['id']] = reservation
+            expected_acks[ack['id']] = ack
+        if ({row['id']: row for row in queues} != expected_queues
+                or {row['id']: row for row in _query(store, 'agent_action_reservations')} != expected_reservations):
+            raise ValueError('partial_admission')
+        actual_acks = {}
+        for row in _query(store, 'agent_action_results'):
+            identity = row['payload'].get('action_id')
+            if identity not in known:
+                raise ValueError('orphan_result')
+            if row['id'] in expected_acks:
+                actual_acks[row['id']] = row
+            elif row['id'] != stable_id('agent_action_result', identity, 1):
+                raise ValueError('unrecognized_result')
+        if actual_acks != expected_acks:
+            raise ValueError('partial_acknowledgement')
+        for row in _query(store, 'agent_action_executions'):
+            identity = row['payload'].get('action_id')
+            if identity not in known or row['id'] != stable_id('agent_action_execution', identity):
+                raise ValueError('orphan_execution')
+    except WorkerStorageError:
+        raise
+    except Exception:
+        raise WorkerStorageError('worker_admission_requires_reconciliation') from None
+
+
 def _current_context(store, intake, registry, now):
     payload, action = intake["payload"], intake["payload"]["action"]
     actor = payload["actor"]
@@ -358,6 +401,7 @@ def run_agent_worker(store, config, *, trusted_registry, writer_context, now=Non
     summary = {"lane": "agent_worker", "queued_seen": 0, "completed": 0, "blocked": 0,
                "already_finished": 0, "external_effects": 0, "exceptions": {}}
     queues = sorted(_query(store, "agent_execution_queue"), key=lambda row: row["id"])
+    _complete_admission_family(store, queues)
     admitted = []
     for queue in queues:
         intake, reservation, ack = _admission(store, queue)

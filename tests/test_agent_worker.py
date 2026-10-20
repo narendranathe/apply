@@ -354,6 +354,52 @@ class AgentWorkerTests(unittest.TestCase):
         self.assertEqual(worker(store)["already_finished"], 1)
         self.assertEqual(store.records[old["id"]], old)
 
+    def test_orphan_admission_records_without_a_queue_fence_all_new_work(self):
+        families = {'agent_proposals', 'agent_observations', 'agent_action_reservations',
+                    'agent_execution_queue', 'agent_action_results', 'agent_action_executions'}
+        for retained in ('intake', 'reservation', 'ack', 'execution', 'terminal'):
+            with self.subTest(retained=retained):
+                store = job_store()
+                intake = admit(store)
+                transport = OfficialTransport()
+                if retained in ('execution', 'terminal'):
+                    worker(store, transport=transport)
+                kinds = {'intake': 'agent_proposals', 'reservation': 'agent_action_reservations',
+                         'ack': 'agent_action_results', 'execution': 'agent_action_executions',
+                         'terminal': 'agent_action_results'}
+                selected = [row for row in store.records.values() if row['kind'] == kinds[retained]]
+                if retained == 'terminal':
+                    selected = [row for row in selected if row['status'] == 'completed']
+                if retained == 'ack':
+                    selected = [row for row in selected if row['status'] == 'queued']
+                self.assertEqual(len(selected), 1)
+                for identity, row in list(store.records.items()):
+                    if row['kind'] in families and identity != selected[0]['id']:
+                        del store.records[identity]
+                writes, reads = store.writes, len(transport.calls)
+                with self.assertRaisesRegex(WorkerStorageError, 'worker_admission_requires_reconciliation'):
+                    worker(store, transport=transport)
+                self.assertEqual(store.writes, writes)
+                self.assertEqual(len(transport.calls), reads)
+
+    def test_partial_dispatcher_prefix_blocks_an_unrelated_complete_action(self):
+        for prefix_length in (1, 2, 3):
+            with self.subTest(prefix_length=prefix_length):
+                store = job_store()
+                partial = admit(store)
+                from cloud.agent_dispatcher import _queue_and_result, _semantic_reservation
+                queue, ack = _queue_and_result(partial)
+                reservation = _semantic_reservation(partial)
+                for row in (partial, reservation, queue, ack)[prefix_length:]:
+                    del store.records[row['id']]
+                admit(store, 'prepare_application', key='unrelated-complete-action')
+                writes = store.writes
+                transport = OfficialTransport()
+                with self.assertRaisesRegex(WorkerStorageError, 'worker_admission_requires_reconciliation'):
+                    worker(store, transport=transport)
+                self.assertEqual(store.writes, writes)
+                self.assertEqual(transport.calls, [])
+
     def test_single_writer_partial_admission_and_partial_execution_stop(self):
         store = job_store()
         intake = admit(store)
