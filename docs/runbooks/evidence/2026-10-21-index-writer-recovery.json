@@ -1,0 +1,31 @@
+{
+  "backup": {
+    "ciphertext_sha256": "3691a777eda6b027cb5e7956cc6bee5d4967b0bc1094f1a59381621030910d8f",
+    "member_sha256": "8c805006cddfaee29d1dfb4cc68490326afe47566e4f6f1483faf54813aa1acc",
+    "pages": 2248,
+    "source_fingerprint": "c05a58afa1d7a7b78a6c3f41e2489aed68ee16566722d9852b2059e24a0bc968"
+  },
+  "network_requests": 0,
+  "notion_writes": 0,
+  "operation": "independent_index_writer_recovery_validation",
+  "proof": {
+    "appended_resolution_records": 1,
+    "business_lanes_completed": true,
+    "failed_pages_unchanged": 2247,
+    "failed_snapshot_ciphertext_sha256": "a8753b5cb7be6ad8892446bb80ddfc1442c8b55e34b93db55a8ebc38dd8e156f",
+    "failed_snapshot_member_sha256": "61b4dc9186a456f8a424e186474007b7b78063ca0d062eda22e49c1a1958a73a",
+    "index_complete_at_reconciliation": false,
+    "new_attempts": 0,
+    "new_outreach_events": 0,
+    "new_receipts": 0,
+    "reference_pages": 2248,
+    "reference_records": 2002,
+    "reference_source_sha256": "c05a58afa1d7a7b78a6c3f41e2489aed68ee16566722d9852b2059e24a0bc968",
+    "resolution_sha256": "6c5daf807d998ba29ed70d886e24b5e681207707a0d1bd719fe4d2d269fa8299",
+    "resolved_run_id": "39434825788",
+    "verified": true
+  },
+  "provider_requests": 0,
+  "run_url": "https://github.com/narendranathe/apply/actions/runs/39545315317",
+  "verified": true
+}

@@ -2,6 +2,14 @@
 
 The approved V2 prompt authorizes one coordinated cutover. The latest dated checkpoint below is the current operational state; earlier sections preserve historical evidence and blockers.
 
+## October 21 index recovery and budget checkpoint
+
+The [pinned index-writer reconciliation](https://github.com/narendranathe/apply/actions/runs/39545315317) **succeeded** on `c2d3ae6064b6c24c56041a7d0727f7eb3699b794` in 33m43s. Independent authenticated restore verified **2,248 pages / 2,002 canonical records**: all 2,247 prior logical pages unchanged and exactly one strict `writer-resolution:39434825788` append. The resolution truthfully retains completed business lanes and an incomplete index, with zero new attempts, receipts or outreach events. [Aggregate recovery proof](evidence/2026-10-21-index-writer-recovery.json) binds the result to the actual encrypted backup. The failed production run remains failed; no business slot or complete index was fabricated.
+
+A separate offline audit reproduced two reserve gaps: a slow fresh history scan could exhaust capacity after the first check, and slow durable-intent persistence or multipart preparation could cross the reserve before provider dispatch. The correction rechecks after coverage and passes a separate pure monotonic guard to the provider transport, immediately before POST delegation. A guard rejection after durable intent persists `submission_unknown` with the fixed reason `provider_not_invoked_runtime_reserve` and `provider_request_made:false`; the intent and retry suppression remain intact. Generic provider failures never receive that no-request flag. Existing `submission_attempts` accounting counts durable intents and is unchanged. This does not prove a request already in flight finishes before the reserve boundary.
+
+`CLOUD_ENABLED=false`, `CLOUD_RESEARCH_ENABLED=true` remain current. The budget correction requires merged hosted CI before the new production validation. A successful persistent index publication, independent encrypted readback and a same-day no-effect rerun remain pending. Both desktop automations remain paused. The actual October 20 scheduled research validations below remain valid; at 08:14 Chicago on October 21, neither morning schedule event had yet been created.
+
 ## October 20 recovery and agent execution checkpoint
 
 The [central scheduled-incident reconciliation](https://github.com/narendranathe/apply/actions/runs/39363139229) **succeeded** in 32m57s. Independent authenticated restore verified **2,148 pages**, all 2,143 previous logical pages and all 757 historical CORE records unchanged, the exact five expected resolution records, and the entire unchanged ready record. The failed October 18 application slot remains `reconciled_no_submission` with no fabricated completion or retry. [Aggregate proof](evidence/2026-10-20-scheduled-recovery.json) binds this to the actual ciphertext.

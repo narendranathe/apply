@@ -371,9 +371,10 @@ class ResearchFallbackTests(unittest.TestCase):
         budget = RuntimeBudget(100, 20, clock=lambda: clock[0])
         base = live_store()
         original_transport = base.transport
-        def applications(store, config, dry_run, *, effect_guard):
+        def applications(store, config, dry_run, *, effect_guard, provider_budget_guard):
             self.assertFalse(dry_run)
             self.assertTrue(callable(effect_guard))
+            self.assertTrue(callable(provider_budget_guard))
             effect_guard()
             clock[0] = 80
             with self.assertRaises(SubmissionBlocked):
