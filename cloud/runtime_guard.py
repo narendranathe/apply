@@ -182,6 +182,11 @@ def verify_previous_writers(store, transport=None):
             if isinstance(schema, str) and schema.startswith('apply-pinned-startup-writer-resolution/'):
                 return (schema == STARTUP_RESOLUTION_SCHEMA
                         and _startup_resolution_matches(identity, marker, request_path, repository))
+            from cloud.index_reconciliation import FAILED as INDEX_FAILED, SCHEMA as INDEX_SCHEMA, index_resolution_matches
+            if identity == INDEX_FAILED or (isinstance(schema, str)
+                                           and schema.startswith('apply-pinned-index-writer-resolution/')):
+                return (schema == INDEX_SCHEMA
+                        and index_resolution_matches(identity, marker, request_path, repository))
             from cloud.scheduled_reconciliation import FAILURES, SCHEMA, scheduled_resolution_matches
             if identity in FAILURES or (isinstance(schema, str)
                                         and schema.startswith('apply-pinned-scheduled-writer-resolution/')):

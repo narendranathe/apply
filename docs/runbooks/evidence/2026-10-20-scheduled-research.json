@@ -1,0 +1,108 @@
+{
+  "date": "2026-10-20",
+  "desktop_writers_paused": true,
+  "execution_overlap": false,
+  "production_enabled": false,
+  "punctual_schedule_delivery_established": false,
+  "research_fallback_enabled": true,
+  "runs": [
+    {
+      "attempt": 1,
+      "commit": "82b3ac7462baa083ff3f7a95b4586616bff8045d",
+      "conclusion": "success",
+      "event": "schedule",
+      "job": {
+        "all_steps_successful_or_skipped": true,
+        "completed_at": "2026-10-20T15:56:55Z",
+        "conclusion": "success",
+        "coordinated_operation_duration_seconds": 1238,
+        "duration_seconds": 1323,
+        "id": 118720994290,
+        "name": "orchestrate",
+        "started_at": "2026-10-20T15:34:52Z"
+      },
+      "offline_authentication": {
+        "agent_worker_skipped": true,
+        "artifact_sha256": "71032fba3573cf3cc151e86b276bedf756e172710564f22f8833047d7169b71f",
+        "authenticated_research_records": 1218,
+        "cloud_hosted": true,
+        "dry_run": true,
+        "external_effects": 0,
+        "linkedin_inbox": "not checked",
+        "linkedin_sent": 0,
+        "mode": "research-only",
+        "new_application_attempts": 0,
+        "new_verified_cloud_submissions": 0,
+        "notion_writes_by_local_validator": 0,
+        "operational_source_of_truth": false,
+        "persistent": false,
+        "provider_requests_by_local_validator": 0,
+        "run_url": "https://github.com/narendranathe/apply/actions/runs/39449722045",
+        "schema": "apply-research-validation-proof/v1",
+        "verified": true
+      },
+      "run_url": "https://github.com/narendranathe/apply/actions/runs/39449722045",
+      "schedule": {
+        "coordinated_operation_start_delay_seconds": 16574,
+        "coordinated_operation_started_local": "2026-10-20T10:36:14-05:00",
+        "cron": "0 6 * * *",
+        "event_creation_delay_seconds": 16489,
+        "github_event_created_local": "2026-10-20T10:34:49-05:00",
+        "intended_local_start": "2026-10-20T06:00:00-05:00",
+        "runner_job_start_delay_seconds": 16492,
+        "runner_job_started_local": "2026-10-20T10:34:52-05:00",
+        "timezone": "America/Chicago"
+      }
+    },
+    {
+      "attempt": 1,
+      "commit": "82b3ac7462baa083ff3f7a95b4586616bff8045d",
+      "conclusion": "success",
+      "event": "schedule",
+      "job": {
+        "all_steps_successful_or_skipped": true,
+        "completed_at": "2026-10-20T16:23:11Z",
+        "conclusion": "success",
+        "coordinated_operation_duration_seconds": 1494,
+        "duration_seconds": 1573,
+        "id": 118732672694,
+        "name": "orchestrate",
+        "started_at": "2026-10-20T15:56:58Z"
+      },
+      "offline_authentication": {
+        "agent_worker_skipped": true,
+        "artifact_sha256": "0ce0e2c79cbbfd1c7be416dd3c12cfbc3810c7f222b657439a2bbc1106b46773",
+        "authenticated_research_records": 1244,
+        "cloud_hosted": true,
+        "dry_run": true,
+        "external_effects": 0,
+        "linkedin_inbox": "not checked",
+        "linkedin_sent": 0,
+        "mode": "research-only",
+        "new_application_attempts": 0,
+        "new_verified_cloud_submissions": 0,
+        "notion_writes_by_local_validator": 0,
+        "operational_source_of_truth": false,
+        "persistent": false,
+        "provider_requests_by_local_validator": 0,
+        "run_url": "https://github.com/narendranathe/apply/actions/runs/39451117461",
+        "schema": "apply-research-validation-proof/v1",
+        "verified": true
+      },
+      "run_url": "https://github.com/narendranathe/apply/actions/runs/39451117461",
+      "schedule": {
+        "coordinated_operation_start_delay_seconds": 16093,
+        "coordinated_operation_started_local": "2026-10-20T10:58:13-05:00",
+        "cron": "30 6 * * *",
+        "event_creation_delay_seconds": 15233,
+        "github_event_created_local": "2026-10-20T10:43:53-05:00",
+        "intended_local_start": "2026-10-20T06:30:00-05:00",
+        "runner_job_start_delay_seconds": 16018,
+        "runner_job_started_local": "2026-10-20T10:56:58-05:00",
+        "timezone": "America/Chicago"
+      }
+    }
+  ],
+  "schema": "apply-scheduled-research-validation/v1",
+  "verified": true
+}
