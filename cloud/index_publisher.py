@@ -143,6 +143,17 @@ def _put_verified(store, row):
         raise IndexPublicationError("index_write_readback_mismatch_stop_no_retry")
     try:
         readback = store.get(row["id"])
+        if readback is None:
+            # A fully verified put can precede stable query visibility. Poll
+            # only absence through fresh reads, never replay the write or
+            # recover a non-None mismatch, conflict, or transport failure.
+            sleeper = getattr(store, 'sleeper', None)
+            if callable(sleeper):
+                for delay in (1, 2, 4):
+                    sleeper(delay)
+                    readback = store.get(row["id"])
+                    if readback is not None:
+                        break
     except Exception:
         raise IndexPublicationError("index_readback_uncertain_stop_no_retry") from None
     if not isinstance(readback, dict) or any(readback.get(key) != row[key] for key in CORE):
@@ -201,8 +212,9 @@ def publish_index(store, now: datetime, source_complete=False, source_snapshot_h
     supplied partial/invalid proof never falls back to caller authority flags.
 
     ``result['manifest']`` is for internal use; operational logs should print
-    only the remaining bounded summary fields. A failed write or readback stops
-    immediately, and is never retried by this function.
+    only the remaining bounded summary fields. After an exact put, only absent
+    independent readbacks receive bounded read-only visibility polling. Failed
+    writes, read errors, and non-None mismatches stop without a write replay.
     """
     if not isinstance(now, datetime) or now.tzinfo is None:
         raise ValueError("Index publication requires an aware timestamp")
