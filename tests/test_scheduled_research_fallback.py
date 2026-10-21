@@ -35,6 +35,8 @@ class ScheduledFallbackWorkflowTests(unittest.TestCase):
             target = root / '.github/workflows/cloud-operations.yml'
             target.parent.mkdir(parents=True)
             target.write_text(source)
+            maintenance = WORKFLOW.with_name('history-reconciliation.yml')
+            target.with_name(maintenance.name).write_text(maintenance.read_text())
             with patch.object(check_workflows, 'ROOT', root), redirect_stdout(io.StringIO()):
                 check_workflows.check()
 
