@@ -1,0 +1,16 @@
+{
+  "authenticated_backup": true,
+  "backup_ciphertext_sha256": "18e9e3f4d1512f697ccd890f8be8acfc1eb55e7e39d10138175b2324f60cdab1",
+  "backup_pages": 2148,
+  "failed_slot_permanently_reconciled_without_retry": true,
+  "false_completion_markers": 0,
+  "historical_records_unchanged": 757,
+  "notion_writes_by_local_validator": 0,
+  "prior_logical_pages_unchanged": 2143,
+  "provider_requests_by_local_validator": 0,
+  "ready_record_unchanged": true,
+  "run_url": "https://github.com/narendranathe/apply/actions/runs/39363139229",
+  "schema": "apply-hosted-scheduled-recovery-proof/v1",
+  "verified": true,
+  "whole_resolution_cores_equal": 5
+}

@@ -1,0 +1,67 @@
+{
+  "added_counts": {
+    "agent_runs": 12,
+    "conversation_observations": 64,
+    "entity_projections": 17,
+    "funnel_reports": 1,
+    "jobs": 4,
+    "sync_cursors": 1
+  },
+  "after": {
+    "ciphertext_sha256": "a8753b5cb7be6ad8892446bb80ddfc1442c8b55e34b93db55a8ebc38dd8e156f",
+    "member_sha256": "61b4dc9186a456f8a424e186474007b7b78063ca0d062eda22e49c1a1958a73a",
+    "pages": 2247,
+    "source_fingerprint": "0120654a16cbcafb8aebee1a751e0093311639c7208f6f92ba2270e15b6e8dd9"
+  },
+  "after_records": 2001,
+  "before": {
+    "ciphertext_sha256": "18e9e3f4d1512f697ccd890f8be8acfc1eb55e7e39d10138175b2324f60cdab1",
+    "member_sha256": "7368cd30e3a83e7940795cf393c834b7882caf0715d3483b9faf9a77347cc7b5",
+    "pages": 2148,
+    "source_fingerprint": "5770f52425d2add8542ce8a36eb0dbbbc32dd92200908ffdaff009b46d4bdd14"
+  },
+  "before_records": 1902,
+  "changed_prior_records": 0,
+  "commit": "82b3ac7462baa083ff3f7a95b4586616bff8045d",
+  "failed_run_url": "https://github.com/narendranathe/apply/actions/runs/39434825788",
+  "index_reconstruction": {
+    "conflicting_expected_counts": {},
+    "expected_counts": {
+      "agent_tasks": 186,
+      "entity_projections": 301,
+      "index_changes": 263,
+      "index_manifests": 1
+    },
+    "expected_index_complete": true,
+    "expected_manifest_size": {
+      "envelope_bytes": 159967,
+      "envelope_characters": 159967,
+      "envelope_rich_text_items": 80,
+      "request_bytes": 336395,
+      "request_limit_exceeded": false,
+      "rich_text_limit_exceeded": false
+    },
+    "new_generated_matching_reconstruction": 17,
+    "new_generated_not_in_reconstruction": 0,
+    "new_generated_outside_matching_prefix": 0,
+    "publication_prefix_records": 29,
+    "rich_text_shape": {
+      "invalid_utf16_items": [],
+      "literal_c0_control_characters": 0,
+      "maximum_utf16_units": 2000,
+      "text_items_checked": 4695,
+      "unpaired_surrogate_items": 0,
+      "utf16_over_2000_items": 0
+    }
+  },
+  "original_hidden_error_code": "unknown",
+  "production_enabled": false,
+  "production_recovery_completed": false,
+  "reconciliation_completed": false,
+  "removed_prior_records": 0,
+  "research_fallback_enabled": true,
+  "schema": "apply-index-failure-preflight/v1",
+  "snapshot_run_url": "https://github.com/narendranathe/apply/actions/runs/39440953412",
+  "unchanged_prior_records": 1902,
+  "verified_authenticated_snapshots": true
+}
