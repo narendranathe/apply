@@ -243,6 +243,7 @@ def execute(store, config, now=None, cron='', requested='all', dry_run=True, rec
             from cloud.baseline_guard import verify_application_coverage
             with _cloud_stage('check_application_coverage'):
                 verify_application_coverage(working, baseline)
+        budget.require_effect_capacity()  # Fresh coverage reads can consume the reserve.
     from cloud.reporting import effective_research_share
     config = {**config, 'outreach': dict(config.get('outreach', {}))}
     with _cloud_stage('calculate_research_share'):
@@ -300,7 +301,8 @@ def execute(store, config, now=None, cron='', requested='all', dry_run=True, rec
             with _cloud_stage('run_applications'):
                 summary = run_applications(working, config, dry_run=dry_run,
                                            effect_guard=require_effect_capacity if not dry_run else None,
-                                           **({'preview_packets': True} if research_only else {}))
+                                           **({'preview_packets': True} if research_only else {}),
+                                           **({'provider_budget_guard': budget.require_effect_capacity} if not dry_run else {}))
         else:
             with _cloud_stage('run_accepted_outreach' if lane == 'accepted' else 'run_first_touch_outreach'):
                 summary = run_outreach(working, config.get('outreach', {}), lane, now.astimezone(ZONE), dry_run)

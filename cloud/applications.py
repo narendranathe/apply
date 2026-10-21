@@ -17,7 +17,8 @@ from zoneinfo import ZoneInfo
 
 from scripts.jobscout_feed import candidates, fetch_feed, parse_dt, feed_metadata
 from .preparation import digest, grade_job, prepare_packet
-from .submission import SubmissionBlocked, adapter_for, normalize, permitted, timestamp
+from .submission import (HTTPTransport, ProviderBudgetTransport, SubmissionBlocked,
+                         adapter_for, normalize, permitted, timestamp)
 from .notion import NotionError
 from .shadow import ShadowStore
 
@@ -256,7 +257,7 @@ def persist_packet(store, application_id, job, packet):
 
 
 def run_applications(store, config, dry_run=True, *, feed=None, transport=None, prepare=None, effect_guard=None,
-                     preview_packets=False):
+                     preview_packets=False, provider_budget_guard=None):
     """Process independently; return only redacted aggregate evidence.
 
     Injection keywords are for deterministic sandbox tests. Production uses
@@ -266,6 +267,8 @@ def run_applications(store, config, dry_run=True, *, feed=None, transport=None, 
     if preview_packets:
         if not dry_run or not isinstance(store, ShadowStore):
             raise ValueError('Private preview packets require a shadow store')
+    if not dry_run and provider_budget_guard is not None:
+        transport = ProviderBudgetTransport(transport or HTTPTransport(), provider_budget_guard)
     settings = config.get("applications", config)
     now = dt.datetime.now(dt.timezone.utc)
     summary = {"lane": "applications", "dry_run": dry_run, "feed_checked": False,

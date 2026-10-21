@@ -22,6 +22,12 @@ class SubmissionBlocked(Exception):
     pass
 
 
+class ProviderNotInvoked(Exception):
+    """The budget guard rejected dispatch before the transport was invoked."""
+    def __init__(self):
+        super().__init__('provider_not_invoked_runtime_reserve')
+
+
 @dataclass
 class Response:
     status: int
@@ -42,6 +48,26 @@ class HTTPTransport:
                 return Response(response.status, json.loads(raw) if raw else {})
         except urllib.error.HTTPError as error:
             return Response(error.code, {})
+
+
+class ProviderBudgetTransport:
+    """Check the pure runtime guard at dispatch, after payload preparation."""
+    def __init__(self, transport, guard):
+        if not callable(guard):
+            raise ValueError('provider_budget_guard_required')
+        self.transport, self.guard = transport, guard
+
+    def request(self, method, url, *, headers=None, body=None):
+        if method not in {'GET', 'POST'}:
+            raise SubmissionBlocked('unsupported_provider_request_method')
+        if method == 'POST':
+            try:
+                self.guard()
+            except SubmissionBlocked as error:
+                if error.args != ('runtime_budget_reserved_for_receipts_and_backup',):
+                    raise
+                raise ProviderNotInvoked() from None
+        return self.transport.request(method, url, headers=headers, body=body)
 
 
 def timestamp(value):
@@ -202,6 +228,9 @@ class GreenhouseAdapter:
         try:
             result = self.transport.request("POST", job["endpoint"], headers={
                 "Authorization": "Basic " + auth, "Content-Type": content_type}, body=payload)
+        except ProviderNotInvoked:
+            return {"status": "submission_unknown", "reason": "provider_not_invoked_runtime_reserve",
+                    "provider_request_made": False}
         except Exception:
             return {"status": "submission_unknown", "reason": "submission_response_uncertain"}
         # Greenhouse documents no stable applicant receipt schema. A generic 2xx
@@ -305,6 +334,9 @@ class LeverAdapter:
         endpoint = job["endpoint"] + "?" + urllib.parse.urlencode({"key": credential})
         try:
             response = self.transport.request("POST", endpoint, body=body, headers={"Content-Type": content_type})
+        except ProviderNotInvoked:
+            return {"status": "submission_unknown", "reason": "provider_not_invoked_runtime_reserve",
+                    "provider_request_made": False}
         except Exception:
             return {"status": "submission_unknown", "reason": "submission_response_uncertain"}
         if response.status == 200 and response.data.get("ok") is True and response.data.get("applicationId"):
