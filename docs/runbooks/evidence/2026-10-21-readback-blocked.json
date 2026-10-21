@@ -1,0 +1,88 @@
+{
+  "activation_authorized": false,
+  "after": {
+    "ciphertext_sha256": "c62ea1d0dc890426fb383defe45e59b0bbc7a24da96d288daf274e57f0741ea7",
+    "member_sha256": "50a49e9dad83592b3bc33ac2b735075d332f227dae1a3a7532e01095beaf513e",
+    "pages": 2897,
+    "source_fingerprint": "51ee7332471f1fdb64abc49bf78b944bd7e43ca49e6dbae7776abcf1b8d946d0"
+  },
+  "after_canonical_records": 2650,
+  "before": {
+    "ciphertext_sha256": "3691a777eda6b027cb5e7956cc6bee5d4967b0bc1094f1a59381621030910d8f",
+    "member_sha256": "8c805006cddfaee29d1dfb4cc68490326afe47566e4f6f1483faf54813aa1acc",
+    "pages": 2248,
+    "source_fingerprint": "c05a58afa1d7a7b78a6c3f41e2489aed68ee16566722d9852b2059e24a0bc968"
+  },
+  "before_canonical_records": 2002,
+  "cloud_enabled": false,
+  "cloud_research_enabled": true,
+  "content_sha256": "e007cf8e61a48b9cb82da13014feef03dc1b55a2bf9b596cf8db653541b85cf6",
+  "external_effects_reconciled": false,
+  "failed_run_ids": [
+    "39608197676",
+    "39629503187",
+    "39631067173"
+  ],
+  "historical_records_unchanged": 757,
+  "managed_business_constructor_counts": {
+    "agent_runs": 6,
+    "applications": 2,
+    "audit_events": 2,
+    "conversation_observations": 65,
+    "funnel_reports": 1,
+    "jobs": 5,
+    "sync_cursors": 1
+  },
+  "managed_index_rebuild": {
+    "expected_counts": {
+      "agent_tasks": 189,
+      "entity_projections": 310,
+      "index_changes": 375,
+      "index_manifests": 1
+    },
+    "manifest_published": false,
+    "matching_prefix_records": 793,
+    "new_matching_generated_records": 564,
+    "operational_index_complete": false,
+    "original_mismatch_cause": "unverified"
+  },
+  "managed_new_effect_records": {
+    "outreach_events": 0,
+    "receipts": 0,
+    "submission_attempts": 0
+  },
+  "managed_record_delta_verified": true,
+  "observed_at": "2026-10-21T18:40:07.842800+00:00",
+  "operational_writes_by_this_audit": 0,
+  "preservation": {
+    "changed_prior_cores": 0,
+    "changed_prior_pages": 0,
+    "prior_cores_unchanged": 2002,
+    "prior_logical_pages_unchanged": 2248,
+    "removed_prior_cores": 0,
+    "removed_prior_pages": 0,
+    "source_schema_and_identity_unchanged": true
+  },
+  "provider_requests_by_this_audit": 0,
+  "ready_whole_core_unchanged": true,
+  "reason": "unmanaged_delivery_claim_requires_writer_and_history_reconciliation",
+  "rollback_readback_utc": "2026-10-21T18:03:23Z",
+  "schema": "apply-readback-incident-blocked-evidence/v1",
+  "single_writer_verified": false,
+  "snapshot_authenticated": true,
+  "snapshot_run_id": "39649529296",
+  "source_constructor_proof_sha256": "0e8614d8b55bc6e6a6504b4ca5be4e8e77a8a943fef6364a61aff79b07b84720",
+  "unknown_native_source": {
+    "actor_label": "Muse",
+    "content_hash_present": false,
+    "created_at": "2026-10-21T14:38:00.000Z",
+    "creator_matches_current_cloud_writer": false,
+    "delivery_label": "Sent verified",
+    "delivery_verified": false,
+    "immutable_event_id_present": false,
+    "logical_page_sha256": "593cab69f7747625fa16ce2899284336a81668a4c8f95e6640990bf018e96413",
+    "message_history_complete": false,
+    "records": 1,
+    "sender_and_controller_verified": false
+  }
+}
