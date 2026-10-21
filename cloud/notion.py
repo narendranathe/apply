@@ -465,14 +465,22 @@ class NotionStore:
         identity_fragment = canonical_json({"id": record_id})[1:-1]
         pages = self._pages({"or": [{"property": "Cloud ID", "rich_text": {"equals": record_id}},
                                      {"property": "Cloud Envelope", "rich_text": {"contains": identity_fragment}}]})
-        if len(pages) > 1:
+        # A valid payload can reference another record with the same JSON id
+        # fragment. Validate every candidate before selecting the exact decoded
+        # identity: unrelated references are not records or duplicate IDs, and
+        # malformed candidates must still stop a lookup or subsequent creation.
+        candidates = [self._decode_cloud(page) for page in pages]
+        if len({record['id'] for record in candidates}) != len(candidates):
             raise ConflictError("Duplicate Cloud ID; reconcile before writing")
-        if pages:
-            return self._decode_cloud(pages[0])
+        exact = [record for record in candidates if record['id'] == record_id]
+        if exact:
+            return exact[0]
         legacy = self._pages({"property": "Event ID", "rich_text": {"equals": record_id}})
-        if len(legacy) > 1:
+        candidates = [self._decode_legacy(page) for page in legacy]
+        if len({record['id'] for record in candidates}) != len(candidates):
             raise ConflictError("Duplicate legacy Event ID; reconcile before writing")
-        return self._decode_legacy(legacy[0]) if legacy else None
+        exact = [record for record in candidates if record['id'] == record_id]
+        return exact[0] if exact else None
 
     def query(self, kind: str | None = None) -> list[dict]:
         # A cleared/edited identity or kind must not hide applied history from
