@@ -24,7 +24,7 @@ from cloud.startup_reconciliation import (
 )
 from scripts.encrypted_backup import restore_archive, safe_name
 
-SCHEMA = 'apply-pinned-index-readback-writer-resolution/v1'
+SCHEMA = 'apply-pinned-index-readback-writer-resolution/v2'
 FAILED = '39608197676'
 FAILURES = (FAILED, '39629503187', '39631067173')
 PINNED_COMMIT = '34856cd47a41cc9f4433208113210bc94407d373'
@@ -36,32 +36,99 @@ BEFORE_FINGERPRINT = 'c05a58afa1d7a7b78a6c3f41e2489aed68ee16566722d9852b2059e24a
 BEFORE_PAGES = 2248
 BEFORE_RECORDS = 2002
 BEFORE_ARTIFACT_ID = 12322558229
-AFTER = '39649529296'
-AFTER_COMMIT = '2d566a271bb030747df51e79f5a8d70549df515c'
-# Deliberately unavailable until the actual complete hosted snapshot is independently
-# authenticated and reviewed. No caller, environment or workflow input supplies pins.
-AFTER_CIPHER_HASH = ''
-AFTER_MEMBER_HASH = ''
-AFTER_FINGERPRINT = ''
-AFTER_PAGES = 0
-AFTER_RECORDS = 0
-AFTER_ARTIFACT_ID = 0
-REVIEWED_DELTA_PROOF_HASH = ''
-ADDED_CORES_HASH = ''
-BUSINESS_CORES_HASH = ''
-REVIEWED_CONSTRUCTOR_AUDIT_HASH = ''
-GUARD_AUDIT_CORES_HASH = ''
-ADDED_COUNTS = {}
-ADDED_RECORDS = 0
-BUSINESS_RECORDS = 0
-EXPECTED_INDEX_COUNTS = {}
-EXPECTED_INDEX_MANIFEST_HASH = ''
-EXPECTED_PREFIX_RECORDS = 0
-EXPECTED_NEW_GENERATED = 0
-EXPECTED_LAST_CHILD_ID_HASH = ''
-EXPECTED_LAST_CHILD_PAYLOAD_HASH = ''
-EXPECTED_INDEX_SOURCE_HASH = ''
-EXPECTED_PREVIOUS_MANIFEST_HASH = ''
+INCIDENT = '39649529296'
+INCIDENT_COMMIT = '2d566a271bb030747df51e79f5a8d70549df515c'
+INCIDENT_CIPHER_HASH = 'c62ea1d0dc890426fb383defe45e59b0bbc7a24da96d288daf274e57f0741ea7'
+INCIDENT_MEMBER_HASH = '50a49e9dad83592b3bc33ac2b735075d332f227dae1a3a7532e01095beaf513e'
+INCIDENT_FINGERPRINT = '51ee7332471f1fdb64abc49bf78b944bd7e43ca49e6dbae7776abcf1b8d946d0'
+INCIDENT_PAGES = 2897
+INCIDENT_RECORDS = 2650
+INCIDENT_ARTIFACT_ID = 12370258354
+AFTER = '39676723486'
+AFTER_COMMIT = 'e86c50049cdb64e1a3a53a19cdd793369dd1a56d'
+# Actual complete post-stop snapshot independently authenticated and reviewed.
+# No caller, environment or workflow input can supply or replace these pins.
+AFTER_CIPHER_HASH = 'ae5298a92b37fc04becdbb465790891e99cbdd704a1154898aec3343810e30bd'
+AFTER_MEMBER_HASH = '5fb3b865ae4718703e0540fb0534c93f9a0177b6837a2eb93006069bd6eb9c06'
+AFTER_FINGERPRINT = '51ee7332471f1fdb64abc49bf78b944bd7e43ca49e6dbae7776abcf1b8d946d0'
+AFTER_PAGES = 2897
+AFTER_RECORDS = 2650
+AFTER_ARTIFACT_ID = 12383531835
+REVIEWED_DELTA_PROOF_HASH = '7ceeea32ff7e67ad76ed1ce597f543b325634f3b70c51403447f8df44749dc37'
+ADDED_CORES_HASH = '2fd6865b5ee6ad96803bacf9a0b59a2f2865e43cb81fdbacdee741153acbe81a'
+BUSINESS_CORES_HASH = 'b1f209860085e8fa46f6153f35e79d41456cbbdb6c19f8b08a9201172e7f5cde'
+REVIEWED_CONSTRUCTOR_AUDIT_HASH = 'f4c5b90582f78527bbc265433e847bd554de7b9b692a9fc005f5c60285ae721d'
+GUARD_AUDIT_CORES_HASH = 'cd5d92c5c6d1708cc6d95e05466009b877108aad009f487b4db8de367bd65609'
+ADDED_COUNTS = {'agent_runs': 6,
+ 'agent_tasks': 99,
+ 'applications': 2,
+ 'audit_events': 4,
+ 'conversation_observations': 65,
+ 'entity_projections': 171,
+ 'funnel_reports': 1,
+ 'index_changes': 294,
+ 'jobs': 5,
+ 'sync_cursors': 1}
+ADDED_RECORDS = 648
+BUSINESS_RECORDS = 82
+EXPECTED_INDEX_COUNTS = {'agent_tasks': 189, 'entity_projections': 310, 'index_changes': 375, 'index_manifests': 1}
+EXPECTED_INDEX_MANIFEST_HASH = '0302ee6216bb7d326267be2b50022253e661cb0e1a150a911d87e8c83435610d'
+EXPECTED_PREFIX_RECORDS = 793
+EXPECTED_NEW_GENERATED = 564
+EXPECTED_LAST_CHILD_ID_HASH = '65b0c3c52df044778e08c21ace83313512d317f597e931c4e63d811288d5a972'
+EXPECTED_LAST_CHILD_PAYLOAD_HASH = '6e72e105a78bca8652638df0925c13ee2028500a8199bba972f15be72ebd9bae'
+EXPECTED_INDEX_SOURCE_HASH = 'a40ada945e065ea687988c5bb08d085515e6c32376eb78eb798020cc793821c9'
+EXPECTED_PREVIOUS_MANIFEST_HASH = '5852fd65601f526f2ccb20d3a6b45e67615151d083b757c6b126d84025d42e75'
+REVIEWED_CONTAINMENT_PROOF_HASH = '26f16fc956a154ac98e2696ed21a0260f945ac8e0f9ad4f616fe41e7db984342'
+NATIVE_LOGICAL_HASH = '593cab69f7747625fa16ce2899284336a81668a4c8f95e6640990bf018e96413'
+SNAPSHOT_RUNS = {'39545315317': {'conclusion': 'success',
+                 'created_at': '2026-10-21T04:40:20Z',
+                 'display_title': 'history:reconcile-index',
+                 'event': 'workflow_dispatch',
+                 'head_branch': 'main',
+                 'head_sha': 'c2d3ae6064b6c24c56041a7d0727f7eb3699b794',
+                 'id': 39545315317,
+                 'path': '.github/workflows/history-reconciliation.yml',
+                 'run_attempt': 1,
+                 'run_started_at': '2026-10-21T04:40:20Z',
+                 'status': 'completed',
+                 'updated_at': '2026-10-21T05:14:06Z'},
+ '39649529296': {'conclusion': 'success',
+                 'created_at': '2026-10-21T18:05:08Z',
+                 'display_title': 'history:snapshot',
+                 'event': 'workflow_dispatch',
+                 'head_branch': 'main',
+                 'head_sha': '2d566a271bb030747df51e79f5a8d70549df515c',
+                 'id': 39649529296,
+                 'path': '.github/workflows/history-reconciliation.yml',
+                 'run_attempt': 1,
+                 'run_started_at': '2026-10-21T18:05:08Z',
+                 'status': 'completed',
+                 'updated_at': '2026-10-21T18:27:08Z'},
+ '39676723486': {'conclusion': 'success',
+                 'created_at': '2026-10-21T21:11:21Z',
+                 'display_title': 'history:snapshot',
+                 'event': 'workflow_dispatch',
+                 'head_branch': 'main',
+                 'head_sha': 'e86c50049cdb64e1a3a53a19cdd793369dd1a56d',
+                 'id': 39676723486,
+                 'path': '.github/workflows/history-reconciliation.yml',
+                 'run_attempt': 1,
+                 'run_started_at': '2026-10-21T21:11:21Z',
+                 'status': 'completed',
+                 'updated_at': '2026-10-21T21:33:16Z'}}
+SNAPSHOT_JOBS = {'39545315317': {'id': 119042060079,
+                 'jobs_sha256': '34be9a1c21d050f06925dfaab91a70dd583a859304b2d5f3014b042b19972317',
+                 'operation_started_at': '2026-10-21T04:40:33Z',
+                 'steps_sha256': 'a3950f072d0fceb13ddf5053b6daac6767e5f0ab9e07debf991b5afefbbc7e09'},
+ '39649529296': {'id': 119393894957,
+                 'jobs_sha256': 'c8acc41f39724904e2d0bdf0cad9730d2d3032e0fc194bab0c8c716aa850686f',
+                 'operation_started_at': '2026-10-21T18:05:24Z',
+                 'steps_sha256': 'c3ad9d1d3e53cf4bda237900d0a6d2693a9c1da487c80c38c93dd4c0e1d4a9ac'},
+ '39676723486': {'id': 119488408820,
+                 'jobs_sha256': '89cb5a0d4e886007e47e5d101000946155d8d2ad89d58074fede6cf897195d72',
+                 'operation_started_at': '2026-10-21T21:11:39Z',
+                 'steps_sha256': 'db38899f3a6605649b02ed52f9b38fd1e6026dc3b7d90c1d7901821e7fba017a'}}
 FAILED_RUNS = {'39608197676': {'conclusion': 'failure',
                  'created_at': '2026-10-21T13:27:46Z',
                  'display_title': 'cloud:live:all',
@@ -148,7 +215,7 @@ def require_reviewed_pins():
         REVIEWED_CONSTRUCTOR_AUDIT_HASH, GUARD_AUDIT_CORES_HASH,
         EXPECTED_INDEX_MANIFEST_HASH, EXPECTED_LAST_CHILD_ID_HASH,
         EXPECTED_LAST_CHILD_PAYLOAD_HASH, EXPECTED_INDEX_SOURCE_HASH,
-        EXPECTED_PREVIOUS_MANIFEST_HASH)
+        EXPECTED_PREVIOUS_MANIFEST_HASH, REVIEWED_CONTAINMENT_PROOF_HASH)
     require(all(_hash(value) for value in hashes)
             and all(type(value) is int and value > 0 for value in
                 (AFTER_PAGES, AFTER_RECORDS, AFTER_ARTIFACT_ID, ADDED_RECORDS,
@@ -157,7 +224,14 @@ def require_reviewed_pins():
             and all(isinstance(key, str) and type(value) is int and value > 0 for key, value in ADDED_COUNTS.items())
             and sum(ADDED_COUNTS.values()) == ADDED_RECORDS
             and isinstance(EXPECTED_INDEX_COUNTS, dict) and bool(EXPECTED_INDEX_COUNTS)
-            and all(isinstance(key, str) and type(value) is int and value > 0 for key, value in EXPECTED_INDEX_COUNTS.items()),
+            and all(isinstance(key, str) and type(value) is int and value > 0 for key, value in EXPECTED_INDEX_COUNTS.items())
+            and set(SNAPSHOT_RUNS) == set(SNAPSHOT_JOBS) == {BEFORE, INCIDENT, AFTER}
+            and all(isinstance(run, dict) and set(run) == set(RUN_FIELDS) for run in SNAPSHOT_RUNS.values())
+            and all(isinstance(job, dict)
+                    and set(job) == {'id', 'jobs_sha256', 'steps_sha256', 'operation_started_at'}
+                    and type(job['id']) is int and job['id'] > 0
+                    and _hash(job['jobs_sha256']) and _hash(job['steps_sha256'])
+                    and _time(job['operation_started_at']) is not None for job in SNAPSHOT_JOBS.values()),
             'readback_snapshot_review_pending')
 
 
@@ -252,19 +326,28 @@ def verify_incidents(github):
 
 
 def read_snapshot(github, identity, key):
-    require(identity in (BEFORE, AFTER), 'source_snapshot_identity_invalid')
+    specifications = {
+        BEFORE: (BEFORE_COMMIT, BEFORE_CIPHER_HASH, BEFORE_MEMBER_HASH, BEFORE_FINGERPRINT,
+                 BEFORE_PAGES, BEFORE_RECORDS, BEFORE_ARTIFACT_ID),
+        INCIDENT: (INCIDENT_COMMIT, INCIDENT_CIPHER_HASH, INCIDENT_MEMBER_HASH, INCIDENT_FINGERPRINT,
+                   INCIDENT_PAGES, INCIDENT_RECORDS, INCIDENT_ARTIFACT_ID),
+        AFTER: (AFTER_COMMIT, AFTER_CIPHER_HASH, AFTER_MEMBER_HASH, AFTER_FINGERPRINT,
+                AFTER_PAGES, AFTER_RECORDS, AFTER_ARTIFACT_ID),
+    }
+    require(identity in specifications and identity in SNAPSHOT_RUNS and identity in SNAPSHOT_JOBS,
+            'source_snapshot_identity_invalid')
     before = identity == BEFORE
-    expected_commit = BEFORE_COMMIT if before else AFTER_COMMIT
-    expected_cipher = BEFORE_CIPHER_HASH if before else AFTER_CIPHER_HASH
-    expected_member = BEFORE_MEMBER_HASH if before else AFTER_MEMBER_HASH
-    expected_state = BEFORE_FINGERPRINT if before else AFTER_FINGERPRINT
-    expected_pages = BEFORE_PAGES if before else AFTER_PAGES
+    (expected_commit, expected_cipher, expected_member, expected_state,
+     expected_pages, expected_records, expected_artifact) = specifications[identity]
     path = '/actions/runs/' + identity
     run = github.fetch(path)
     require(str(run.get('id')) == identity and run.get('head_sha') == expected_commit
             and run.get('head_branch') == 'main' and type(run.get('run_attempt')) is int and run['run_attempt'] == 1
             and run.get('event') == 'workflow_dispatch' and run.get('status') == 'completed'
             and run.get('conclusion') == 'success'
+            and all(run.get(key) == value for key, value in SNAPSHOT_RUNS[identity].items())
+            and run.get('actor', {}).get('login') == 'narendranathe'
+            and run.get('triggering_actor', {}).get('login') == 'narendranathe'
             and run.get('display_title') == ('history:reconcile-index' if before else 'history:snapshot')
             and str(run.get('path', '')).partition('@')[0] == '.github/workflows/history-reconciliation.yml',
             'source_snapshot_hosted_run_invalid')
@@ -273,13 +356,23 @@ def read_snapshot(github, identity, key):
     job = jobs['jobs'][0]
     require(job.get('name') == 'reconcile' and job.get('status') == 'completed'
             and job.get('conclusion') == 'success' and 'ubuntu-latest' in job.get('labels', [])
-            and 'self-hosted' not in job.get('labels', []), 'source_snapshot_hosted_job_invalid')
+            and 'self-hosted' not in job.get('labels', [])
+            and job.get('id') == SNAPSHOT_JOBS[identity]['id']
+            and content_hash(jobs) == SNAPSHOT_JOBS[identity]['jobs_sha256']
+            and content_hash(job.get('steps')) == SNAPSHOT_JOBS[identity]['steps_sha256'],
+            'source_snapshot_hosted_job_invalid')
+    operation = [step for step in job.get('steps', [])
+                 if step.get('name') == 'Reconcile without replaying historical effects']
+    require(len(operation) == 1 and operation[0].get('conclusion') == 'success'
+            and _time(operation[0].get('started_at')) is not None
+            and operation[0]['started_at'] == SNAPSHOT_JOBS[identity]['operation_started_at'],
+            'source_snapshot_operation_start_invalid')
     response = github.fetch(path + '/artifacts?per_page=100&page=1')
     require(_complete_list(response, 'artifacts', 1), 'source_snapshot_artifact_history_incomplete')
     artifact = response['artifacts'][0]
     require(artifact.get('name') == 'reconciliation-evidence-' + identity and artifact.get('expired') is False
             and type(artifact.get('id')) is int
-            and artifact['id'] == (BEFORE_ARTIFACT_ID if before else AFTER_ARTIFACT_ID),
+            and artifact['id'] == expected_artifact,
             'source_snapshot_artifact_invalid')
     zipped = github.download(artifact['id'])
     try:
@@ -315,7 +408,8 @@ def read_snapshot(github, identity, key):
                 'source_snapshot_member_or_wrapper_invalid')
         state = SnapshotState(wrapper['snapshot'])
         require(type(backup.get('records')) is int and backup['records'] == len(state.pages) == expected_pages
-                and state.fingerprint() == expected_state, 'source_snapshot_content_mismatch')
+                and len(state.rows) == expected_records and state.fingerprint() == expected_state,
+                'source_snapshot_content_mismatch')
         require(_time(wrapper.get('exported_at')) is not None
                 and _time(wrapper['exported_at']) >= _time(state.snapshot['captured_at']),
                 'source_snapshot_export_time_invalid')
@@ -327,7 +421,8 @@ def read_snapshot(github, identity, key):
             and github.fetch(path) == run, 'source_snapshot_run_changed')
     return state, {'run_id': identity, 'artifact_id': artifact['id'], 'artifact_zip_sha256': sha(zipped),
                    'archive_sha256': sha(ciphertext), 'member_sha256': sha(member),
-                   'state_sha256': state.fingerprint(), 'pages': len(state.pages)}
+                   'state_sha256': state.fingerprint(), 'pages': len(state.pages),
+                   'operation_started_at': operation[0]['started_at']}
 
 
 def _generated(row):
@@ -355,7 +450,7 @@ def _guard_audits(before_rows, after_rows, after):
     return result
 
 
-def verify_delta_and_index(before, after, exported):
+def verify_delta_and_index(before, after, exported, native_plan=None):
     """Rebuild the exact reviewed index source before the two later guard audits.
 
     Every prior logical page and CORE remains compared. The static constructor
@@ -378,9 +473,19 @@ def verify_delta_and_index(before, after, exported):
             and set(before_rows) <= set(after_rows)
             and all(after_rows[identity] == row for identity, row in before_rows.items()), 'prior_source_core_changed')
     added = {identity: row for identity, row in after_rows.items() if identity not in before_rows}
+    native_pages = set()
+    if native_plan is not None:
+        require(_hash(REVIEWED_CONTAINMENT_PROOF_HASH)
+                and content_hash(native_plan.proof) == REVIEWED_CONTAINMENT_PROOF_HASH
+                and native_plan.native_page_id not in before.pages
+                and native_plan.native_page_id in after.pages
+                and content_hash(after.pages[native_plan.native_page_id]) == NATIVE_LOGICAL_HASH
+                and native_plan.native_page_id not in after.page_ids.values(),
+                'exact_native_claim_containment_unverified')
+        native_pages.add(native_plan.native_page_id)
     require(len(added) == ADDED_RECORDS and dict(Counter(row['kind'] for row in added.values())) == ADDED_COUNTS
             and content_hash({identity: content_hash(row) for identity, row in added.items()}) == ADDED_CORES_HASH
-            and set(after.pages) - set(before.pages) == {after.page_ids[identity] for identity in added},
+            and set(after.pages) - set(before.pages) == {after.page_ids[identity] for identity in added} | native_pages,
             'source_delta_not_exact_reviewed_records')
     require(_effects(before) == _effects(after), 'new_attempt_receipt_or_outreach_effect')
     for state in (before, after):
@@ -497,32 +602,43 @@ def verify_delta_and_index(before, after, exported):
         'expected_manifest_sha256': manifest['hash'], 'partial_prefix_records': prefix,
         'new_partial_children': len(new_generated), 'last_child_identity_sha256': EXPECTED_LAST_CHILD_ID_HASH,
         'last_child_payload_sha256': EXPECTED_LAST_CHILD_PAYLOAD_HASH,
-        'last_child_later_exact_readback': True, 'original_mismatch_cause': 'unverified', 'index_complete': False}
+        'last_child_later_exact_readback': True, 'original_mismatch_cause': 'unverified', 'index_complete': False,
+        'native_claim_containment': native_plan.proof if native_plan is not None else None}
 
 
-def resolution_record(identity, incident, before_proof, after_proof, delta):
+def resolution_record(identity, incident, before_proof, after_proof, delta, *, incident_after_proof=None):
     require(identity in FAILURES, 'resolution_identity_invalid')
     lead = identity == FAILED
     return record('writer-resolution:' + identity, 'audit_events', {
         'schema': SCHEMA, 'github_run_id': identity,
         'reason': 'business_complete_index_publication_incomplete' if lead else 'guard_stopped_no_business_operation',
-        'external_effects_reconciled': True, 'retry_external_effects': False,
+        'external_effects_reconciled': False, 'managed_cloud_effects_reconciled': True,
+        'native_effect_unknown_contained': True, 'native_delivery_verified': False,
+        'native_history_incomplete': True, 'retry_external_effects': False,
         'business_operation_entered': lead, 'business_lanes_completed': lead, 'index_complete': False,
-        'evidence': {'incident': incident, 'before': before_proof, 'after': after_proof, 'delta': delta}},
+        'evidence': {'incident': incident, 'before': before_proof, 'incident_snapshot': incident_after_proof,
+                     'after': after_proof, 'delta': delta}},
         'reconciled_business_complete_index_incomplete' if lead else 'reconciled_guard_stopped_no_business_operation')
 
 
 def _snapshot_proof_valid(proof, before):
+    phase = INCIDENT if before == 'incident' else BEFORE if before else AFTER
+    expected = {
+        BEFORE: (BEFORE_ARTIFACT_ID, BEFORE_CIPHER_HASH, BEFORE_MEMBER_HASH, BEFORE_FINGERPRINT, BEFORE_PAGES),
+        INCIDENT: (INCIDENT_ARTIFACT_ID, INCIDENT_CIPHER_HASH, INCIDENT_MEMBER_HASH, INCIDENT_FINGERPRINT, INCIDENT_PAGES),
+        AFTER: (AFTER_ARTIFACT_ID, AFTER_CIPHER_HASH, AFTER_MEMBER_HASH, AFTER_FINGERPRINT, AFTER_PAGES),
+    }[phase]
     return (isinstance(proof, dict)
-            and set(proof) == {'run_id', 'artifact_id', 'artifact_zip_sha256', 'archive_sha256', 'member_sha256', 'state_sha256', 'pages'}
-            and proof['run_id'] == (BEFORE if before else AFTER)
+            and set(proof) == {'run_id', 'artifact_id', 'artifact_zip_sha256', 'archive_sha256', 'member_sha256', 'state_sha256', 'pages', 'operation_started_at'}
+            and proof['run_id'] == phase
             and type(proof['artifact_id']) is int
-            and proof['artifact_id'] == (BEFORE_ARTIFACT_ID if before else AFTER_ARTIFACT_ID)
+            and proof['artifact_id'] == expected[0]
             and _hash(proof['artifact_zip_sha256'])
-            and proof['archive_sha256'] == (BEFORE_CIPHER_HASH if before else AFTER_CIPHER_HASH)
-            and proof['member_sha256'] == (BEFORE_MEMBER_HASH if before else AFTER_MEMBER_HASH)
-            and proof['state_sha256'] == (BEFORE_FINGERPRINT if before else AFTER_FINGERPRINT)
-            and type(proof['pages']) is int and proof['pages'] == (BEFORE_PAGES if before else AFTER_PAGES))
+            and proof['archive_sha256'] == expected[1]
+            and proof['member_sha256'] == expected[2]
+            and proof['state_sha256'] == expected[3]
+            and type(proof['pages']) is int and proof['pages'] == expected[4]
+            and proof['operation_started_at'] == SNAPSHOT_JOBS[phase]['operation_started_at'])
 
 
 def _incident_report_valid(value):
@@ -554,15 +670,22 @@ def _resolution_valid(identity, marker):
             and row['status'] == ('reconciled_business_complete_index_incomplete' if lead
                                  else 'reconciled_guard_stopped_no_business_operation')
             and set(payload) == {'schema', 'github_run_id', 'reason', 'external_effects_reconciled',
+                'managed_cloud_effects_reconciled', 'native_effect_unknown_contained',
+                'native_delivery_verified', 'native_history_incomplete',
                 'retry_external_effects', 'business_operation_entered', 'business_lanes_completed', 'index_complete', 'evidence'}
             and payload['schema'] == SCHEMA and payload['github_run_id'] == identity
             and payload['reason'] == ('business_complete_index_publication_incomplete' if lead
                                       else 'guard_stopped_no_business_operation')
-            and payload['external_effects_reconciled'] is True and payload['retry_external_effects'] is False
+            and payload['external_effects_reconciled'] is False
+            and payload['managed_cloud_effects_reconciled'] is True
+            and payload['native_effect_unknown_contained'] is True
+            and payload['native_delivery_verified'] is False and payload['native_history_incomplete'] is True
+            and payload['retry_external_effects'] is False
             and payload['business_operation_entered'] is lead and payload['business_lanes_completed'] is lead
             and payload['index_complete'] is False and isinstance(payload['evidence'], dict)
-            and set(payload['evidence']) == {'incident', 'before', 'after', 'delta'}
+            and set(payload['evidence']) == {'incident', 'before', 'incident_snapshot', 'after', 'delta'}
             and _snapshot_proof_valid(payload['evidence']['before'], True)
+            and _snapshot_proof_valid(payload['evidence']['incident_snapshot'], 'incident')
             and _snapshot_proof_valid(payload['evidence']['after'], False)
             and content_hash(payload['evidence']['delta']) == REVIEWED_DELTA_PROOF_HASH
             and _incident_report_valid(payload['evidence']['incident']))
@@ -570,20 +693,33 @@ def _resolution_valid(identity, marker):
         return False
 
 
-def readback_resolution_matches(identity, marker, fetch, repository):
+def readback_resolution_matches(identity, marker, fetch, repository, *, read_record=None):
     """A marker cannot resolve a future attempt, partial jobs, or changed run."""
     try:
         if repository != REPOSITORY or not _resolution_valid(identity, marker):
             return False
-        path = '/actions/runs/' + identity
-        before = fetch(path)
-        jobs = fetch(path + '/jobs?filter=all&per_page=100&page=1')
-        if not _run_matches(identity, before) or not _job_matches(identity, jobs):
+        from cloud.native_claim_reconciliation import cohort_matches
+        if not callable(read_record) or not cohort_matches(read_record):
             return False
-        after_jobs = fetch(path + '/jobs?filter=all&per_page=100&page=1')
-        after = fetch(path)
-        return (_run_matches(identity, after) and after == before
-                and _job_matches(identity, after_jobs) and after_jobs == jobs)
+        for resolved_id in FAILURES:
+            peer = read_record('writer-resolution:' + resolved_id)
+            if not (_resolution_valid(resolved_id, peer)
+                    and peer['payload']['evidence'] == marker['payload']['evidence']):
+                return False
+        # A peer rerun may disappear from GitHub's failed-run list. The full
+        # reviewed cohort must still witness each original attempt directly.
+        for failed_id in FAILURES:
+            path = '/actions/runs/' + failed_id
+            before = fetch(path)
+            jobs = fetch(path + '/jobs?filter=all&per_page=100&page=1')
+            if not _run_matches(failed_id, before) or not _job_matches(failed_id, jobs):
+                return False
+            after_jobs = fetch(path + '/jobs?filter=all&per_page=100&page=1')
+            after = fetch(path)
+            if not (_run_matches(failed_id, after) and after == before
+                    and _job_matches(failed_id, after_jobs) and after_jobs == jobs):
+                return False
+        return True
     except Exception:
         return False
 
@@ -601,13 +737,22 @@ def reconcile(store, exported, github, context, key):
     verify_maintenance_context(github, context)
     incident = verify_incidents(github)
     before, before_proof = read_snapshot(github, BEFORE, key)
+    incident_after, incident_after_proof = read_snapshot(github, INCIDENT, key)
     after, after_proof = read_snapshot(github, AFTER, key)
     require(_time(before.snapshot['captured_at']) < _time(FAILED_RUNS[FAILED]['run_started_at'])
             and all(_time(run['updated_at']) < _time(after.snapshot['captured_at']) for run in FAILED_RUNS.values()),
             'snapshot_does_not_bracket_failures')
-    delta = verify_delta_and_index(before, after, exported)
+    from cloud.native_claim_reconciliation import load_plan
+    plan = load_plan(incident_after, after, key,
+                     post_stop_started_at=after_proof['operation_started_at'])
+    require(content_hash(plan.proof) == REVIEWED_CONTAINMENT_PROOF_HASH,
+            'reviewed_containment_proof_changed')
+    delta = verify_delta_and_index(before, after, exported, plan)
     require(content_hash(delta) == REVIEWED_DELTA_PROOF_HASH, 'reviewed_readback_delta_proof_changed')
-    expected = [resolution_record(identity, incident, before_proof, after_proof, delta) for identity in FAILURES]
+    resolutions = [resolution_record(identity, incident, before_proof, after_proof, delta,
+                                     incident_after_proof=incident_after_proof)
+                   for identity in (*FAILURES[1:], FAILED)]
+    expected = [*plan.records, *resolutions]
     current = SnapshotState(store.snapshot_all())
     require(current.data_source_id == getattr(store, 'data_source_id', None) == after.data_source_id
             and _time(current.snapshot['captured_at']) >= _time(after.snapshot['captured_at']),
@@ -619,15 +764,26 @@ def reconcile(store, exported, github, context, key):
             require(core(old) == core(row), 'existing_readback_resolution_conflict')
             current.pages.pop(current.page_ids[row['id']])
         existing.append(old is not None)
-    # Notion cannot atomically append three records. An interrupted partial
-    # batch is a new reconciliation incident, never an automatic append retry.
+    # The six appends are one nontransactional cohort. Any proper subset is
+    # a new incident, never an automatic append retry.
     require(not any(existing) or all(existing), 'partial_resolution_batch_requires_reconciliation')
     require(current.fingerprint() == after.fingerprint(), 'fresh_source_changed_since_snapshot')
     github.verify_main(context['commit'])
     verify_maintenance_context(github, context)
     require(verify_incidents(github) == incident, 'incident_evidence_changed_before_append')
     if not all(existing):
-        for row in expected:
+        for position, row in enumerate(expected):
+            if position == len(plan.records):
+                contained = SnapshotState(store.snapshot_all())
+                for containment in plan.records:
+                    observed = contained.get(containment['id'])
+                    require(observed is not None and core(observed) == core(containment),
+                            'containment_cohort_missing_before_clearance')
+                    contained.pages.pop(contained.page_ids[containment['id']])
+                require(contained.fingerprint() == after.fingerprint(),
+                        'fresh_source_changed_after_containment')
+                github.verify_main(context['commit'])
+                verify_maintenance_context(github, context)
             written = store.put(row)
             observed = store.get(row['id'])
             try:
@@ -639,6 +795,9 @@ def reconcile(store, exported, github, context, key):
                 raise AmbiguousWriteError('Readback reconciliation append uncertain; stop for reconciliation')
     return {'operation': 'pinned_index_readback_writer_reconciliation', 'verified': True,
         'unchanged': all(existing), 'resolved_run_ids': list(FAILURES),
-        'resolution_sha256': {row['id']: row['hash'] for row in expected}, 'external_effects': 0,
+        'resolution_sha256': {row['id']: row['hash'] for row in resolutions},
+        'containment_sha256': {row['id']: row['hash'] for row in plan.records}, 'external_effects': 0,
+        'native_effect_unknown_contained': True, 'native_delivery_verified': False,
+        'external_effects_reconciled': False, 'managed_cloud_effects_reconciled': True,
         'business_lanes_completed': True, 'index_complete': False, 'guard_storage_audits_preserved': 2,
         'baseline_unchanged': BASELINE_RECORDS, 'cloud_enabled_changed': False, 'ready_record_changed': False}

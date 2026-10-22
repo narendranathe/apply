@@ -188,7 +188,8 @@ def verify_previous_writers(store, transport=None):
             if identity in READBACK_FAILURES or (isinstance(schema, str)
                                                and schema.startswith('apply-pinned-index-readback-writer-resolution/')):
                 return (schema == READBACK_SCHEMA
-                        and readback_resolution_matches(identity, marker, request_path, repository))
+                        and readback_resolution_matches(identity, marker, request_path, repository,
+                                                        read_record=store.get))
             from cloud.index_reconciliation import FAILED as INDEX_FAILED, SCHEMA as INDEX_SCHEMA, index_resolution_matches
             if identity == INDEX_FAILED or (isinstance(schema, str)
                                            and schema.startswith('apply-pinned-index-writer-resolution/')):

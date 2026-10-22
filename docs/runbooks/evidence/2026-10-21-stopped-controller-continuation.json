@@ -1,0 +1,114 @@
+{
+  "deployed_main": "e86c50049cdb64e1a3a53a19cdd793369dd1a56d",
+  "encrypted_evidence": {
+    "unapplied_proposals": {
+      "authenticated_restore_verified": true,
+      "ciphertext_sha256": "5cd3d290ce0275653b18c917d3a130383e42ccd7904450c54fbf08386d7d9908",
+      "members": 10,
+      "safe_proof_content_sha256": "6fe180043fb830f5e2702bcc0f607b8726dbada17e14dfa16c219c7315ead53d"
+    },
+    "user_stop": {
+      "authenticated_restore_verified": true,
+      "ciphertext_sha256": "9a702deaad17836d4d5c574d6f9bf7cd9682b0a63f0f305fb97b8ee374a3c1b7",
+      "members": 9,
+      "safe_proof_content_sha256": "fb5d33d9f50a5a49eee2a5bb8d33355748f0b8acf708def370a61b3c4da7e93a"
+    }
+  },
+  "evidence_content_sha256": "85c1fcbbf29625db9f7295d873323f463526cb5b562431d7812e9c304acc45e5",
+  "external_block": {
+    "alternate_route_attempted": false,
+    "blocked_action": "git push origin codex/cloud-cutover",
+    "kind": "automatic_approval_review_usage_limit",
+    "reset_utc": "2026-10-21T23:02:00Z",
+    "unsafe_determination": false
+  },
+  "failed_writer_fences_retained": [
+    "39608197676",
+    "39629503187",
+    "39631067173"
+  ],
+  "feature_variable_evidence": {
+    "later_user_reconfirmation": true,
+    "machine_readback_utc": "2026-10-21T18:03:23Z",
+    "new_machine_readback_pending": true
+  },
+  "feature_variable_mutations": 0,
+  "historical_import_restarted": false,
+  "legacy_controllers": {
+    "desktop_outreach_schedules": "paused_fresh_configuration_readback",
+    "milo": "stopped_direct_user_confirmation",
+    "muse": "stopped_direct_user_confirmation",
+    "muse_morning_outreach": "direct_user_confirmation",
+    "native_delivery_link_verified": false
+  },
+  "local_recovery": {
+    "actual_source_pins_available": false,
+    "central_resolution_written": false,
+    "commit": "b5ae9c0be30bb45e1817454707e867f1ee5a6bc2",
+    "pull_request_created": false,
+    "pushed": false
+  },
+  "network_requests_in_local_proposal_work": 0,
+  "observed_at": "2026-10-21T20:21:13.472797+00:00",
+  "operational_writes_in_local_proposal_work": 0,
+  "preserved_native_claim": {
+    "changed_or_imported": false,
+    "delivery_verified": false,
+    "exact_history_complete": false,
+    "immutable_event_identity_present": false,
+    "records": 1
+  },
+  "production_current_healthy": false,
+  "production_enabled": false,
+  "provider_requests_in_local_proposal_work": 0,
+  "ready_record_recreated": false,
+  "recovery_proposals": {
+    "applied": false,
+    "canonical_contact_id_created": false,
+    "count": 3,
+    "earlier_full_snapshot_postdates_stop_confirmation": false,
+    "future_complete_post_stop_hosted_snapshot_required": true,
+    "in_memory_scope_and_idempotency_tests": 11,
+    "independent_scope_review_passed": true,
+    "quarantine_regression_tests": 16,
+    "quarantine_scope": "exact_profile_only",
+    "verified_delivery_created": false
+  },
+  "remaining_gates": [
+    "latest_deployed_research_terminal_result_and_authenticated_restore",
+    "fresh_full_post_stop_hosted_snapshot",
+    "freshly_verified_central_profile_hold_and_unverified_observations",
+    "strict_three_failed_writer_reconciliation",
+    "complete_persistent_index_and_backup",
+    "same_day_no_effect_production_rerun",
+    "hosted_agent_consumer_validation"
+  ],
+  "research_enabled": true,
+  "research_validations": [
+    {
+      "head_sha": "2d566a271bb030747df51e79f5a8d70549df515c",
+      "independent_artifact_restore": false,
+      "mode": "research-only",
+      "run_id": "39649959786",
+      "terminal_result": "success_existing_hosted_watcher_exit_zero"
+    },
+    {
+      "head_sha": "e86c50049cdb64e1a3a53a19cdd793369dd1a56d",
+      "independent_artifact_restore": false,
+      "mode": "research-only",
+      "run_id": "39655529243",
+      "terminal_result": "not_retrieved"
+    }
+  ],
+  "schedules": {
+    "daily_local_times": [
+      "06:00",
+      "06:30"
+    ],
+    "dst_covered_by_tests": true,
+    "exact_minute_delivery_verified": false,
+    "research_requires_mac": false,
+    "timezone": "America/Chicago"
+  },
+  "schema": "apply-stopped-controller-continuation/v1"
+}

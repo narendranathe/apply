@@ -33,7 +33,7 @@ class ReadbackWriterGuardTests(unittest.TestCase):
     def test_future_schema_never_falls_through_to_generic_clearance(self):
         for identity in (*FAILURES, '123'):
             with self.subTest(identity=identity):
-                github, store = self.fixture(identity, SCHEMA.replace('/v1', '/v2'))
+                github, store = self.fixture(identity, SCHEMA.rsplit('/', 1)[0] + '/v999')
                 with patch('cloud.readback_reconciliation.readback_resolution_matches') as native:
                     with self.assertRaisesRegex(Blocked, 'previous_failed_writer_requires_reconciliation'):
                         self.verify(store, github)
@@ -50,7 +50,19 @@ class ReadbackWriterGuardTests(unittest.TestCase):
         self.assertEqual(args[1], store.get('writer-resolution:' + identity))
         self.assertTrue(callable(args[2]))
         self.assertEqual(args[3], 'narendranathe/apply')
+        self.assertEqual(native.call_args.kwargs['read_record'], store.get)
         self.assertEqual(store.writes, [])
+
+    def test_old_schema_and_failed_native_cohort_cannot_clear_any_known_writer(self):
+        for identity in FAILURES:
+            for schema in (SCHEMA.rsplit('/', 1)[0] + '/v1', SCHEMA):
+                github, store = self.fixture(identity, schema)
+                with self.subTest(identity=identity, schema=schema), \
+                     patch('cloud.readback_reconciliation.readback_resolution_matches', return_value=False) as native:
+                    with self.assertRaisesRegex(Blocked, 'previous_failed_writer_requires_reconciliation'):
+                        self.verify(store, github)
+                    self.assertEqual([row['id'] for row in store.writes], ['writer-failure:' + identity])
+                    self.assertEqual(native.call_count, int(schema == SCHEMA))
 
 
 if __name__ == '__main__':

@@ -30,9 +30,25 @@
 - [x] Monitor receipts/status of auto-submitted jobs separately from prepared/attempted/manual-action-needed jobs; ensure ambiguous submissions are never blindly retried. Actual cloud attempts/receipts are zero; one historical human-confirmed submission is counted separately.
 - [x] Document rollback, alerting, restoration, retention, measured runner usage and a clear list of remaining exceptions. Account allowance/spend visibility remains unavailable; no billing changes were made.
 
-## Current operational evidence, October 17, 2026
+## Current operational evidence, October 21, 2026
 
-This section supersedes the historical checkpoints below. Cloud orchestration is active; fully autonomous outbound is unavailable.
+The latest audit confirms working [cloud research](https://github.com/narendranathe/apply/actions/runs/39655529243), [encrypted full post-stop snapshot](https://github.com/narendranathe/apply/actions/runs/39676723486), [main CI](https://github.com/narendranathe/apply/actions/runs/39655516838), and [job-scout feeder](https://github.com/narendranathe/job-scout/actions/runs/39701131112). Research's 1,318 staged records and the snapshot's unchanged 2,897 pages / 2,650 canonical records passed independent authenticated restore. Production remains disabled; research remains enabled. GitHub access is available again.
+
+The exact post-stop recovery candidate has passed independent review and is pinned for guarded deployment. Its three uncertainty/stop records and three failed-writer resolutions are **not yet applied**. Central maintenance backup/readback, a complete persistent index, production validation, the no-repeat rerun and an actual hosted agent consumer remain pending. No new history import or ready record is required. Unknown native delivery stays contained rather than upgraded to verified delivery. Employer submission integrations and live LinkedIn access remain capability exceptions.
+
+The configured 06:00/06:30 Chicago schedules cover DST, but actual delivery has been delayed by hours. Mac-independent research is verified; full healthy production is not. Follow the [latest operational runbook](../runbooks/CUTOVER.md#october-21-authenticated-research-and-post-stop-evidence), [research proof](../runbooks/evidence/2026-10-21-deployed-research-validation.json), and [narrow maintenance readiness proof](../runbooks/evidence/2026-10-21-contained-recovery-readiness.json).
+
+## Earlier October 21 continuation, superseded
+
+This checkpoint supersedes the historical activation below. Production is disabled (`CLOUD_ENABLED=false`); scheduled research remains enabled (`CLOUD_RESEARCH_ENABLED=true`). The exact-identity, absent-read polling, and scheduled research fallback corrections are deployed. The user confirmed Muse is stopped and that morning outreach occurred; the exact unmanaged delivery claim remains unverified. Both desktop Codex schedules remain paused and Milo's stopped confirmation is preserved.
+
+The [fallback-deployment research run](https://github.com/narendranathe/apply/actions/runs/39649959786) completed successfully; independent artifact restore is pending. The result of the [newer deployed-code research validation](https://github.com/narendranathe/apply/actions/runs/39655529243) has not been retrieved. Three scope-limited recovery proposals are encrypted and **unapplied**. A new full snapshot after the stop confirmation, central uncertainty containment, strict failed-writer reconciliation, complete persistent index/backup validation, and a no-effect production rerun remain required. No historical import or ready record is being recreated.
+
+The prepared recovery commit has not been pushed because automatic approval review reached its usage limit until October 21 at 18:02 America/Chicago. No recovery PR or new central write is claimed. See the [latest runbook checkpoint](../runbooks/CUTOVER.md#october-21-stopped-controller-continuation) and [aggregate continuation evidence](../runbooks/evidence/2026-10-21-stopped-controller-continuation.json). The 06:00/06:30 Chicago schedules handle DST but observed GitHub delays prevent an exact-minute guarantee. Research runs without the Mac; full production remains blocked.
+
+## Historical operational evidence, October 17, 2026
+
+This section records the October 17 activation and does not describe current health. The October 21 checkpoint above supersedes it.
 
 | Gate | Actual evidence |
 | --- | --- |
