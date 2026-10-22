@@ -2,6 +2,16 @@
 
 The approved V2 prompt authorizes one coordinated cutover. The latest dated checkpoint below is the current operational state; earlier sections preserve historical evidence and blockers.
 
+## October 22 production recovery in progress
+
+Production remains disabled (`CLOUD_ENABLED=false`); scheduled research remains enabled (`CLOUD_RESEARCH_ENABLED=true`). [PR #22](https://github.com/narendranathe/apply/pull/22) is merged on `28b550aba1bf8b7d5be93494e3e146f68e675fe3`, and [main CI passed](https://github.com/narendranathe/apply/actions/runs/39717954775). The [central contained reconciliation](https://github.com/narendranathe/apply/actions/runs/39718240610) failed after 23m33s with `AmbiguousWriteError`. Its safe diagnostic contains no HTTP status, an unknown API error code and `notion_request`; it does not prove an authentication, permission or endpoint problem, or which append persisted. No downloadable recovery artifact was produced. Do not rerun that attempt or infer a completed six-record cohort.
+
+A [new read-only snapshot](https://github.com/narendranathe/apply/actions/runs/39780427733) is gathering the actual source before another recovery decision. The entire source, exact cohort membership, native uncertainty hold and original historical/effect records require independent authenticated comparison. No failed writer is cleared by this checkpoint.
+
+Local engineering also identified grouped Greenhouse EEOC sections rejected as ordinary questions, an unrecognized exact requirement heading, stale persisted qualification blockers, and generic startup-resolution routing preceding known strict incident routing. Transport failures also lost the known safe Notion operation name. Their corrections preserve exact official context, immutable history, human-only demographic handling, qualification thresholds and strict failed-writer safeguards. Hosted deployment and validation must be recorded separately from local regression results; these corrections do not establish the cause of the ambiguous recovery write.
+
+At 07:37 Chicago neither October 22 scheduled event had yet appeared. The 06:00/06:30 `America/Chicago` configuration and DST checks remain correct, but punctual execution is unverified. [The latest job-scout feed run succeeded](https://github.com/narendranathe/job-scout/actions/runs/39741478613). Both desktop outreach automations remain paused and the user-confirmed Milo/Muse stops remain in effect. Full persistent production, its no-repeat rerun and an actual hosted agent consumer remain pending. Authorized live LinkedIn and employer-specific submission integrations remain unavailable; no automated outreach or application effect is claimed.
+
 ## October 21 authenticated research and post-stop evidence
 
 The fresh operational audit confirms `CLOUD_ENABLED=false`, `CLOUD_RESEARCH_ENABLED=true`. Current deployed main is `e86c50049cdb64e1a3a53a19cdd793369dd1a56d`; [main CI passed](https://github.com/narendranathe/apply/actions/runs/39655516838). GitHub access is available again. Both desktop outreach schedules remain paused; Milo and Muse are stopped by direct user confirmation. The latest five job-scout runs passed, including [39701131112](https://github.com/narendranathe/job-scout/actions/runs/39701131112).

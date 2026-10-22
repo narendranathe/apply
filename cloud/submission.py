@@ -6,7 +6,9 @@ response, or unrecognized success is an unknown effect, never a retry signal.
 from __future__ import annotations
 
 import base64
+from copy import deepcopy
 import datetime as dt
+import hashlib
 import html
 import json
 import os
@@ -113,6 +115,70 @@ def validated_questions(questions):
     return questions
 
 
+def _greenhouse_schema_hash(value):
+    try:
+        encoded = json.dumps(value, sort_keys=True, separators=(",", ":"),
+                             ensure_ascii=False, allow_nan=False).encode()
+    except (TypeError, ValueError):
+        raise SubmissionBlocked("official_application_schema_malformed") from None
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _greenhouse_compliance_questions(body, source_url):
+    """Normalize reviewed EEOC shapes without granting demographic answers.
+
+    Greenhouse's public form can group questions beneath an EEOC description.
+    A group has no ``required`` flag: every nested question must supply its own.
+    Keep the exact group context on each normalized question and the untouched
+    official form separately. Unknown group semantics remain unsupported.
+    """
+    sections = object_array(body, "compliance")
+    grouped = ["questions" in section for section in sections]
+    if any(grouped) and not all(grouped):
+        raise SubmissionBlocked("official_application_schema_malformed")
+    questions = []
+    for section_index, section in enumerate(sections):
+        if "questions" in section:
+            if (set(section) != {"type", "description", "questions"}
+                    or section["type"] != "eeoc"
+                    or not isinstance(section["description"], str)):
+                raise SubmissionBlocked("official_application_schema_malformed")
+            nested = object_array(section, "questions", required=True)
+            description = section["description"]
+        else:
+            # The documented legacy form is a flat array of EEOC questions.
+            nested, description = [section], None
+        for question_index, original in enumerate(nested):
+            validated_questions([original])  # Validate before changing field types.
+            if "greenhouse_compliance" in original:
+                raise SubmissionBlocked("official_application_schema_malformed")
+            question = deepcopy(original)
+            question["greenhouse_compliance"] = {
+                "source_url": source_url, "section_index": section_index,
+                "question_index": question_index, "section_type": "eeoc",
+                "section_description": description,
+                "source_shape": "grouped" if "questions" in section else "flat",
+                "original_question_sha256": _greenhouse_schema_hash(original),
+                "human_only": True}
+            # Even an innocuous child label or a matching generic override must
+            # never auto-select an EEOC response. Required children become a
+            # personal-fact exception; optional children remain unanswered.
+            for field in question["fields"]:
+                field["type"] = "unsupported_demographic"
+            questions.append(question)
+    return questions
+
+
+def _greenhouse_form_snapshot(body, source_url):
+    sections = {key: deepcopy(value) for key, value in body.items() if key in {
+        "questions", "location_questions", "compliance", "demographic_questions", "data_compliance"}}
+    # Preserve all other exact official fields too, including HTML, notices and
+    # unrecognized context. This snapshot is evidence, never an answer grant.
+    context = {key: deepcopy(value) for key, value in body.items() if key not in sections}
+    return {"schema": "apply-greenhouse-official-form/v1", "source_url": source_url,
+            "sections": sections, "posting_context": context}
+
+
 def official_read(transport, url, headers=None):
     try:
         response = transport.request("GET", url, headers=headers)
@@ -194,7 +260,9 @@ class GreenhouseAdapter:
                "ats": self.ats, "endpoint": endpoint, "observed_at": dt.datetime.now(dt.timezone.utc).isoformat(), "evidence_url": endpoint}
         if not require_schema:
             return job
-        questions = (object_array(body, "questions", required=True) + object_array(body, "location_questions") + object_array(body, "compliance"))
+        source_url = endpoint + "?questions=true&pay_transparency=true"
+        questions = (object_array(body, "questions", required=True) + object_array(body, "location_questions")
+                     + _greenhouse_compliance_questions(body, source_url))
         demographics = body.get("demographic_questions")
         if demographics is None:
             demographics = {}
@@ -214,7 +282,9 @@ class GreenhouseAdapter:
             if any(consent.get(key) for key in ("requires_consent", "requires_processing_consent", "requires_retention_consent")):
                 questions.append({"label": "Legal data-processing/retention consent", "required": True,
                                   "fields": [{"name": f"consent_{index}", "type": "human_attestation"}]})
+        form_schema = _greenhouse_form_snapshot(body, source_url)
         return {**job, "questions": validated_questions(questions), "schema_verified": True,
+                "form_schema": form_schema, "form_schema_hash": _greenhouse_schema_hash(form_schema),
                 "salary_ranges": object_array(body, "pay_input_ranges")}
 
     def submit(self, job, packet):

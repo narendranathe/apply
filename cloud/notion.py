@@ -279,7 +279,8 @@ class NotionStore:
                 self.sleeper(delay + random.uniform(0, min(0.25, max(0, self.max_delay - delay))))
             except (URLError, TimeoutError, OSError, ValueError, UnicodeError):
                 if write:
-                    raise AmbiguousWriteError("Notion write transport failed; reconcile the record ID before retry") from None
+                    raise AmbiguousWriteError("Notion write transport failed; reconcile the record ID before retry",
+                                              diagnostics={'operation': operation}) from None
                 if attempt == self.max_attempts - 1:
                     raise NotionError("Notion read transport failed after bounded retries") from None
                 self.sleeper(min(2 ** attempt, self.max_delay))

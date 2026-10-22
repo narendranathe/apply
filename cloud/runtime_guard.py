@@ -179,9 +179,6 @@ def verify_previous_writers(store, transport=None):
             marker = store.get('writer-resolution:' + identity)
             payload = marker.get('payload', {}) if marker else {}
             schema = payload.get('schema')
-            if isinstance(schema, str) and schema.startswith('apply-pinned-startup-writer-resolution/'):
-                return (schema == STARTUP_RESOLUTION_SCHEMA
-                        and _startup_resolution_matches(identity, marker, request_path, repository))
             from cloud.readback_reconciliation import (
                 FAILURES as READBACK_FAILURES, SCHEMA as READBACK_SCHEMA, readback_resolution_matches,
             )
@@ -199,6 +196,9 @@ def verify_previous_writers(store, transport=None):
             if identity in FAILURES or (isinstance(schema, str)
                                         and schema.startswith('apply-pinned-scheduled-writer-resolution/')):
                 return schema == SCHEMA and scheduled_resolution_matches(identity, marker, request_path, repository)
+            if isinstance(schema, str) and schema.startswith('apply-pinned-startup-writer-resolution/'):
+                return (schema == STARTUP_RESOLUTION_SCHEMA
+                        and _startup_resolution_matches(identity, marker, request_path, repository))
             # A later rerun can allocate jobs under the same GitHub run ID.
             # Automatic zero-job evidence must therefore be rechecked below.
             return bool(payload.get('schema') != ZERO_JOB_SCHEMA

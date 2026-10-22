@@ -85,10 +85,10 @@ def requirements_from_jd(jd):
     lines = [line.strip(" \t-•*").rstrip(":").strip() for line in jd.splitlines() if line.strip()]
     output, collecting = [], False
     for line in lines:
-        if re.fullmatch(r"(?:minimum |basic |required |job )?(?:requirements|qualifications)|what you(?:'|’)ll (?:bring|need)|must.have[s]?|you (?:may|might|could) be a good fit if(?: you)?|what we(?:'|’)re looking for|who you are", line, re.I):
+        if re.fullmatch(r"(?:minimum |basic |required |job )?(?:requirements|qualifications)|what you(?:'|’)ll (?:bring|need)|must.have[s]?|you (?:may|might|could) be a good fit if(?: you(?: have)?)?|what we(?:'|’)re looking for|who you are", line, re.I):
             collecting = True
             continue
-        if collecting and re.fullmatch(r"(?:preferred|desired|nice.to.have)(?: qualifications| requirements| skills)?|benefits|compensation|salary|about (?:us|the (?:team|role|company))|what we offer|responsibilities|what you(?:'|’)ll do|why (?:join|work).*|interview process|equal (?:employment )?opportunit(?:y|ies).*", line, re.I):
+        if collecting and re.fullmatch(r"(?:preferred|desired|nice.to.have)(?: qualifications| requirements| skills)?|benefits|compensation|salary|logistics|about (?:us|the (?:team|role|company))|what we offer|responsibilities|what you(?:'|’)ll do|why (?:join|work).*|interview process|equal (?:employment )?opportunit(?:y|ies).*", line, re.I):
             collecting = False
         if collecting:
             output.append(line)

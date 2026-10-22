@@ -30,6 +30,10 @@
 - [x] Monitor receipts/status of auto-submitted jobs separately from prepared/attempted/manual-action-needed jobs; ensure ambiguous submissions are never blindly retried. Actual cloud attempts/receipts are zero; one historical human-confirmed submission is counted separately.
 - [x] Document rollback, alerting, restoration, retention, measured runner usage and a clear list of remaining exceptions. Account allowance/spend visibility remains unavailable; no billing changes were made.
 
+## Current operational evidence, October 22, 2026
+
+The [contained maintenance run](https://github.com/narendranathe/apply/actions/runs/39718240610) failed with an ambiguous Notion write and no downloadable artifact. Production remains disabled; research remains enabled. The [read-only snapshot](https://github.com/narendranathe/apply/actions/runs/39780427733) must establish the exact actual append boundary before any further reconciliation. Prior activation checkmarks describe historical work, not current production health. Persistent index/backup validation, a no-repeat production rerun and actual hosted agent-consumer validation remain open. Follow the [current runbook checkpoint](../runbooks/CUTOVER.md#october-22-production-recovery-in-progress).
+
 ## Current operational evidence, October 21, 2026
 
 The latest audit confirms working [cloud research](https://github.com/narendranathe/apply/actions/runs/39655529243), [encrypted full post-stop snapshot](https://github.com/narendranathe/apply/actions/runs/39676723486), [main CI](https://github.com/narendranathe/apply/actions/runs/39655516838), and [job-scout feeder](https://github.com/narendranathe/job-scout/actions/runs/39701131112). Research's 1,318 staged records and the snapshot's unchanged 2,897 pages / 2,650 canonical records passed independent authenticated restore. Production remains disabled; research remains enabled. GitHub access is available again.
