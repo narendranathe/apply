@@ -36,7 +36,7 @@ TRANSITIONS = {
     "applied_verified": {"interview", "rejected", "withdrawn", "closed"},
     "interview": {"rejected", "withdrawn", "closed"},
     "needs_user_fact": {"qualified", "submission_blocked", "closed"},
-    "submission_blocked": {"qualified", "needs_user_fact", "closed"},
+    "submission_blocked": {"qualified", "needs_user_fact", "submission_blocked", "closed"},
     "manual_action_needed": {"qualified", "applied_verified", "submission_unknown", "closed"},
     "closed": set(), "rejected": set(), "withdrawn": set(),
 }
@@ -387,8 +387,13 @@ def run_applications(store, config, dry_run=True, *, feed=None, transport=None, 
             grade = grade_job(job, {**settings, **employer.get("screening", {})})
             if not grade["qualified"]:
                 count(grade["reason"])
-                if not dry_run and current["status"] != "submission_blocked":
-                    current = transition(store, application_id, "submission_blocked", {"qualification": grade, "reason": grade["reason"]}, current)
+                blocker = {"qualification": grade, "reason": grade["reason"]}
+                # Refresh changed evidence through another immutable revision.
+                # Repeat reads and their volatile timestamps are not new facts.
+                if not dry_run and (current["status"] != "submission_blocked"
+                                    or any(current["payload"].get(key) != value
+                                           for key, value in blocker.items())):
+                    current = transition(store, application_id, "submission_blocked", blocker, current)
                 records[application_id] = current or {"id": application_id, "status": "submission_blocked", "payload": {**base, "application_id": application_id}}
                 continue
             summary["qualified"] += 1
@@ -476,7 +481,9 @@ def run_applications(store, config, dry_run=True, *, feed=None, transport=None, 
                     "company": lead.get("company"), "role": lead.get("title"), "url": lead.get("url"),
                     "url_aliases": [lead.get("url")], "dedup_key": key, "official_verified": False,
                     "source": "jobscout_feed", "source_exported_at": feed.get("exported_at")})
-            if current and not dry_run and "submission_blocked" in TRANSITIONS.get(current["status"], set()):
+            if (current and not dry_run
+                    and "submission_blocked" in TRANSITIONS.get(current["status"], set())
+                    and (current["status"] != "submission_blocked" or current["payload"].get("reason") != reason)):
                 try:
                     current = transition(store, application_id, "submission_blocked", {"reason": reason}, current)
                 except (NotionError, StateConflict):
