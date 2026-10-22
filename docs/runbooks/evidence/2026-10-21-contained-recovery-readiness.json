@@ -1,0 +1,133 @@
+{
+  "archives": {
+    "39545315317": {
+      "artifact_id": 12322558229,
+      "ciphertext_sha256": "3691a777eda6b027cb5e7956cc6bee5d4967b0bc1094f1a59381621030910d8f",
+      "member_sha256": "8c805006cddfaee29d1dfb4cc68490326afe47566e4f6f1483faf54813aa1acc",
+      "pages": 2248,
+      "source_fingerprint": "c05a58afa1d7a7b78a6c3f41e2489aed68ee16566722d9852b2059e24a0bc968"
+    },
+    "39649529296": {
+      "artifact_id": 12370258354,
+      "ciphertext_sha256": "c62ea1d0dc890426fb383defe45e59b0bbc7a24da96d288daf274e57f0741ea7",
+      "member_sha256": "50a49e9dad83592b3bc33ac2b735075d332f227dae1a3a7532e01095beaf513e",
+      "pages": 2897,
+      "source_fingerprint": "51ee7332471f1fdb64abc49bf78b944bd7e43ca49e6dbae7776abcf1b8d946d0"
+    },
+    "39676723486": {
+      "artifact_id": 12383531835,
+      "ciphertext_sha256": "ae5298a92b37fc04becdbb465790891e99cbdd704a1154898aec3343810e30bd",
+      "member_sha256": "5fb3b865ae4718703e0540fb0534c93f9a0177b6837a2eb93006069bd6eb9c06",
+      "pages": 2897,
+      "source_fingerprint": "51ee7332471f1fdb64abc49bf78b944bd7e43ca49e6dbae7776abcf1b8d946d0"
+    }
+  },
+  "containment": {
+    "activation_authorized": false,
+    "attestation_member_hashes_sha256": "a6d31f8d18069fd5fe7d0d41b537eb59fd4a192a86c93aa1744e8456a9536411",
+    "canonical_contact_created": false,
+    "canonical_contact_matches": 0,
+    "external_effects_reconciled": false,
+    "full_post_stop_snapshot_verified": true,
+    "history_complete": false,
+    "incident_source_sha256": "51ee7332471f1fdb64abc49bf78b944bd7e43ca49e6dbae7776abcf1b8d946d0",
+    "native_delivery_verified": false,
+    "native_logical_page_sha256": "593cab69f7747625fa16ce2899284336a81668a4c8f95e6640990bf018e96413",
+    "native_page_identity_sha256": "bcef628215020531eb441fd739beaa66bb77b86f1b322a11d3b175b459273146",
+    "packet_member_hashes_sha256": "80253811d7f8d8f8b72b690bd66ecff1c40f8cef97541ca16b642f2ac396d3e2",
+    "packet_sha256": "5cd3d290ce0275653b18c917d3a130383e42ccd7904450c54fbf08386d7d9908",
+    "post_stop_operation_started_at": "2026-10-21T21:11:39Z",
+    "post_stop_source_sha256": "51ee7332471f1fdb64abc49bf78b944bd7e43ca49e6dbae7776abcf1b8d946d0",
+    "proposed_core_sha256": {
+      "coordination-quarantine:2b4c8427ccfc9482a7508dac42b968b3eeeb165de89aed2659f92de34814d876": "8b9d595b38dfcc28c00add003f12ce75f12058e25b3dccdc7bb988be817fa606",
+      "native-delivery-claim-observation:13eacd409b8c6dca076c4b1f62d9db1bf015b7759cb02360a7f5421fd8896208": "fa85910a0c7c8eb1d5a1c94e190f531848b167db331b67354e78a1965bc99876",
+      "user-controller-stop-observation:963a71822d95d8712a13e9ccec8522e2fe6046890c122eae07f94497fe0d9c6b": "14bb53f9a4ee01f8c45702d03e23cfd4b6a5f80b6c8269417eb97b370ffcb344"
+    },
+    "proposed_records": 3,
+    "quarantine_scope_types": [
+      "profile_urls"
+    ],
+    "records_proposal_only": true,
+    "schema": "apply-pinned-native-claim-containment-proof/v1",
+    "source_cores_preserved": 2650,
+    "source_pages_preserved": 2897,
+    "trusted_stop_observed_at": "2026-10-21T20:13:09Z",
+    "user_to_native_linkage_verified": false
+  },
+  "containment_applied": false,
+  "delta": {
+    "added_cores_sha256": "2fd6865b5ee6ad96803bacf9a0b59a2f2865e43cb81fdbacdee741153acbe81a",
+    "added_records": 648,
+    "agent_admissions": 0,
+    "baseline_unchanged": 757,
+    "expected_manifest_sha256": "0302ee6216bb7d326267be2b50022253e661cb0e1a150a911d87e8c83435610d",
+    "historical_manifest_sha256": "505295bb6da160c2ecbb4f846f81a5238a275ffe43b0fea7cf35f443628add8f",
+    "index_complete": false,
+    "index_source_sha256": "a40ada945e065ea687988c5bb08d085515e6c32376eb78eb798020cc793821c9",
+    "last_child_identity_sha256": "65b0c3c52df044778e08c21ace83313512d317f597e931c4e63d811288d5a972",
+    "last_child_later_exact_readback": true,
+    "last_child_payload_sha256": "6e72e105a78bca8652638df0925c13ee2028500a8199bba972f15be72ebd9bae",
+    "later_guard_audit_cores_sha256": "cd5d92c5c6d1708cc6d95e05466009b877108aad009f487b4db8de367bd65609",
+    "later_guard_audit_records": 2,
+    "native_claim_containment": {
+      "activation_authorized": false,
+      "attestation_member_hashes_sha256": "a6d31f8d18069fd5fe7d0d41b537eb59fd4a192a86c93aa1744e8456a9536411",
+      "canonical_contact_created": false,
+      "canonical_contact_matches": 0,
+      "external_effects_reconciled": false,
+      "full_post_stop_snapshot_verified": true,
+      "history_complete": false,
+      "incident_source_sha256": "51ee7332471f1fdb64abc49bf78b944bd7e43ca49e6dbae7776abcf1b8d946d0",
+      "native_delivery_verified": false,
+      "native_logical_page_sha256": "593cab69f7747625fa16ce2899284336a81668a4c8f95e6640990bf018e96413",
+      "native_page_identity_sha256": "bcef628215020531eb441fd739beaa66bb77b86f1b322a11d3b175b459273146",
+      "packet_member_hashes_sha256": "80253811d7f8d8f8b72b690bd66ecff1c40f8cef97541ca16b642f2ac396d3e2",
+      "packet_sha256": "5cd3d290ce0275653b18c917d3a130383e42ccd7904450c54fbf08386d7d9908",
+      "post_stop_operation_started_at": "2026-10-21T21:11:39Z",
+      "post_stop_source_sha256": "51ee7332471f1fdb64abc49bf78b944bd7e43ca49e6dbae7776abcf1b8d946d0",
+      "proposed_core_sha256": {
+        "coordination-quarantine:2b4c8427ccfc9482a7508dac42b968b3eeeb165de89aed2659f92de34814d876": "8b9d595b38dfcc28c00add003f12ce75f12058e25b3dccdc7bb988be817fa606",
+        "native-delivery-claim-observation:13eacd409b8c6dca076c4b1f62d9db1bf015b7759cb02360a7f5421fd8896208": "fa85910a0c7c8eb1d5a1c94e190f531848b167db331b67354e78a1965bc99876",
+        "user-controller-stop-observation:963a71822d95d8712a13e9ccec8522e2fe6046890c122eae07f94497fe0d9c6b": "14bb53f9a4ee01f8c45702d03e23cfd4b6a5f80b6c8269417eb97b370ffcb344"
+      },
+      "proposed_records": 3,
+      "quarantine_scope_types": [
+        "profile_urls"
+      ],
+      "records_proposal_only": true,
+      "schema": "apply-pinned-native-claim-containment-proof/v1",
+      "source_cores_preserved": 2650,
+      "source_pages_preserved": 2897,
+      "trusted_stop_observed_at": "2026-10-21T20:13:09Z",
+      "user_to_native_linkage_verified": false
+    },
+    "new_attempts": 0,
+    "new_completed_slots": 3,
+    "new_outreach_events": 0,
+    "new_partial_children": 564,
+    "new_receipts": 0,
+    "old_failed_slot_unchanged": true,
+    "original_mismatch_cause": "unverified",
+    "partial_prefix_records": 793,
+    "previous_manifest_sha256": "5852fd65601f526f2ccb20d3a6b45e67615151d083b757c6b126d84025d42e75",
+    "prior_cores_unchanged": 2002,
+    "prior_pages_unchanged": 2248,
+    "ready_core_sha256": "ee2712cecffa56250275edb98b9a591027befb95b5e0d8b48f2de538cf644f04",
+    "reviewed_business_cores_sha256": "b1f209860085e8fa46f6153f35e79d41456cbbdb6c19f8b08a9201172e7f5cde",
+    "reviewed_business_records": 82,
+    "reviewed_constructor_audit_sha256": "f4c5b90582f78527bbc265433e847bd554de7b9b692a9fc005f5c60285ae721d",
+    "schema": "apply-pinned-index-readback-source-proof/v1"
+  },
+  "external_effects_reconciled": false,
+  "native_delivery_verified": false,
+  "network_requests": 0,
+  "operational_writes": 0,
+  "original_managed_proof_sha256": "0e8614d8b55bc6e6a6504b4ca5be4e8e77a8a943fef6364a61aff79b07b84720",
+  "pin_candidate_sha256": "c7061672e27713ea1db38e55269436d982833e416674130f3e8e44fa61880ce1",
+  "production_authorized": false,
+  "proof_content_sha256": "9b80ba5744eb63607b47a57976c9bdb751cec9eb2b34c18c9a8109634b3dd3a3",
+  "provider_requests": 0,
+  "schema": "apply-contained-readback-pin-candidate-proof/v1",
+  "source_ready_for_central_containment": true,
+  "writer_resolutions_applied": false
+}

@@ -44,6 +44,12 @@ def check():
     assert 'download-artifact' not in fallback and 'overwrite:' not in fallback
     assert 'continue-on-error:' not in value
     assert not re.search(r'^\s+[\w-]+: write\s*$', value, re.MULTILINE)
+    maintenance = (ROOT / '.github/workflows/history-reconciliation.yml').read_text()
+    assert re.search(r'^concurrency:\n  group: hiring-outreach-single-writer\n  cancel-in-progress: false\n',
+                     maintenance, re.MULTILINE)
+    assert "reconcile-readback]" in maintenance
+    assert "elif [ \"$IMPORT_MODE\" = 'reconcile-readback' ]; then\n            python scripts/reconcile_readback.py" in maintenance
+    assert 'CLOUD_ENABLED: ${{ vars.CLOUD_ENABLED }}' in maintenance
     for workflow in (ROOT / '.github/workflows').glob('*.yml'):
         content = workflow.read_text()
         for use in re.findall(r'uses: ([^\s]+)', content):
