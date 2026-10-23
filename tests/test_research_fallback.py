@@ -441,7 +441,7 @@ class ResearchFallbackTests(unittest.TestCase):
         source = Path('.github/workflows/cloud-operations.yml').read_text()
         self.assertIn('group: hiring-outreach-single-writer', source)
         self.assertIn('cancel-in-progress: false', source)
-        self.assertIn('timeout-minutes: 150', source)
+        self.assertEqual(source.count('timeout-minutes: 240'), 2)
         self.assertIn('options: [dry-run, research-only, live]', source)
         self.assertIn("vars.CLOUD_RESEARCH_ENABLED == 'true'", source)
         self.assertIn("inputs.mode || (vars.CLOUD_ENABLED == 'true' && 'live' || 'research-only')", source)

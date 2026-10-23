@@ -8,7 +8,7 @@ class BudgetExceeded(RuntimeError):
 
 class RuntimeBudget:
     def __init__(self, seconds=7200, reserve_seconds=1800, *, clock=time.monotonic):
-        if not 0 < seconds <= 7200 or not 0 <= reserve_seconds < seconds:
+        if not 0 < seconds <= 10800 or not 0 <= reserve_seconds < seconds:
             raise ValueError('Invalid cloud runtime budget')
         self.clock = clock
         self.deadline = clock() + seconds

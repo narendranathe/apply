@@ -26,7 +26,7 @@ jobs:
   orchestrate:
     if: github.event_name == 'workflow_dispatch' || vars.CLOUD_ENABLED == 'true' || vars.CLOUD_RESEARCH_ENABLED == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 150
+    timeout-minutes: 240
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
@@ -72,7 +72,7 @@ jobs:
     needs: orchestrate
     if: ${{ always() && !cancelled() && github.event_name == 'schedule' && github.ref == 'refs/heads/main' && vars.CLOUD_ENABLED == 'true' && vars.CLOUD_RESEARCH_ENABLED == 'true' && needs.orchestrate.result == 'failure' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 150
+    timeout-minutes: 240
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:

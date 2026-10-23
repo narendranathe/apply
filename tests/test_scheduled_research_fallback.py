@@ -46,7 +46,7 @@ class ScheduledFallbackWorkflowTests(unittest.TestCase):
         self.assertTrue(fallback, 'A scheduled live failure needs an isolated research job')
         self.assertIn('    needs: orchestrate\n', fallback)
         self.assertIn('    runs-on: ubuntu-latest\n', fallback)
-        self.assertIn('    timeout-minutes: 150\n', fallback)
+        self.assertIn('    timeout-minutes: 240\n', fallback)
         self.assertEqual(source.count('\nconcurrency:\n'), 1)
         self.assertNotIn('concurrency:', fallback)
         self.assertNotIn('continue-on-error:', source)
@@ -92,12 +92,26 @@ class ScheduledFallbackWorkflowTests(unittest.TestCase):
              "          CLOUD_RESEARCH_ENABLED: 'true'"),
             ('test "$PRIVATE" = \'true\'', 'true'),
             ('          ref: ${{ github.sha }}', '          ref: main'),
-            ('    timeout-minutes: 150', '    timeout-minutes: 149'),
+            ('    timeout-minutes: 240', '    timeout-minutes: 239'),
         )
         for old, new in changes:
             with self.subTest(change=old):
                 with self.assertRaises(AssertionError):
                     self.check_source(source.replace(old, new))
+
+    def test_checker_requires_240_minutes_on_each_orchestrator_runner(self):
+        source = WORKFLOW.read_text()
+        for name in ('orchestrate', 'research_fallback'):
+            with self.subTest(job=name):
+                job = job_block(source, name)
+                self.assertIn('    timeout-minutes: 240\n', job)
+                for replacement in ('    timeout-minutes: 150\n',
+                                    '    timeout-minutes: 239\n', ''):
+                    changed = source.replace(job, job.replace(
+                        '    timeout-minutes: 240\n', replacement), 1)
+                    self.assertNotEqual(changed, source)
+                    with self.assertRaises(AssertionError):
+                        self.check_source(changed)
 
 
 class ScheduledFallbackSafetyTests(unittest.TestCase):
