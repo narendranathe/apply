@@ -12,6 +12,7 @@ from unittest.mock import patch
 from cloud.notion import AmbiguousWriteError, ConflictError, NotionAPIError
 from cloud.startup_reconciliation import ReconciliationBlocked
 
+SCRIPT = Path(__file__).resolve().parents[1] / 'scripts/reconcile_readback.py'
 PRIVATE = 'synthetic-private-token-contact-response-content'
 ENV = {'GITHUB_ACTIONS': 'true', 'GITHUB_REF': 'refs/heads/main',
        'GITHUB_REPOSITORY': 'narendranathe/apply', 'GITHUB_ACTOR': 'narendranathe',
@@ -37,7 +38,7 @@ class ReadbackFailureArtifactTests(unittest.TestCase):
                      patch('cloud.backup.backup_store') as backup, \
                      contextlib.redirect_stdout(output), contextlib.redirect_stderr(stderr):
                     with self.assertRaises(SystemExit) as caught:
-                        runpy.run_module('scripts.reconcile_readback', run_name='__main__')
+                        runpy.run_path(str(SCRIPT), run_name='__main__')
                 self.assertEqual(caught.exception.code, 2)
                 for action in (key, baseline, store, reconcile, backup):
                     action.assert_not_called()

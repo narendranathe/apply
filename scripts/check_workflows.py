@@ -47,8 +47,11 @@ def check():
     maintenance = (ROOT / '.github/workflows/history-reconciliation.yml').read_text()
     assert re.search(r'^concurrency:\n  group: hiring-outreach-single-writer\n  cancel-in-progress: false\n',
                      maintenance, re.MULTILINE)
-    assert "reconcile-readback]" in maintenance
+    modes = re.search(r"options: \[([^\]]+)\]", maintenance)
+    assert modes and {'reconcile-readback', 'reconcile-contained'} <= {
+        mode.strip() for mode in modes.group(1).split(',')}
     assert "elif [ \"$IMPORT_MODE\" = 'reconcile-readback' ]; then\n            python scripts/reconcile_readback.py" in maintenance
+    assert "elif [ \"$IMPORT_MODE\" = 'reconcile-contained' ]; then\n            python scripts/reconcile_contained.py" in maintenance
     assert 'CLOUD_ENABLED: ${{ vars.CLOUD_ENABLED }}' in maintenance
     for workflow in (ROOT / '.github/workflows').glob('*.yml'):
         content = workflow.read_text()

@@ -6,7 +6,7 @@ on:
       mode:
         type: choice
         default: dry-run
-        options: [dry-run, import, inspect, snapshot, verify, readiness, activate, reconcile-startup, reconcile-scheduled, reconcile-index, reconcile-readback]
+        options: [dry-run, import, inspect, snapshot, verify, readiness, activate, reconcile-startup, reconcile-scheduled, reconcile-index, reconcile-readback, reconcile-contained]
       offset:
         type: string
         default: '0'
@@ -72,6 +72,8 @@ jobs:
             python scripts/reconcile_index.py
           elif [ "$IMPORT_MODE" = 'reconcile-readback' ]; then
             python scripts/reconcile_readback.py
+          elif [ "$IMPORT_MODE" = 'reconcile-contained' ]; then
+            python scripts/reconcile_contained.py
           elif [ "$IMPORT_MODE" = 'activate' ]; then
             python scripts/activate_cloud.py
           elif [ "$IMPORT_MODE" = 'inspect' ]; then
