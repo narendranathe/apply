@@ -184,6 +184,10 @@ def verify_previous_writers(store, transport=None):
             )
             if identity in READBACK_FAILURES or (isinstance(schema, str)
                                                and schema.startswith('apply-pinned-index-readback-writer-resolution/')):
+                from cloud.contained_recovery import SCHEMA as CONTAINED_SCHEMA, contained_resolution_matches
+                if schema == CONTAINED_SCHEMA:
+                    return contained_resolution_matches(identity, marker, request_path, repository,
+                                                        read_record=store.get)
                 return (schema == READBACK_SCHEMA
                         and readback_resolution_matches(identity, marker, request_path, repository,
                                                         read_record=store.get))

@@ -601,6 +601,10 @@ class NotionStore:
         """
         record = validate_record(record)
         record_id = record["id"]
+        from .storage_reservations import reserved_creation
+        if reserved_creation(record):
+            raise AmbiguousWriteError("Reserved uncertain observation cannot be recreated or aliased",
+                                      diagnostics={'operation': 'verify_create_readback'})
         self.preflight()  # Fresh schema and exact-identity read before every write.
         existing = self.get(record_id)
         if existing:
