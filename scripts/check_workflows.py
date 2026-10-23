@@ -18,6 +18,12 @@ def check():
     assert '--cron "$ORIGINATING_CRON"' in value
     assert 'contents: write' not in value
     assert 'persist-credentials: false' in value
+    for name in ('orchestrate', 'research_fallback'):
+        job = re.search(r'^  ' + name + r':\n(.*?)(?=^  [a-z_]+:\n|\Z)',
+                        value, re.MULTILINE | re.DOTALL)
+        assert job, 'cloud_job_required'
+        assert re.findall(r'^    timeout-minutes: (\d+)$', job.group(1),
+                          re.MULTILINE) == ['240'], 'cloud_job_headroom_required'
     fallback_match = re.search(r'^  research_fallback:\n(.*?)(?=^  [a-z_]+:\n|\Z)',
                                value, re.MULTILINE | re.DOTALL)
     assert fallback_match, 'scheduled_research_fallback_required'
@@ -29,7 +35,6 @@ def check():
     assert fallback_condition and fallback_condition.group(1) == condition
     assert '    needs: orchestrate\n' in fallback
     assert '    runs-on: ubuntu-latest\n' in fallback
-    assert '    timeout-minutes: 150\n' in fallback
     assert "          CLOUD_ENABLED: 'false'\n" in fallback
     assert '          CLOUD_RESEARCH_ENABLED: ${{ vars.CLOUD_RESEARCH_ENABLED }}\n' in fallback
     assert '          ref: ${{ github.sha }}\n' in fallback
