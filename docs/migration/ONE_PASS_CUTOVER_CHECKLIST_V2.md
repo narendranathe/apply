@@ -30,6 +30,17 @@
 - [x] Monitor receipts/status of auto-submitted jobs separately from prepared/attempted/manual-action-needed jobs; ensure ambiguous submissions are never blindly retried. Actual cloud attempts/receipts are zero; one historical human-confirmed submission is counted separately.
 - [x] Document rollback, alerting, restoration, retention, measured runner usage and a clear list of remaining exceptions. Account allowance/spend visibility remains unavailable; no billing changes were made.
 
+## Current operational evidence, October 23, 2026
+
+- [x] Authenticate the single [contained recovery](https://github.com/narendranathe/apply/actions/runs/39958792936): exactly four new audit records; all 2,898 prior logical pages and 757 historical records preserved; no new external effects; original unknown-effect hold retained.
+- [ ] Deploy the exact actual trusted receipt/cipher and verified publication-clock/candidate-progress corrections. Current local artifacts and tests do not satisfy deployment.
+- [ ] Pass hosted changed-behavior validation, then verify actual persistent production, complete index, encrypted backup and a same-day no-repeat run before claiming operational activation.
+- [ ] Verify an actual sealed hosted intake, seven-record research consumer chain and unchanged repeat against a fresh complete persistent index.
+- [x] Keep daily 06:00/06:30 `America/Chicago` schedules enabled. Both October 23 native scheduled events succeeded, with delays of over four hours; punctual execution remains unproven.
+- [x] Keep production disabled and research enabled during these remaining gates; retain both paused desktop schedules and user-confirmed stopped controllers.
+
+Follow the [current runbook checkpoint](../runbooks/CUTOVER.md#october-23-authenticated-storage-recovery-and-remaining-activation). Earlier activation checkmarks are historical evidence and do not establish current production health.
+
 ## Current operational evidence, October 22, 2026
 
 The [contained maintenance run](https://github.com/narendranathe/apply/actions/runs/39718240610) failed with an ambiguous Notion write. Independent authentication of the [read-only snapshot](https://github.com/narendranathe/apply/actions/runs/39780427733) establishes exactly one protective hold persisted; all prior source/history/suppressions remain unchanged. Three resolution POSTs were provably never reached; the two other observations remain storage-unknown and permanently reserved against replay or aliasing. The reviewed V3 correction still requires an actual hosted run, independent full backup comparison and a committed trusted receipt before startup clearance. Production remains disabled; research remains enabled. The [manual research run](https://github.com/narendranathe/apply/actions/runs/39782172442) and actual [06:00](https://github.com/narendranathe/apply/actions/runs/39808302099) / [06:30](https://github.com/narendranathe/apply/actions/runs/39809642771) scheduled previews passed authenticated verification with zero effects; scheduled starts were hours late. Current persistent-run capacity exceeds the existing request budget and needs correction before activation. Prior activation checkmarks describe historical work, not current production health. Persistent index/backup validation, a no-repeat production rerun and actual hosted agent-consumer validation remain open. Follow the [current runbook checkpoint](../runbooks/CUTOVER.md#october-22-production-recovery-in-progress).

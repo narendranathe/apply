@@ -7,15 +7,35 @@ from cloud.records import make_record, normalized_identity, stable_id
 from cloud.submission import SubmissionBlocked, adapter_for
 
 
-def choose_mix(leads, limit, ai_share=0.6):
-    ai, data = [], []
-    for lead in leads:
-        title = str(lead.get('title', '')).casefold()
-        (ai if any(x in title for x in ('ai ', ' ai', 'machine learning', 'llm', 'agent', 'ml ')) else data).append(lead)
-    split = ceil(limit * ai_share)
-    chosen = ai[:split] + data[:limit - split]
+def _ai_role(lead):
+    title = str(lead.get('title', '')).casefold()
+    return any(x in title for x in ('ai ', ' ai', 'machine learning', 'llm', 'agent', 'ml '))
+
+
+def _choose_slots(leads, limit, ai_slots):
+    ai = [lead for lead in leads if _ai_role(lead)]
+    data = [lead for lead in leads if not _ai_role(lead)]
+    chosen = ai[:ai_slots] + data[:limit - ai_slots]
     chosen.extend([row for row in leads if row not in chosen][:limit - len(chosen)])
     return chosen
+
+
+def choose_mix(leads, limit, ai_share=0.6):
+    return _choose_slots(leads, limit, ceil(limit * ai_share))
+
+
+def prioritize_discovery(leads, applications, jobs, limit, ai_share):
+    unmatched, covered = [], []
+    for lead in leads:
+        args = (lead['company'], lead.get('requisition_id'), [lead['url']], lead.get('title'))
+        prior = matching_application(applications, *args) or matching_application(jobs, *args)
+        (covered if prior else unmatched).append(lead)
+    selected = choose_mix(unmatched, limit, ai_share)
+    remaining = limit - len(selected)
+    if remaining:
+        ai_slots = min(remaining, max(0, ceil(limit * ai_share) - sum(_ai_role(row) for row in selected)))
+        selected.extend(_choose_slots(covered, remaining, ai_slots))
+    return selected
 
 
 def run_discovery(store, config, now, feed=None, transport=None):
@@ -35,8 +55,10 @@ def run_discovery(store, config, now, feed=None, transport=None):
         return result
     applications = fold_applications(store.query(kind='applications'))
     contacts = store.query(kind='contacts')
+    jobs = {row['id']: row for row in store.query(kind='jobs')}
     leads = candidates(data, settings.get('min_score', 0.51), settings.get('max_age_days', 7), now)
-    selected = choose_mix(leads, settings.get('max_candidates', 5), config.get('outreach', {}).get('research_ai_share', 0.6))
+    selected = prioritize_discovery(leads, applications, jobs, settings.get('max_candidates', 5),
+                                   config.get('outreach', {}).get('research_ai_share', 0.6))
     for lead in selected:
         # This is the central cloud dedup check before any role preparation.
         prior = matching_application(applications, lead['company'], lead.get('requisition_id'), [lead['url']], lead.get('title'))
