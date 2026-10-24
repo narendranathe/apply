@@ -65,7 +65,7 @@ class IndexPreviewStore(ShadowStore):
         return value
 
 
-def _publish_agent_index(working, now, dry_run, budget):
+def _publish_agent_index(working, now, dry_run, budget, *, publication_clock=None):
     from cloud.index_publisher import publish_index
     budget.check_request()
     writer = IndexPreviewStore(working) if dry_run else working
@@ -74,6 +74,7 @@ def _publish_agent_index(working, now, dry_run, budget):
     export = getattr(working, '_reconciled_export', None) if not dry_run else None
     cutover = working.get('deployment:cutover:v2') if export is not None else None
     publication = publish_index(writer, now, source_complete=False,
+                                publication_clock=publication_clock,
                                 **({'reconciled_export': export, 'cutover_record': cutover} if export is not None else {}))
     if dry_run:
         # Preserve the preview in the caller's private staging, never in Notion.
@@ -210,7 +211,7 @@ def _agent_worker_authority():
 
 def execute(store, config, now=None, cron='', requested='all', dry_run=True, reconcile=False,
             *, mode=None, budget=None, preview_sink=None,
-            agent_registry=None, writer_context=None):
+            agent_registry=None, writer_context=None, publication_clock=None):
     mode = mode or ('dry-run' if dry_run else 'live')
     if mode not in MODES:
         raise Blocked('unknown_mode')
@@ -221,7 +222,12 @@ def execute(store, config, now=None, cron='', requested='all', dry_run=True, rec
     budget = budget or RuntimeBudget(RUNTIME_SECONDS, RECOVERY_RESERVE_SECONDS)
     _attach_budget(store, budget)
     budget.check_request()
-    now = now or datetime.now(timezone.utc)
+    if now is None:
+        now = datetime.now(timezone.utc)
+        if publication_clock is None:
+            # The publisher samples after its fresh source reads. Explicit
+            # logical-time calls keep their deterministic replay behavior.
+            publication_clock = lambda: datetime.now(timezone.utc)
     if not dry_run:
         live_gate(store, config)
     working = ShadowStore(store) if dry_run else store
@@ -321,7 +327,8 @@ def execute(store, config, now=None, cron='', requested='all', dry_run=True, rec
     with _cloud_stage('report_run'):
         reporting = run_reporting(working, config, now, dry_run=dry_run)
     with _cloud_stage('publish_agent_index'):
-        index = _publish_agent_index(working, now, dry_run, budget)
+        index = _publish_agent_index(working, now, dry_run, budget,
+                                     publication_clock=publication_clock)
     if dry_run and preview_sink is not None:
         preview_sink(list(working.records.values()))
     return {'mode': mode, 'persistent': not dry_run, 'dry_run': dry_run, 'timezone': str(ZONE), 'results': results,

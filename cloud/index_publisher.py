@@ -197,8 +197,35 @@ def _reconciled_source_proof(source, reconciled_export, cutover_record):
     return True, []
 
 
+def _aware_time(value):
+    return isinstance(value, datetime) and value.tzinfo is not None and value.utcoffset() is not None
+
+
+def _publication_time(now, previous, publication_clock):
+    if publication_clock is None:
+        return now  # Explicit-time historical constructors remain deterministic.
+    if not callable(publication_clock):
+        raise ValueError("Index publication requires a callable clock")
+    try:
+        published = publication_clock()
+    except Exception:
+        raise ValueError("Index publication clock unavailable") from None
+    if not _aware_time(published):
+        raise ValueError("Index publication requires an aware timestamp")
+    if published < now:
+        raise ValueError("Index publication clock moved backwards")
+    if previous is not None:
+        try:
+            prior = datetime.fromisoformat(previous["payload"].get("generated_at", "").replace("Z", "+00:00"))
+        except (AttributeError, TypeError, ValueError):
+            raise ValueError("Previous index requires an aware publication timestamp") from None
+        if not _aware_time(prior) or published < prior:
+            raise ValueError("Index publication clock precedes previous manifest")
+    return published
+
+
 def publish_index(store, now: datetime, source_complete=False, source_snapshot_hash=None,
-                  *, reconciled_export=None, cutover_record=None):
+                  *, reconciled_export=None, cutover_record=None, publication_clock=None):
     """Publish children first, then their manifest, returning a private result.
 
     A fresh read is necessary but does not itself prove reconciliation. Ready
@@ -215,13 +242,18 @@ def publish_index(store, now: datetime, source_complete=False, source_snapshot_h
     only the remaining bounded summary fields. After an exact put, only absent
     independent readbacks receive bounded read-only visibility polling. Failed
     writes, read errors, and non-None mismatches stop without a write replay.
+
+    An optional trusted publication clock is sampled once after fresh source
+    and previous-manifest reads. It must be aware and nondecreasing. Without
+    that callable, the explicit ``now`` remains the deterministic build time.
     """
-    if not isinstance(now, datetime) or now.tzinfo is None:
+    if not _aware_time(now):
         raise ValueError("Index publication requires an aware timestamp")
     if not isinstance(source_complete, bool):
         raise ValueError("source_complete must be a boolean")
     snapshot = _read_sources(store)
     previous = _previous_manifest(store, snapshot)
+    published = _publication_time(now, previous, publication_clock)
     source = [row for row in snapshot if not _generated(row)]
     actual_hash = snapshot_hash(source)
     evidence_conflicts = []
@@ -250,7 +282,7 @@ def publish_index(store, now: datetime, source_complete=False, source_snapshot_h
             evidence_conflicts.append("source_snapshot_evidence_missing_or_changed")
         if source_complete and not source:
             evidence_conflicts.append("empty_authoritative_snapshot_unreconciled")
-    indexed = build_index(source, now, previous_manifest=previous,
+    indexed = build_index(source, published, previous_manifest=previous,
                           source_snapshot_hash={"hash": actual_hash, "complete": complete,
                                                 "conflicts": evidence_conflicts})
     manifests = [row for row in indexed if row["kind"] == "index_manifests"]

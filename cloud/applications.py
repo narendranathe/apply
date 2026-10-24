@@ -118,6 +118,64 @@ def matching_application(records, company, requisition_id=None, urls=(), role=No
     return None
 
 
+AMBIGUOUS_HISTORY = "ambiguous_application_history_requires_reconciliation"
+
+
+def application_suppression(prior, urls):
+    """Retain uncertain employer history before any preparation or effect."""
+    if not prior:
+        return None
+    payload = prior["payload"]
+    known_urls = [payload.get("url"), payload.get("posting_url"),
+                  *payload.get("url_aliases", []), *payload.get("aliases", [])]
+    exact_url = ({canonical_url(url) for url in urls if url}
+                 & {canonical_url(url) for url in known_urls if url})
+    if (payload.get("employer_history_unresolved")
+            or not (payload.get("requisition_id") or payload.get("job_id")) and not exact_url):
+        return AMBIGUOUS_HISTORY
+    if payload.get("attempt") or prior["status"] not in {
+            "discovered", "needs_user_fact", "submission_blocked", "qualified", "prepared"}:
+        return "existing_submission_suppresses_reapplication"
+    return None
+
+
+def matching_suppression(records, company, requisition_id, urls, role=None):
+    """Every matching identity can hold work, independent of dictionary order."""
+    suppression = None
+    for identity, prior in records.items():
+        if matching_application({identity: prior}, company, requisition_id, urls, role):
+            reason = application_suppression(prior, urls)
+            if reason == AMBIGUOUS_HISTORY:
+                return reason
+            suppression = suppression or reason
+    return suppression
+
+
+def prioritize_candidates(leads, records):
+    """Keep work in progress, then unseen roles, within the existing read budget.
+
+    Suppressed matches are counted before the budget; ordering never changes
+    their identity/status or replaces the fresh checks in the application loop.
+    """
+    in_progress, unmatched, covered = [], [], []
+    suppressed = ambiguous = 0
+    for lead in leads:
+        prior = matching_application(records, lead["company"], lead.get("requisition_id"),
+                                     [lead["url"]], lead.get("title"))
+        suppression = matching_suppression(records, lead["company"], lead.get("requisition_id"),
+                                            [lead["url"]], lead.get("title"))
+        if suppression:
+            suppressed += 1
+            ambiguous += suppression == AMBIGUOUS_HISTORY
+        elif prior and prior["status"] in {"qualified", "prepared"}:
+            in_progress.append(lead)
+        elif prior:
+            covered.append(lead)
+        else:
+            unmatched.append(lead)
+    return in_progress + unmatched + covered, suppressed, ambiguous
+
+
 def daily_attempt_count(records, now, timezone_name="America/Chicago"):
     """Count attempts on the scheduler's local day, including unknown effects."""
     zone = ZoneInfo(timezone_name)
@@ -281,7 +339,9 @@ def run_applications(store, config, dry_run=True, *, feed=None, transport=None, 
         feed = feed if feed is not None else fetch_feed(settings.get("feed_url") or None)
         meta = feed_metadata(feed, now, settings.get("max_feed_age_hours", 24))
         summary.update({"feed_checked": True, "feed_exported_at": meta["exported_at"], "feed_fresh": not meta["stale"]})
-        records = fold_applications(store.query(kind="applications"))
+        application_rows = store.query(kind="applications")
+        source_claims = {row["id"]: row for row in application_rows}
+        records = fold_applications(application_rows)
         # Explicitly typed legacy application events are separate from ordinary
         # outreach prose. Preserve their structured evidence and block unknown
         # employer/requisition history; never infer an application from text.
@@ -298,8 +358,6 @@ def run_applications(store, config, dry_run=True, *, feed=None, transport=None, 
             if not company and not url:
                 count("unresolved_historical_application_identity")
                 return summary
-            if matching_application(records, company, req, [url]):
-                continue
             identity = "application-history:" + digest(event["id"])
             payload = {"application_id": identity, "company": company, "requisition_id": req,
                        "url": url, "dedup_key": application_key(company, req, url), "revision": 0,
@@ -307,34 +365,52 @@ def run_applications(store, config, dry_run=True, *, feed=None, transport=None, 
                        "employer_history_unresolved": not req, "historical_only": True,
                        "reason": "historical_application_event_requires_reconciliation"}
             historical_record = _make("applications", payload, "submission_unknown", identity)
+            existing_claim = source_claims.get(identity)
+            if existing_claim:
+                if any(existing_claim.get(key) != historical_record[key]
+                       for key in ("id", "kind", "payload", "status", "hash")):
+                    raise StateConflict("historical_application_readback_failed")
+                continue
             if not dry_run:
                 store.put(historical_record)
-                if not store.get(identity):
+                readback = store.get(identity)
+                if not readback or any(readback.get(key) != historical_record[key]
+                       for key in ("id", "kind", "payload", "status", "hash")):
                     raise StateConflict("historical_application_readback_failed")
             records[identity] = historical_record
+            source_claims[identity] = historical_record
         # Imported applied/unknown observations are suppression, not proof of a
         # confirmed submission. Preserve even closed/inactive/low-score jobs.
         for historical in feed.get("jobs", []):
             if historical.get("application_status") not in {"applied", "applied_verified", "submitting", "submission_unknown", "interview", "rejected", "withdrawn"}:
                 continue
-            old = matching_application(records, historical.get("company"), historical.get("requisition_id") or historical.get("job_id"), [historical.get("url")], historical.get("title"))
-            if old:
+            claim = {"company": historical.get("company"), "role": historical.get("title"),
+                     "url": canonical_url(historical.get("url")),
+                     "requisition_id": historical.get("requisition_id") or historical.get("job_id"),
+                     "source": "jobscout_feed", "historical_reported_status": historical["application_status"],
+                     "historical_reported_applied_at": historical.get("application_applied_at"),
+                     "reason": "historical_submission_requires_receipt_reconciliation"}
+            # A reported effect is independent evidence even when prepared or
+            # verified work already matches. Export timestamps do not make a
+            # repeated unchanged claim a new application identity.
+            identity = "application-source-claim:" + digest(claim)
+            payload = {**claim, "application_id": identity, "revision": 0,
+                       "dedup_key": application_key(claim["company"], claim["requisition_id"], claim["url"])}
+            historic_record = _make("applications", payload, "submission_unknown", identity)
+            existing_claim = source_claims.get(identity)
+            if existing_claim:
+                if any(existing_claim.get(key) != historic_record[key]
+                       for key in ("id", "kind", "payload", "status", "hash")):
+                    raise StateConflict("historical_application_readback_failed")
                 continue
-            key = application_key(historical.get("company"), historical.get("requisition_id") or historical.get("job_id"), historical.get("url"))
-            identity = "application:" + digest(key)
-            payload = {"application_id": identity, "dedup_key": key, "revision": 0,
-                       "company": historical.get("company"), "role": historical.get("title"),
-                       "url": historical.get("url"), "requisition_id": historical.get("requisition_id") or historical.get("job_id"),
-                       "source": "jobscout_feed", "source_exported_at": feed.get("exported_at"),
-                       "historical_reported_status": historical["application_status"],
-                       "historical_reported_applied_at": historical.get("application_applied_at"),
-                       "reason": "historical_submission_requires_receipt_reconciliation"}
-            historic_record = _make("applications", payload, "submission_unknown", identity + ":jobscout-history")
             if not dry_run:
                 store.put(historic_record)
-                if not store.get(historic_record["id"]):
+                readback = store.get(identity)
+                if not readback or any(readback.get(key) != historic_record[key]
+                       for key in ("id", "kind", "payload", "status", "hash")):
                     raise StateConflict("historical_application_readback_failed")
             records[identity] = historic_record
+            source_claims[identity] = historic_record
         if meta["stale"]:
             count("feed_stale_or_timestamp_unknown")
             return summary
@@ -345,14 +421,22 @@ def run_applications(store, config, dry_run=True, *, feed=None, transport=None, 
         return summary
     maximum = settings.get("max_submissions_per_day", 3)
     leads = candidates(feed, settings.get("min_score", 0.51), settings.get("max_age_days", 7), now)
+    leads, suppressed, ambiguous = prioritize_candidates(leads, records)
+    summary["duplicates"] += suppressed
+    if ambiguous:
+        summary["exceptions"][AMBIGUOUS_HISTORY] = ambiguous
     for lead in leads[:settings.get("max_candidates", 25)]:
         summary["candidates_seen"] += 1
         application_id, current = None, None
         local_seen = records
         try:
             existing = matching_application(local_seen, lead["company"], lead.get("requisition_id"), [lead["url"]], lead.get("title"))
-            if existing and (existing["payload"].get("attempt") or existing["status"] not in {"discovered", "needs_user_fact", "submission_blocked", "qualified", "prepared"}):
+            suppression = matching_suppression(local_seen, lead["company"], lead.get("requisition_id"),
+                                                [lead["url"]], lead.get("title"))
+            if suppression:
                 summary["duplicates"] += 1
+                if suppression == AMBIGUOUS_HISTORY:
+                    count(suppression)
                 continue
             # Verification may reject or temporarily fail before a canonical
             # job is returned. Keep the fresh dedup match bound to this work
@@ -371,8 +455,12 @@ def run_applications(store, config, dry_run=True, *, feed=None, transport=None, 
                     current = transition(store, existing["payload"]["application_id"], "closed", {"reason": "official_requisition_closed"}, existing)
                 continue
             existing = matching_application(local_seen, job["company"], job["requisition_id"], job["aliases"], job["title"])
-            if existing and (existing["payload"].get("attempt") or existing["status"] not in {"discovered", "needs_user_fact", "submission_blocked", "qualified", "prepared"}):
+            suppression = matching_suppression(local_seen, job["company"], job["requisition_id"],
+                                                job["aliases"], job["title"])
+            if suppression:
                 summary["duplicates"] += 1
+                if suppression == AMBIGUOUS_HISTORY:
+                    count(suppression)
                 continue
             key = application_key(job["company"], job["requisition_id"])
             application_id = ((existing["payload"].get("application_id")
@@ -447,8 +535,11 @@ def run_applications(store, config, dry_run=True, *, feed=None, transport=None, 
             if artifact_hash != packet["resume_sha256"] or digest(packet["fields"]) != packet["answers_hash"]:
                 raise SubmissionBlocked("packet_changed_at_action_time")
             fresh_records = fold_applications(store.query(kind="applications"))
-            duplicate = matching_application(fresh_records, job["company"], job["requisition_id"], job["aliases"], job["title"])
-            if not duplicate or duplicate["id"] != current["id"]:
+            matches = [row for identity, row in fresh_records.items()
+                       if matching_application({identity: row}, job["company"], job["requisition_id"],
+                                               job["aliases"], job["title"])]
+            if (len(matches) != 1 or any(matches[0].get(key) != current.get(key)
+                    for key in ("id", "kind", "payload", "status", "hash"))):
                 raise StateConflict("application_claim_changed")
             action_time = dt.datetime.now(dt.timezone.utc)
             if daily_attempt_count(fresh_records, action_time) >= maximum:
