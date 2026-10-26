@@ -30,14 +30,27 @@
 - [x] Monitor receipts/status of auto-submitted jobs separately from prepared/attempted/manual-action-needed jobs; ensure ambiguous submissions are never blindly retried. Actual cloud attempts/receipts are zero; one historical human-confirmed submission is counted separately.
 - [x] Document rollback, alerting, restoration, retention, measured runner usage and a clear list of remaining exceptions. Account allowance/spend visibility remains unavailable; no billing changes were made.
 
+## Current operational evidence, October 26, 2026
+
+- [x] Restore disabled production and verify `CLOUD_ENABLED=false`, `CLOUD_RESEARCH_ENABLED=true` after the [failed controlled validation](https://github.com/narendranathe/apply/actions/runs/40050463437). The temporary local watcher did not verify its rollback.
+- [x] Authenticate the [read-only snapshot](https://github.com/narendranathe/apply/actions/runs/40337456562): 3,631 raw pages / 3,384 COREs; all prior COREs and 757 historical records unchanged, zero new effect signatures. Preserve the one exact unmanaged derived-mention display discrepancy rather than declaring all raw pages equal.
+- [x] Identify the actual Notion manifest capacity defect through offline serializer replay; the original failed publication clock and upstream exception remain unknown.
+- [ ] Deploy and validate bounded manifest storage and safe failure-artifact retention through hosted CI.
+- [ ] Reconcile the new failed writer and four subsequent guard failures from authenticated actual evidence without replaying effects.
+- [ ] Verify complete persistent index, encrypted backup, same-day no-repeat behavior and a real hosted intake/consumer/repeat before production activation.
+- [ ] Restore GitHub Actions capacity: both October 26 morning events failed before starting code. Account UI confirms 2,000/2,000 included minutes used and a $0 Actions budget marked Usage blocked; reset is November 1. Only the account owner can authorize new spending. No payment/budget change was made.
+- [x] Preserve daily 06:00/06:30 `America/Chicago` schedules with DST, paused desktop writers, stopped Milo/Muse and all existing suppression/uncertainty holds. Schedule configuration does not establish healthy or punctual current execution.
+
+Follow the [latest runbook checkpoint](../runbooks/CUTOVER.md#october-26-failed-validation-authenticated-capture-and-actions-capacity-block). Earlier checked activation gates are historical evidence.
+
 ## Current operational evidence, October 23, 2026
 
 - [x] Authenticate the single [contained recovery](https://github.com/narendranathe/apply/actions/runs/39958792936): exactly four new audit records; all 2,898 prior logical pages and 757 historical records preserved; no new external effects; original unknown-effect hold retained.
-- [ ] Deploy the exact actual trusted receipt/cipher and verified publication-clock/candidate-progress corrections. Current local artifacts and tests do not satisfy deployment.
+- [x] Deploy the exact actual trusted receipt/cipher and verified publication-clock/candidate-progress corrections through [PR #27](https://github.com/narendranathe/apply/pull/27). [Main CI](https://github.com/narendranathe/apply/actions/runs/40047299221) passed all 709 tests and 85 legacy tests without skips, plus real encrypted history restore.
 - [ ] Pass hosted changed-behavior validation, then verify actual persistent production, complete index, encrypted backup and a same-day no-repeat run before claiming operational activation.
 - [ ] Verify an actual sealed hosted intake, seven-record research consumer chain and unchanged repeat against a fresh complete persistent index.
 - [x] Keep daily 06:00/06:30 `America/Chicago` schedules enabled. Both October 23 native scheduled events succeeded, with delays of over four hours; punctual execution remains unproven.
-- [x] Keep production disabled and research enabled during these remaining gates; retain both paused desktop schedules and user-confirmed stopped controllers.
+- [x] Keep production disabled through the authenticated research gate. Production is now enabled only for the controlled [live validation](https://github.com/narendranathe/apply/actions/runs/40050463437), with failure rollback; research remains enabled, both desktop schedules paused and other controllers stopped. Persistent validation and agent-consumer proof remain pending.
 
 Follow the [current runbook checkpoint](../runbooks/CUTOVER.md#october-23-authenticated-storage-recovery-and-remaining-activation). Earlier activation checkmarks are historical evidence and do not establish current production health.
 

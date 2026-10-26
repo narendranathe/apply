@@ -3,6 +3,7 @@ import argparse
 import json
 import os
 import re
+import stat
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -342,7 +343,7 @@ def execute(store, config, now=None, cron='', requested='all', dry_run=True, rec
             'linkedin_inbox': 'not checked', 'linkedin_sent': 0}
 
 
-def main():
+def _argument_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', default='config/cloud.json')
     parser.add_argument('--cron', default='')
@@ -350,7 +351,10 @@ def main():
     parser.add_argument('--mode', choices=MODES, default='dry-run')
     parser.add_argument('--reconcile', action='store_true')
     parser.add_argument('--output', default='run-output/summary.json')
-    args = parser.parse_args()
+    return parser
+
+
+def _run(args):
     if args.mode == 'live' and (os.environ.get('GITHUB_ACTIONS') != 'true'
                                 or os.environ.get('GITHUB_REF') != 'refs/heads/main'):
         raise Blocked('live_requires_default_branch_hosted_writer')
@@ -411,10 +415,63 @@ def main():
         print(json.dumps(result, sort_keys=True))
 
 
-if __name__ == '__main__':
+def main():
+    """Keep the existing raising interface for programmatic callers."""
+    return _run(_argument_parser().parse_args())
+
+
+def _persist_failure_summary(failure, destination):
+    """Retain only the safe aggregate, without following output symlinks."""
+    target = Path(destination)
+    contents = json.dumps(failure, sort_keys=True) + '\n'
+    directories = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    directory = os.open(target.anchor or '.', directories)
     try:
-        main()
+        components = target.parent.parts[1:] if target.is_absolute() else target.parent.parts
+        for component in components:
+            try:
+                os.mkdir(component, mode=0o700, dir_fd=directory)
+            except FileExistsError:
+                pass
+            child = os.open(component, directories, dir_fd=directory)
+            os.close(directory)
+            directory = child
+        if os.fstat(directory).st_uid != os.getuid():
+            raise OSError('private_failure_output_parent_required')
+        os.fchmod(directory, 0o700)
+        flags = os.O_WRONLY | os.O_CREAT | os.O_NOFOLLOW | os.O_NONBLOCK
+        descriptor = os.open(target.name, flags, 0o600, dir_fd=directory)
+        try:
+            attributes = os.fstat(descriptor)
+            if (not stat.S_ISREG(attributes.st_mode) or attributes.st_uid != os.getuid()
+                    or attributes.st_nlink != 1):
+                raise OSError('private_regular_failure_output_required')
+            os.fchmod(descriptor, 0o600)
+            os.ftruncate(descriptor, 0)
+            with os.fdopen(descriptor, 'w', encoding='utf-8') as stream:
+                descriptor = None
+                stream.write(contents)
+        finally:
+            if descriptor is not None:
+                os.close(descriptor)
+    finally:
+        os.close(directory)
+
+
+def _cli():
+    args = _argument_parser().parse_args()
+    try:
+        return _run(args)
     except Exception as error:
         # Never serialize upstream messages, bodies, headers, or request values.
-        print(json.dumps(_failure_summary(error)))
+        failure = _failure_summary(error)
+        try:
+            _persist_failure_summary(failure, args.output)
+        except OSError:
+            pass  # Keep the original safe diagnostic and nonzero exit.
+        print(json.dumps(failure, sort_keys=True))
         raise SystemExit(1)
+
+
+if __name__ == '__main__':
+    _cli()
