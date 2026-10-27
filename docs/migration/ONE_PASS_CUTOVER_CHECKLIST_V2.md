@@ -35,10 +35,11 @@
 - [x] Restore disabled production and verify `CLOUD_ENABLED=false`, `CLOUD_RESEARCH_ENABLED=true` after the [failed controlled validation](https://github.com/narendranathe/apply/actions/runs/40050463437). The temporary local watcher did not verify its rollback.
 - [x] Authenticate the [read-only snapshot](https://github.com/narendranathe/apply/actions/runs/40337456562): 3,631 raw pages / 3,384 COREs; all prior COREs and 757 historical records unchanged, zero new effect signatures. Preserve the one exact unmanaged derived-mention display discrepancy rather than declaring all raw pages equal.
 - [x] Identify the actual Notion manifest capacity defect through offline serializer replay; the original failed publication clock and upstream exception remain unknown.
-- [ ] Deploy and validate bounded manifest storage and safe failure-artifact retention through hosted CI.
+- [x] Finish local bounded manifest storage, preflight, safe failure-artifact retention and actual authenticated-data codec checks in [PR #28](https://github.com/narendranathe/apply/pull/28).
+- [ ] Pass hosted CI and deploy the correction after Actions capacity returns.
 - [ ] Reconcile the new failed writer and four subsequent guard failures from authenticated actual evidence without replaying effects.
 - [ ] Verify complete persistent index, encrypted backup, same-day no-repeat behavior and a real hosted intake/consumer/repeat before production activation.
-- [ ] Restore GitHub Actions capacity: both October 26 morning events failed before starting code. Account UI confirms 2,000/2,000 included minutes used and a $0 Actions budget marked Usage blocked; reset is November 1. Only the account owner can authorize new spending. No payment/budget change was made.
+- [ ] Restore GitHub Actions capacity: both October 26 morning events failed before starting code. Account UI confirms 2,000/2,000 included minutes used and a $0 Actions budget marked Usage blocked; reset is November 1. The owner chose to wait for the November 1 reset; no payment/budget change or further dispatch was made.
 - [x] Preserve daily 06:00/06:30 `America/Chicago` schedules with DST, paused desktop writers, stopped Milo/Muse and all existing suppression/uncertainty holds. Schedule configuration does not establish healthy or punctual current execution.
 
 Follow the [latest runbook checkpoint](../runbooks/CUTOVER.md#october-26-failed-validation-authenticated-capture-and-actions-capacity-block). Earlier checked activation gates are historical evidence.

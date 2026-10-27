@@ -62,7 +62,7 @@ Example **private configuration**, stored outside Git and permissioned `0600`:
 
 The publisher derives compact projections from existing records and application folding/deduplication. It retains original record identities and source evidence. Projections and manifests are immutable, versioned records; do not overwrite a fixed `projection:<entity_id>` pointer.
 
-Manifest record `kind: index_manifests` has the following payload:
+The logical v1 manifest has the following payload:
 
 ```json
 {
@@ -81,6 +81,10 @@ Manifest record `kind: index_manifests` has the following payload:
   "action_results": {"agent-intake:hash": "action-result:hash"}
 }
 ```
+
+Large logical manifests use bounded immutable physical storage (`agent-index-manifest/v2`). `cloud.index_manifest.ManifestView` exposes the same logical payload while keeping the actual stored root CORE separate. The root commits its logical identity/hash and bounded section directories; storage pages use `kind: index_changes`, `status: manifest_page`, and `agent-index-manifest-page/v1`. These pages are storage metadata, excluded from logical changes and public change responses. Every page is at most 16 KiB of canonical UTF-8, the root at most 48 KiB, and the publisher checks every complete Notion request against the existing limits before its first write. Semantic children and bottom-up storage pages receive exact readback before the root is published last. Small manifests preserve their original inline CORE.
+
+Agents use the returned physical `manifest_id` in `expected_manifest_id`; they do not substitute the logical hash or a hydrated dictionary under the physical hash. The protocol resolves only selected map paths and change windows, counts those store reads, and discards its page cache for every fresh intake authority check. Missing, tampered or unsupported storage fails closed. Existing first-40 task selection, grants, freshness, evidence and context budgets remain unchanged. A brief needs only the bounded header. An older reader sees no outer `complete: true` on the new root and therefore cannot authorize work from it. Full materialization is for writer rebuilding, backup verification and explicit offline diagnostics, never routine agent startup.
 
 Manifest discovery uses `store.latest_index_manifest()` when supported, or `--manifest-id` for a known immutable snapshot. Both avoid a history scan. The compatibility fallback queries only `index_manifests`, but that fallback scans the manifest family; use the bounded Notion implementation or an explicit snapshot in production. It never queries the entire application/outreach event history for a routine brief. The existing store may make multiple HTTP requests for one validated record, so `store_calls` is a measured logical store-call count, not a claim about raw HTTP count.
 
@@ -153,6 +157,8 @@ MCP example after initialization:
 Stdout never includes proposed messages/answers/intake envelopes. It returns only action ID, intake hash, `staged` and `acknowledged: false`. The reusable library returns the envelope privately to its trusted host. For explicit local intake staging, add `--private-outbox` with a directory under system temporary storage. The adapter requires ownership and `0700` permissions and writes immutable `0600` files; differing same-key bytes stop. Upload those files only through the authorized central-writer intake workflow, then securely remove private staging. No outbox is created by default. A staged file is not a Notion acknowledgement.
 
 ## GitHub intake integration and deployment status
+
+Current October 26 status: production is disabled, research is configured, and both morning runs were blocked before code by exhausted included Actions minutes and a $0 Actions budget. The bounded storage correction is under review in [PR #28](https://github.com/narendranathe/apply/pull/28); no complete current persistent index or actual hosted intake/consumer/repeat has been verified. The older successful production evidence below remains historical. See the [current cutover checkpoint](runbooks/CUTOVER.md#october-26-failed-validation-authenticated-capture-and-actions-capacity-block).
 
 The implementation includes [agent-intake.yml](../.github/workflows/agent-intake.yml), [scripts/agent_intake.py](../scripts/agent_intake.py) and [config/agents.json](../config/agents.json), deployed on the private default branch. [October 17 production](https://github.com/narendranathe/apply/actions/runs/39044020158) published a complete 937-record index; independent authenticated backup restore verified every generated CORE record and the read contract against all 757 historical records. The brief from that actual snapshot was 4,953 UTF-8 bytes, an estimated 1,239 tokens, with one logical store read and no provider call. This is an offline read of authenticated production data, not a live API latency or actual tokenizer measurement. A hosted intake dispatch has not been exercised against a real task; fixture and dispatcher tests cover its queue behavior. The manual workflow accepts one bounded encrypted private metadata envelope, requires the private repository's default branch and shares `hiring-outreach-single-writer` with the scheduled workflows. The runner authenticates `GITHUB_ACTOR` against the checked-in registry rather than trusting actor or capability claims in the envelope.
 
