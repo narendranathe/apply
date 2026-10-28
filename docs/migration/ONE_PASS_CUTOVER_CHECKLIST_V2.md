@@ -30,6 +30,18 @@
 - [x] Monitor receipts/status of auto-submitted jobs separately from prepared/attempted/manual-action-needed jobs; ensure ambiguous submissions are never blindly retried. Actual cloud attempts/receipts are zero; one historical human-confirmed submission is counted separately.
 - [x] Document rollback, alerting, restoration, retention, measured runner usage and a clear list of remaining exceptions. Account allowance/spend visibility remains unavailable; no billing changes were made.
 
+## Current operational evidence, October 28, 2026
+
+- [x] Implement the pinned five-record custody path, manual common-lock workflow, no-retry/source/readback gates and separate maintenance-history fence in PR #28. No live record is cleared by local tests or a full cohort alone.
+- [x] Authenticate actual trusted/observed archives and preserved history through the new core and CLI; verify original native run/job/log/artifact witnesses through read-only GitHub APIs. Zero dispatches, Notion/provider calls, imports or operational writes.
+- [x] Implement independent actual hosted-receipt admission, exact restored post-backup equality and retention-independent durable runtime verification. No actual receipt is fabricated or installed.
+- [x] Keep production disabled, research configured, both desktop writers paused, stopped controllers and all existing uncertainty holds preserved. Respect the owner's decision to wait for the November 1 Actions reset without spending changes.
+- [ ] Pass hosted CI, merge/deploy normally and authenticate a current-main research validation after capacity returns.
+- [ ] Execute the one initial custody recovery and authenticate/deploy its actual successful receipt and complete encrypted backup.
+- [ ] Verify persistent index/backup, same-day no-repeat and actual hosted intake/consumer/repeat, then assess production activation.
+
+The [operator runbook](../runbooks/INDEX_CUSTODY.md) gives the exact boundaries. Local implementation is not operational production health.
+
 ## Current operational evidence, October 26, 2026
 
 - [x] Restore disabled production and verify `CLOUD_ENABLED=false`, `CLOUD_RESEARCH_ENABLED=true` after the [failed controlled validation](https://github.com/narendranathe/apply/actions/runs/40050463437). The temporary local watcher did not verify its rollback.

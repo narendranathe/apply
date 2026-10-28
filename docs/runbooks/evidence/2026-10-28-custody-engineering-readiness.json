@@ -1,0 +1,92 @@
+{
+  "actual_archived_source_validation": {
+    "activation_authorized": false,
+    "after_cores": 3384,
+    "after_pages": 3631,
+    "before_cores": 2655,
+    "before_pages": 2902,
+    "github_calls": 0,
+    "historical_records": 757,
+    "hosted_verification": false,
+    "notion_calls": 0,
+    "operational_writes": 0,
+    "plan_content_sha256": "c22c17e0c49961875022191c2512a1df6a56627d740f217b953c9b15938a5002",
+    "plan_sha256": "929cc4fdb8a9a09011cfe5c49892ce86d8cbdd7b90500dd2ae837b36d8c8f462",
+    "status": "actual_archived_custody_plan_verified_offline"
+  },
+  "actual_native_read_only_validation": {
+    "activation_authorized": false,
+    "incident_proof": {
+      "external_effects_reconciled": false,
+      "failed_run_ids": [
+        "40050463437",
+        "40101990960",
+        "40103832704",
+        "40204362589",
+        "40204819102"
+      ],
+      "native_pins_sha256": "f054595b02d209432e222d9015a51fe6afcee0a6061ba4732394be518ba7f331",
+      "original_clock_verified": false,
+      "original_failure_cause_verified": false,
+      "original_index_publication_complete": false,
+      "reviewed_proof_sha256": "32b14333869d3cd3e03b994c73242c9e3b976d47f459cb19af17b944b9ff6037",
+      "reviewed_verifier_sha256": "8d3e48dfa4e384d2bc30ab8c2ddb04eb8798e991206af6a888a4974543cb209e",
+      "schema": "apply-reviewed-index-custody-native-proof/v1"
+    },
+    "notion_calls": 0,
+    "operational_writes": 0,
+    "provider_calls": 0,
+    "status": "actual_native_incident_evidence_verified_read_only",
+    "workflow_dispatches": 0
+  },
+  "external_effects": 0,
+  "frozen_source_sha256": {
+    ".github/workflows/history-reconciliation.yml": "810ff024a60f6c7cea56f259ea63b5acd743a08ce0a7ec9ce3d7c86eee3d11da",
+    "cloud/agent_index.py": "7a63ce93fb1fdeee5c1df41bee9e3fd4c4ad07bec9b36a9bbd9dabfafe9bf6d5",
+    "cloud/contained_recovery.py": "293beeab8db698f0b7f6b6bf649673daa116a11ce96074036d49ce4f8c7b96cb",
+    "cloud/notion.py": "e58ecb647e5e1fba08e7135aa1c115168f0ce9386fddbce0fc89404a57c3098b",
+    "cloud/storage_reservations.py": "950d2878ba46be3df23d78a28795f1656501be608251e869b343f3740e4831c3",
+    "scripts/reconcile_contained.py": "4e5cad50959f22aba88b8bcd70627112f415ceb3c9a2c5ccfdb68883a36f292b"
+  },
+  "observed_at": "2026-10-28T22:36:15.040612+00:00",
+  "owner_capacity_choice": "wait_for_2026_11_01_reset_no_spending_change",
+  "proof_content_sha256": "2307e0551ee466cedf44a1e213532b27aec50ca6304dfdcea56fda05f624dcad",
+  "protocol_source_sha256": {
+    ".github/workflows/index-custody-reconciliation.yml": "321b9ca1e9aebf4a1fb4ae47c09b5c06d214c7cdb5c3bc443ba1403b25cdaee3",
+    "cloud/agent_index.py": "7a63ce93fb1fdeee5c1df41bee9e3fd4c4ad07bec9b36a9bbd9dabfafe9bf6d5",
+    "cloud/index_custody_evidence.py": "4d6e6d69c31e470af8efe455d36fef5f90a94399c0086031e3b10621ec65c59e",
+    "cloud/index_custody_receipt.py": "2139a3dca2db17b7a8077692822625895634394d5185715b69865cf8d2d037d2",
+    "cloud/index_custody_reconciliation.py": "72411fcd7f12f9787fdc916024505f3c80a501d5c7670fd0f7682745ae1e9077",
+    "cloud/notion.py": "e58ecb647e5e1fba08e7135aa1c115168f0ce9386fddbce0fc89404a57c3098b",
+    "cloud/runtime_guard.py": "fd23e85285a8cf5b1b1b9ccc8d7d17b3fbe14340b6592e383882649e48696bb8",
+    "scripts/reconcile_index_custody.py": "b741b9e6e416f24b40ad4335fb3ebda54ed0da443091d6c3b900e34edf764f07",
+    "scripts/verify_index_custody.py": "31178b2610bd1cf4a11ec4805339b95acce1948ebed349723658878c70988d1c"
+  },
+  "runtime_bounds": {
+    "core_full_source_scans": 1,
+    "final_backup_scans": 1,
+    "job_minutes": 180,
+    "request_seconds": 9000,
+    "write_retries": 0
+  },
+  "schema": "apply-index-custody-engineering-readiness/v1",
+  "scope": {
+    "global_external_effects_reconciled": false,
+    "local_engineering_only": true,
+    "new_hosted_workflow_executed": false,
+    "operational_reconciliation_applied": false,
+    "original_clock_verified": false,
+    "original_failure_cause_verified": false,
+    "production_activation_authorized": false,
+    "successful_hosted_receipt_present": false
+  },
+  "tests": {
+    "compileall_passed": true,
+    "existing_pdf_toolchain_skips": 1,
+    "independent_focused_passed": 114,
+    "legacy_passed": 85,
+    "local_passed": 868,
+    "local_ran": 869,
+    "workflow_invariants_passed": true
+  }
+}

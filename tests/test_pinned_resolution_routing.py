@@ -13,11 +13,12 @@ from cloud.orchestrator import Blocked
 from cloud.outreach import record
 from cloud.readback_reconciliation import FAILURES as READBACK_FAILURES
 from cloud.scheduled_reconciliation import FAILURES as SCHEDULED_FAILURES
+from cloud.index_custody_reconciliation import FAILURES as CUSTODY_FAILURES
 from tests import test_runtime_guard as startup_fixtures
 
 ENV = startup_fixtures.ENV
 
-STRICT_INCIDENTS = (*READBACK_FAILURES, INDEX_FAILED, *SCHEDULED_FAILURES)
+STRICT_INCIDENTS = (*READBACK_FAILURES, INDEX_FAILED, *SCHEDULED_FAILURES, *CUSTODY_FAILURES)
 
 
 class PinnedResolutionRoutingTests(unittest.TestCase):
@@ -81,6 +82,7 @@ class PinnedResolutionRoutingTests(unittest.TestCase):
             'apply-pinned-index-readback-writer-resolution/v999',
             'apply-pinned-index-writer-resolution/v999',
             'apply-pinned-scheduled-writer-resolution/v999',
+            'apply-pinned-index-custody-writer-resolution/v999',
         )
         for identity in STRICT_INCIDENTS:
             for schema in schemas:

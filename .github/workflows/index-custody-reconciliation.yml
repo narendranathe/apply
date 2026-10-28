@@ -1,0 +1,50 @@
+name: Private index custody reconciliation
+run-name: 'index-custody:${{ inputs.mode }}'
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        type: choice
+        default: reconcile
+        options: [verify, reconcile]
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: hiring-outreach-single-writer
+  cancel-in-progress: false
+jobs:
+  reconcile:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - name: Reconcile managed index custody without replay
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          MIGRATION_BACKUP_KEY: ${{ secrets.MIGRATION_BACKUP_KEY }}
+          GITHUB_TOKEN: ${{ github.token }}
+          CLOUD_ENABLED: ${{ vars.CLOUD_ENABLED }}
+          CLOUD_RESEARCH_ENABLED: ${{ vars.CLOUD_RESEARCH_ENABLED }}
+          CUSTODY_MODE: ${{ inputs.mode }}
+        run: python scripts/reconcile_index_custody.py
+      - name: Private encrypted custody evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: index-custody-evidence-${{ github.run_id }}
+          path: |
+            run-output/maintenance-summary.json
+            run-output/*.aesgcm
+          retention-days: 14
+          if-no-files-found: ignore
+      - name: Custody failure remains unresolved
+        if: failure()
+        run: echo 'Custody verification failed. Keep production disabled; do not rerun uncertain writes.' >> "$GITHUB_STEP_SUMMARY"
