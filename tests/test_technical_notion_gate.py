@@ -3,7 +3,7 @@ import unittest
 
 from cloud.notion import ConflictError, NotionStore
 from cloud.records import make_record, validate_record
-from cloud.technical_admission import _records
+from cloud.technical_admission import _records, admit_technical_record
 from tests.test_notion import FakeNotion
 from tests.test_technical_storage_integration import technical
 
@@ -32,6 +32,17 @@ class TechnicalNotionGateTests(unittest.TestCase):
         history = make_record("outreach_events", {"actor": "fixture"}, "fixture:history")
         self.assertEqual(validate_record(self.store.put(history)), history)
         self.assertEqual(len(self.api.writes()), 1)
+
+    def test_serialized_admission_uses_real_notion_adapter_and_exact_replay(self):
+        source = technical("technical_items")
+        context = {"concurrency_group": "hiring-outreach-single-writer", "reservation_verified": True,
+                   "orchestrator_verified": True, "previous_writer_reconciled": True, "run_id": "fixture"}
+        result = admit_technical_record(self.store, source, writer_context=context)
+        self.assertEqual(result["status"], "admitted")
+        self.assertEqual(validate_record(self.store.get(source["id"])), source)
+        writes = len(self.api.writes())
+        self.assertEqual(admit_technical_record(self.store, source, writer_context=context), result)
+        self.assertEqual(len(self.api.writes()), writes)
 
 
 if __name__ == "__main__":
