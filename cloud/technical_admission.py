@@ -74,6 +74,7 @@ def _check_admission_ledger(snapshot):
         indexed[row["id"]] = row
     intents = [row for row in indexed.values() if row["kind"] == "technical_admission_intents"]
     expected_members = set()
+    admitted_targets = set()
     for intent in intents:
         target = indexed.get(intent["payload"].get("target_id"))
         if target is None:
@@ -86,10 +87,15 @@ def _check_admission_ledger(snapshot):
             if indexed.get(expected["id"]) != expected:
                 raise ValueError("incomplete admission")
             expected_members.add(expected["id"])
+        admitted_targets.add(target["id"])
     for row in indexed.values():
         if row["kind"] in {"technical_alias_reservations", "technical_admission_completions"}:
             if row["id"] not in expected_members:
                 raise ValueError("orphaned admission member")
+        if row["kind"] in {"technical_sources", "technical_items"} and row["id"] not in admitted_targets:
+            raise ValueError("unadmitted technical source")
+    from .technical_cursor import validate_cursor_snapshot
+    validate_cursor_snapshot(indexed)
     return indexed
 
 

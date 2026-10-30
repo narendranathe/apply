@@ -165,6 +165,18 @@ def dispatch_intake(store, envelope, *, github_actor, trusted_registry, writer_c
     """
     record = _envelope(envelope)
     principal, registry = _authority(record, github_actor, trusted_registry, writer_context)
+    # Intake shares the operational writer with business lanes. A partially
+    # persisted technical admission is a global storage ambiguity, so even
+    # an otherwise idempotent acknowledgement must not be returned before a
+    # fresh complete source scan has ruled out unresolved technical chains.
+    try:
+        from .technical_admission import _check_admission_ledger
+        snapshot = store.index_source_records() if hasattr(store, "index_source_records") else store.query()
+        if not isinstance(snapshot, list):
+            raise ValueError("incomplete_source_snapshot")
+        _check_admission_ledger(snapshot)
+    except Exception:
+        raise DispatcherStorageError("technical_admission_requires_reconciliation") from None
     payload = record["payload"]
     try:
         queue, result = _queue_and_result(record)

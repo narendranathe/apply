@@ -144,11 +144,15 @@ def _reconciled_slot(store, identity, resolution):
                 and payload.get('external_effects_reconciled') is True and payload.get('evidence'))
 
 
-def live_gate(store, config):
+def _live_config_gate(config):
     if config.get('destination_private') is not True:
         raise Blocked('private_repository_required')
     if config.get('cloud_enabled') is not True:
         raise Blocked('cutover_not_enabled')
+
+
+def live_gate(store, config):
+    _live_config_gate(config)
     cutover = store.get('deployment:cutover:v2')
     if not cutover:
         raise Blocked('cutover_evidence_required')
@@ -234,6 +238,19 @@ def execute(store, config, now=None, cron='', requested='all', dry_run=True, rec
             # logical-time calls keep their deterministic replay behavior.
             publication_clock = lambda: datetime.now(timezone.utc)
     if not dry_run:
+        # Check disabled/private settings without reads or writes first.
+        _live_config_gate(config)
+        # A partial technical admission is a storage ambiguity even when the
+        # agent consumer is not configured. Fence every live business lane
+        # before any run marker, application, outreach, or other append.
+        try:
+            from cloud.technical_admission import _check_admission_ledger
+            snapshot = store.index_source_records() if hasattr(store, 'index_source_records') else store.query()
+            if not isinstance(snapshot, list):
+                raise ValueError('incomplete_source_snapshot')
+            _check_admission_ledger(snapshot)
+        except Exception:
+            raise Blocked('technical_admission_requires_reconciliation') from None
         live_gate(store, config)
     working = ShadowStore(store) if dry_run else store
     if dry_run and config.get('_suppression_baseline') is not None:

@@ -613,11 +613,9 @@ class NotionStore:
         if existing:
             if any(existing[k] != record[k] for k in CORE_KEYS):
                 raise ConflictError("Immutable record ID already has different content; append a correction")
-            self._uncertain.discard(record_id)
-            return existing
-        if record_id in self._uncertain:
+        elif record_id in self._uncertain:
             raise AmbiguousWriteError("Previous write is unresolved; absence is not proof that replay is safe")
-        if record["kind"] in {"technical_sources", "technical_items"}:
+        if not existing and record["kind"] in {"technical_sources", "technical_items"}:
             # This verifies the pre-existing durable chain, not writer identity
             # or the host's previous-writer fence; those remain host obligations.
             from .technical_admission import _records
@@ -626,6 +624,17 @@ class NotionStore:
                 actual = self.get(required["id"])
                 if not actual or validate_record(actual) != required:
                     raise ConflictError("Technical source requires readback of admission intent and alias reservations")
+        if record["kind"] == "source_cursors":
+            # Source/item evidence must already be durably admitted. The host
+            # still owns writer authorization and prior-writer reconciliation.
+            from .technical_cursor import CursorBlocked, validate_cursor_evidence
+            try:
+                validate_cursor_evidence(self, record)
+            except CursorBlocked:
+                raise ConflictError("Cursor requires admitted source and item evidence") from None
+        if existing:
+            self._uncertain.discard(record_id)
+            return existing
         envelope = canonical_json(record)
         props = {"Cloud ID": {"rich_text": _rich_text(record_id)},
                  "Cloud Kind": {"rich_text": _rich_text(record["kind"])},

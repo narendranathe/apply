@@ -598,6 +598,14 @@ def build_index(records: Iterable[dict], now: datetime, previous_manifest: dict 
         validate_technical_aliases(sources.values())
     except ValueError:
         conflicts.append({"reason": "technical_alias_conflict"})
+    # A partial technical append is a global storage ambiguity, including
+    # when the affected source itself was not yet written. Never publish a
+    # complete index or ready tasks from a snapshot with an orphan chain.
+    try:
+        from .technical_admission import _check_admission_ledger
+        _check_admission_ledger(list(sources.values()))
+    except (ValueError, TypeError, KeyError, AttributeError):
+        conflicts.append({"reason": "technical_admission_incomplete"})
     action_results = _action_results(sources, conflicts)
     verified_identities = {}
     for row in sorted(sources.values(), key=lambda item: item["id"]):

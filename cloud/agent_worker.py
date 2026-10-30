@@ -434,6 +434,17 @@ def run_agent_worker(store, config, *, trusted_registry, writer_context, now=Non
         raise DispatcherRejected("worker_queue_budget_invalid")
     summary = {"lane": "agent_worker", "queued_seen": 0, "completed": 0, "blocked": 0,
                "already_finished": 0, "external_effects": 0, "exceptions": {}}
+    # A partial technical admission can exist without a technical queue item.
+    # Read the complete authoritative source family before any worker append,
+    # and stop unrelated work too when its storage state is uncertain.
+    try:
+        from .technical_admission import _check_admission_ledger
+        snapshot = store.index_source_records() if hasattr(store, "index_source_records") else store.query()
+        if not isinstance(snapshot, list):
+            raise ValueError("incomplete_source_snapshot")
+        _check_admission_ledger(snapshot)
+    except Exception:
+        raise WorkerStorageError("technical_admission_requires_reconciliation") from None
     queues = sorted(_query(store, "agent_execution_queue"), key=lambda row: row["id"])
     _complete_admission_family(store, queues)
     admitted = []
