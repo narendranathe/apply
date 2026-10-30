@@ -1,0 +1,15 @@
+# Prompt 5 — Original technical writing and platform-specific publishing (TDD)
+
+Implement the editorial system from the PRD without introducing a new source of truth. The purpose is valuable professional contribution, not high-volume generic cross-posting. Consume source-grounded signals and improvement ideas and create: a LinkedIn technical post, an X post/thread, and a Substack long-form article. Each should suit its channel while preserving a consistent technically honest thesis.
+
+**Tests FIRST:** Define failing tests for evidence-to-claim mapping, original wording, unsupported claims, missing citations, excessive quotations, unverifiable performance predictions, platform-specific character constraints, accessibility/alt-text metadata, duplicate topics, version changes after approval, author/platform misconfiguration, secrets in drafts, scheduled retries, publisher timeouts and missing/ambiguous receipts.
+
+Implement an editorial state machine: `idea → researched → technical_review → draft → revised → ready_to_publish → publishing → published_verified` with `blocked`, `rejected` and `publication_unknown` branches. Each artifact stores author, sources, thesis, verified technical examples, assumptions, target audience, channel, revision/hash, review notes, and provenance. Include peer critique: strongest counterargument, likely reviewer questions, how to validate the engineering proposal and why it might not help.
+
+Create a **provider capability matrix** from official current docs for LinkedIn, X, and Substack: supported read/publish methods, application requirements, scopes, costs, rate limits, media, analytics and receipt retrieval. Implement testable provider adapters (`capabilities`, `prepare`, `publish`, `verify_receipt`, `fetch_metrics`) only for supported granted methods. Where an official/authorized publishing integration is absent (potentially Substack or LinkedIn), supply a polished copy-ready/export workflow with an honest manual publish state. No browser cookie reuse, private API reverse engineering, captcha bypass or fake success receipts.
+
+Enable unattended posting only where platform authorization, account permission, user-approved publishing policy and pre-publication quality gates are present; otherwise stage drafts for review. Do not let a successful HTTP response without authoritative published-post identity count as publication. Follow anti-spam and platform rules; never present speculative team direction as a factual internal roadmap.
+
+Track genuine engagement metrics such as attributed qualified conversations, substantive replies, referral outcomes, publication errors and editorial effort, not raw likes alone. Keep private contact history off public posts.
+
+**Exit criteria:** Offline red/green/refactor, test doubles for all three channels, real-adapter capability proof where granted, complete draft and receipt lifecycle, Notion audit linkage and a feature PR. No production publication while account access and current deployment recovery remain unverified.
