@@ -16,6 +16,7 @@ from .submission import normalize
 from .coordination_quarantine import ContactQuarantines
 from .records import content_hash, make_record, stable_id, validate_record
 from .reporting import _confirmed, _human_confirmation
+from .technical_records import validate_technical_aliases, validate_technical_record
 
 SCHEMA = "agent-index/v1"
 CAPABILITIES = frozenset({"read_summarize", "research_propose", "prepare_application",
@@ -23,10 +24,21 @@ CAPABILITIES = frozenset({"read_summarize", "research_propose", "prepare_applica
                           "record_verified_manual_action", "administer_workflow"})
 MAX_HISTORY = 8
 MAX_BRIEF_TASKS = 12
+TECHNICAL_ENTITY_KINDS = {
+    "technical_sources": "technical_source", "technical_items": "technical_item",
+    "engineering_observations": "engineering_observation", "technical_signals": "technical_signal",
+    "technical_hypotheses": "technical_hypothesis", "engineering_opportunities": "engineering_opportunity",
+    "contact_topic_relevances": "contact_topic_relevance", "engagement_intents": "engagement_intent",
+    "engagement_outcomes": "engagement_outcome", "content_drafts": "content_draft",
+    "content_revisions": "content_revision", "publisher_intents": "publisher_intent",
+    "publisher_receipts": "publisher_receipt", "source_cursors": "source_cursor",
+    "technical_next_actions": "technical_next_action",
+}
 ENTITY_KINDS = {"companies": "company", "jobs": "job", "contacts": "contact",
                 "threads": "thread", "conversations": "thread", "applications": "application",
                 "referrals": "referral", "interviews": "interview", "tasks": "task",
-                "agent_tasks": "task", "exceptions": "exception", "agent_runs": "agent_run"}
+                "agent_tasks": "task", "exceptions": "exception", "agent_runs": "agent_run",
+                **TECHNICAL_ENTITY_KINDS}
 EVENT_KINDS = {"conversation_events", "outreach_events", "contact_observations", "conversation_observations", "audit_events"}
 GENERATED_KINDS = {"entity_projections", "index_manifests", "index_changes"}
 CURRENT_OUTCOMES = {
@@ -79,6 +91,8 @@ def _evidence(record, now):
     Historical export evidence never verifies current invitation/inbox state.
     """
     payload = record["payload"]
+    if record["kind"] in TECHNICAL_ENTITY_KINDS:
+        return None
     if _historical(payload):
         return None
     raw = payload.get("confirmation_evidence")
@@ -112,6 +126,9 @@ def _receipt(record, now):
 
 def _identity(record):
     kind, payload = record["kind"], record["payload"]
+    if kind in TECHNICAL_ENTITY_KINDS:
+        value = payload.get("entity_id")
+        return value if isinstance(value, str) and value else record["id"]
     field = {"companies": "company_id", "jobs": "job_id", "contacts": "contact_id",
              "threads": "thread_id", "conversations": "thread_id", "applications": "application_id",
              "referrals": "referral_id", "interviews": "interview_id", "tasks": "task_id",
@@ -124,7 +141,8 @@ def _identity(record):
 
 def _related(payload):
     result = {}
-    for kind in ("company", "job", "contact", "thread", "application", "referral", "interview"):
+    for kind in ("company", "job", "contact", "thread", "application", "referral", "interview",
+                 "topic", "technology", *TECHNICAL_ENTITY_KINDS.values()):
         singular, plural = payload.get(kind + "_id"), payload.get(kind + "_ids")
         values = ([singular] if isinstance(singular, str) and singular else [])
         if isinstance(plural, list):
@@ -155,6 +173,13 @@ def _freshness(payload, now, *, verified=False):
     if not observed or observed > now:
         return "unknown"
     return "fresh" if now - observed <= timedelta(hours=24) else "stale"
+
+
+def _record_freshness(record, now):
+    payload = record["payload"]
+    if record["kind"] in TECHNICAL_ENTITY_KINDS and payload.get("freshness") != "fresh":
+        return payload.get("freshness", "unknown")
+    return _freshness(payload, now, verified=record["kind"] in {"contacts", "threads", "conversations"})
 
 
 def _revision(record):
@@ -509,6 +534,9 @@ def _next_action(projection, latest, now):
             return _task(projection, "verify_interview_status", "Interview scheduling is not inferred from a plan.", "research_propose", 60)
     if kind == "job" and state not in {"closed", "applied_verified", "interview", "submission_unknown", "submitting"}:
         return _task(projection, "verify_job_and_qualification", "Verify current official opening and deduplication before preparation.", "research_propose", 50)
+    if kind == "technical_next_action" and state in {"observed", "open", "ready"}:
+        return _task(projection, "review_technical_next_action", "Review the cited technical evidence and current relationship context.",
+                     "research_propose", 40, status="blocked" if projection["blockers"] else "open", executor="human")
     return None
 
 
@@ -533,6 +561,8 @@ def build_index(records: Iterable[dict], now: datetime, previous_manifest: dict 
             row = validate_record(raw)
             if not isinstance(row["payload"], dict):
                 raise ValueError("Expected structured source payload")
+            if row["kind"] in TECHNICAL_ENTITY_KINDS:
+                row = validate_technical_record(row)
         except (ValueError, TypeError, KeyError):
             conflicts.append({"record_id": raw.get("id") if isinstance(raw, dict) else None, "reason": "invalid_source_record"})
             continue
@@ -545,6 +575,10 @@ def build_index(records: Iterable[dict], now: datetime, previous_manifest: dict 
         if row["kind"] in {"import_manifests", "migration_manifests", "source_snapshots"}:
             if row["payload"].get("complete") is False or row["payload"].get("conflicts") or row["status"] in {"incomplete", "conflicted", "partial"}:
                 conflicts.append({"record_id": row["id"], "reason": "partial_or_conflicted_source"})
+    try:
+        validate_technical_aliases(sources.values())
+    except ValueError:
+        conflicts.append({"reason": "technical_alias_conflict"})
     action_results = _action_results(sources, conflicts)
     verified_identities = {}
     for row in sorted(sources.values(), key=lambda item: item["id"]):
@@ -608,6 +642,11 @@ def build_index(records: Iterable[dict], now: datetime, previous_manifest: dict 
     for entity_id, rows in events.items():
         if any((_evidence(row, now) or {}).get("outcome") == "opt_out_confirmed" or _suppressed(row["payload"]) for row in rows):
             suppressed_ids.add(entity_id)
+    for entity_id, rows in groups.items():
+        if (any(row["kind"] == "contacts" for row in rows)
+                and any(company in suppressed_ids for row in rows
+                        for company in _related(row["payload"]).get("company_ids", []))):
+            suppressed_ids.add(entity_id)
     outputs, projections, latest_sources = [], {}, {}
     selected = {entity_id: applications.get(entity_id) or _latest(rows, conflicts, entity_id) for entity_id, rows in groups.items()}
     for entity_id, rows in sorted(groups.items()):
@@ -616,7 +655,10 @@ def build_index(records: Iterable[dict], now: datetime, previous_manifest: dict 
             conflicts.append({"entity_id": entity_id, "reason": "entity_type_conflict"})
         latest = selected[entity_id]
         payload, kind = latest["payload"], ENTITY_KINDS[latest["kind"]]
-        state = payload.get("state") or latest["status"]
+        technical = latest["kind"] in TECHNICAL_ENTITY_KINDS
+        state = (latest["status"] if technical else payload.get("state") or latest["status"])
+        if technical and state not in {"observed", "open", "ready", "blocked", "closed", "historical", "rejected"}:
+            state = "unknown"
         if not isinstance(state, str):
             conflicts.append({"entity_id": entity_id, "reason": "invalid_entity_state"})
             state = "unknown"
@@ -695,6 +737,24 @@ def build_index(records: Iterable[dict], now: datetime, previous_manifest: dict 
         if suppressed:
             state = "suppressed"
             blockers.append("global_opt_out")
+        if kind == "technical_next_action":
+            contact_ids = related.get("contact_ids", [])
+            if any(identity not in selected or selected[identity]["kind"] != "contacts"
+                   or not _live_contact(selected[identity]["payload"], now) for identity in contact_ids):
+                blockers.append("history_missing_or_stale")
+            if any(identity not in selected or selected[identity]["kind"] != "companies"
+                   for identity in related.get("company_ids", [])):
+                blockers.append("company_context_missing")
+            refs = payload["evidence_refs"]
+            if not refs or any(ref not in sources for ref in refs):
+                blockers.append("technical_evidence_unavailable")
+            elif any(_record_freshness(sources[ref], now) != "fresh" for ref in refs):
+                blockers.append("technical_evidence_stale")
+        if technical:
+            # Link only identities actually present in this snapshot. Arbitrary
+            # extra fields are not safe to copy into compact index metadata.
+            related = {key: kept for key, values in related.items()
+                       if (kept := [value for value in values if value in selected])}
         hold = None
         if kind in {"contact", "thread"}:
             contact_ids = [entity_id] if kind == "contact" else related.get("contact_ids", [])
@@ -704,18 +764,20 @@ def build_index(records: Iterable[dict], now: datetime, previous_manifest: dict 
                 blockers.append(hold["reason"])
         projection = {"schema": SCHEMA, "entity_id": entity_id, "entity_type": kind,
                       "state": state, "current_state": state, "last_verified_action": last_action,
-                      "source": _source(payload), "source_record_id": payload.get("derived_from", latest["id"]),
-                      "verified_at": last_action["occurred_at"] if last_action else payload.get("verified_at"),
+                      "source": "technical_record" if technical else _source(payload), "source_record_id": latest["id"] if technical else payload.get("derived_from", latest["id"]),
+                      "verified_at": last_action["occurred_at"] if last_action else None if technical else payload.get("verified_at"),
                       "observed_at": (_time(payload).isoformat() if _time(payload) else None),
-                      "freshness": _freshness(payload, now, verified=kind in {"contact", "thread"}),
-                      "confidence": "verified" if last_action or _live_contact(payload, now) else "unverified",
+                      "freshness": _record_freshness(latest, now),
+                      "confidence": "verified" if last_action or (kind in {"contact", "thread"} and _live_contact(payload, now)) else "unverified",
                       "blockers": sorted(set(blockers)), "related_ids": related,
-                      "owner": payload.get("owner") if isinstance(payload.get("owner"), str) else "unassigned",
+                      "owner": payload.get("owner") if not technical and isinstance(payload.get("owner"), str) else "unassigned",
                       "suppression": {"suppressed": suppressed, "retry_blocked": bool(hold) or state in {"delivery_unknown", "submission_unknown", "submitting", "applied_verified", "pending"}},
                       "evidence_refs": sorted(({row["id"] for row, _ in confirmed} | {last_action["evidence_ref"]} if last_action else {payload.get("derived_from", latest["id"])}) | set(hold["evidence_refs"] if hold else [])),
                       "history_ids": [row["id"] for row in ordered[-MAX_HISTORY:]], "history_count": len(ordered),
                       "history_truncated": len(ordered) > MAX_HISTORY,
                       "source_version": content_hash(sorted((row["id"], row["hash"], row["status"]) for row in history.values()))}
+        if latest["kind"] in TECHNICAL_ENTITY_KINDS:
+            projection["evidence_refs"] = sorted({latest["id"]} | {ref for ref in payload["evidence_refs"] if ref in sources})
         projection.update(blocking_conditions=projection["blockers"], responsible_agent=projection["owner"],
                           suppressed=suppressed, history_complete=bool(kind in {"contact", "thread"} and contact_payloads and all(_live_contact(item, now) for item in contact_payloads)),
                           source_complete=source_complete is True,
@@ -783,7 +845,8 @@ def build_index(records: Iterable[dict], now: datetime, previous_manifest: dict 
         task = None if entity_id in shared_tasks else candidates[entity_id]
         if task:
             if not task["due_at"]:
-                task["due_at"] = latest_sources[entity_id]["payload"].get("due_at")
+                proposed_due = latest_sources[entity_id]["payload"].get("due_at")
+                task["due_at"] = proposed_due if latest_sources[entity_id]["kind"] not in TECHNICAL_ENTITY_KINDS else (_stamp(proposed_due).isoformat() if _stamp(proposed_due) else None)
             due = _stamp(task["due_at"])
             if due and due <= now and task["status"] == "open":
                 task["status"] = "due"
@@ -793,7 +856,7 @@ def build_index(records: Iterable[dict], now: datetime, previous_manifest: dict 
             action = task["action"]
             task_type = ("reconcile" if action == "reconcile_uncertain_action" else "review_outreach" if action.startswith("prepare_human")
                          else "review_referral" if "referral" in action else "prepare_interview" if action == "prepare_interview"
-                         else action if action in {"prepare_application", "submit_application"} else "research")
+                         else action if action in {"prepare_application", "submit_application", "review_technical_next_action"} else "research")
             task.update(type=task_type, action_type=task_type, blocking_conditions=task["blockers"],
                         responsible_agent=task["owner"], evidence_refs=task["source_evidence_ids"])
             task.update(schema=SCHEMA, task_key=stable_id("task", entity_id, task["action"]))

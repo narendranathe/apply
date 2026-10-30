@@ -90,9 +90,9 @@ Task payload `kind: agent_tasks` contains `task_id`, `entity_id`, `type`, `statu
 
 Context levels are deliberately different:
 
-1. A routine briefing returns counts, health and priorities without original messages or documents. Normal metadata responses have an 8,000-byte hard ceiling, approximately 2,000 tokens using the disclosed byte estimate.
+1. A routine briefing returns counts, health and priorities without original messages or documents. The complete serialized metadata response has an 8,000-byte hard ceiling. `context_bytes` and the disclosed byte-based token estimate measure the JSON data portion, not the enclosing response or an actual tokenizer.
 2. An entity returns one projection and at most five latest meaningful event metadata records. Free-form message bodies, receipts, answers, documents and credentials are excluded from metadata fields.
-3. Exact source evidence requires `allow_source_evidence`, explicit task/entity/evidence selection and at most five records. The default evidence budget is 32,000 bytes. Larger records require narrower evidence or the existing authenticated archive access; the protocol does not return a bulk inbox/export.
+3. Exact source evidence requires `allow_source_evidence`, explicit task/entity/evidence selection and at most five records. The default complete-response evidence budget is 32,000 bytes. Larger records require narrower evidence or the existing authenticated archive access; the protocol does not return a bulk inbox/export.
 
 Read operations reuse a manifest within the session to reduce API calls. Intake always refreshes the latest manifest and projection, even when reads were pinned with `--manifest-id`; an older pinned manifest cannot authorize a proposal. Freshness advances with wall time in a normal session. Start a new session or supply a freshly selected manifest when polling for changes. `since_cursor == source_cursor` returns no changes without loading change records; a cursor older than the retained window fails with `cursor_expired_refresh_brief`. Parallel `change_cursors` let readers fetch only the selected page of at most 20 records.
 

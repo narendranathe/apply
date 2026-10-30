@@ -179,14 +179,18 @@ class AgentProtocol:
 
     def _response(self, operation, data, *, start, evidence=False):
         size = len(canonical_json(data).encode("utf-8"))
-        budget = self.max_evidence_bytes if evidence else self.max_context_bytes
-        if size > budget:
-            raise ProtocolError("context_budget_exceeded_select_smaller_scope")
-        return {"schema": SCHEMA, "operation": operation, "data": data,
+        response = {"schema": SCHEMA, "operation": operation, "data": data,
                 "usage": {"context_bytes": size, "estimated_input_tokens": math.ceil(size / 4),
                           "estimate_method": "utf8_bytes_divided_by_4",
                           "actual_input_tokens": self._provider_input_tokens,
                           "store_calls": self._calls - start}}
+        return self._checked_response(response, evidence=evidence)
+
+    def _checked_response(self, response, *, evidence=False):
+        budget = self.max_evidence_bytes if evidence else self.max_context_bytes
+        if len(canonical_json(response).encode("utf-8")) > budget:
+            raise ProtocolError("context_budget_exceeded_select_smaller_scope")
+        return response
 
     def _records(self, identities, limit):
         results = []
@@ -334,12 +338,12 @@ class AgentProtocol:
         # Metadata only; original messages require depth 3 plus evidence grant.
         response = self.get_entity_context(contact_id, 2)
         response["operation"] = "get_interaction_history"
-        return response
+        return self._checked_response(response)
 
     def get_application_state(self, job_id):
         response = self.get_entity_context(job_id, 2)
         response["operation"] = "get_application_state"
-        return response
+        return self._checked_response(response)
 
     def _validate_intake(self, action, evidence, capability):
         self._require(capability)

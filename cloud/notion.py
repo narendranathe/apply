@@ -17,6 +17,7 @@ from urllib.parse import quote, quote_from_bytes, unquote_to_bytes
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from .records import canonical_json, content_hash, display_title, make_record, validate_record
+from .technical_records import TECHNICAL_KINDS, validate_technical_record
 
 DEFAULT_DATA_SOURCE_ID = "d932083f-8d8a-4570-a027-025bbfffb878"
 API_VERSION = "2025-09-03"
@@ -600,6 +601,8 @@ class NotionStore:
         and managed body. Uncertain writes/readbacks raise instead of returning.
         """
         record = validate_record(record)
+        if record["kind"] in TECHNICAL_KINDS:
+            record = validate_technical_record(record)
         record_id = record["id"]
         from .storage_reservations import reserved_creation
         if reserved_creation(record):
