@@ -32,7 +32,7 @@ TECHNICAL_ENTITY_KINDS = {
     "engagement_outcomes": "engagement_outcome", "content_drafts": "content_draft",
     "content_revisions": "content_revision", "publisher_intents": "publisher_intent",
     "publisher_receipts": "publisher_receipt", "source_cursors": "source_cursor",
-    "technical_next_actions": "technical_next_action",
+    "technical_next_actions": "technical_next_action", "technical_technologies": "technology",
 }
 ENTITY_KINDS = {"companies": "company", "jobs": "job", "contacts": "contact",
                 "threads": "thread", "conversations": "thread", "applications": "application",
@@ -382,6 +382,25 @@ def _completed_action_outputs(result, intake, sources):
     execution = sources[result["execution_id"]]["payload"]
     context_source = sources.get(execution.get("source_record_id"), {})
     outcome = result.get("outcome")
+    if action["type"] == "admit_technical_source" and outcome == "technical_source_admitted":
+        from .technical_admission import _records
+        try:
+            candidate = validate_technical_record(action.get("candidate"))
+            payload = candidate["payload"]
+            refs = payload["evidence_refs"]
+            if (candidate["kind"] not in {"technical_sources", "technical_items"}
+                or candidate["status"] != "proposed" or payload["freshness"] != "unknown"
+                or payload["author"] is not None or payload["author_verified"] is not False
+                or payload["source_published_at"] is not None
+                or payload["actor"] != intake["payload"]["actor"] or not refs
+                or not set(refs) <= set(intake["payload"]["evidence_hashes"])):
+                return False
+            intent, reservations, completion = _records(candidate)
+            expected = [candidate, intent, *reservations, completion]
+            return (set(result["output_hashes"]) == {row["id"] for row in expected}
+                    and all(sources.get(row["id"]) == row and result["output_hashes"].get(row["id"]) == row["hash"] for row in expected))
+        except (KeyError, TypeError, ValueError):
+            return False
     if action["type"] == "research" and outcome == "research_verified":
         if len(rows) != 1 or rows[0]["kind"] != "agent_research_evidence" or rows[0]["status"] != "verified":
             return False
@@ -649,6 +668,13 @@ def build_index(records: Iterable[dict], now: datetime, previous_manifest: dict 
             suppressed_ids.add(entity_id)
     outputs, projections, latest_sources = [], {}, {}
     selected = {entity_id: applications.get(entity_id) or _latest(rows, conflicts, entity_id) for entity_id, rows in groups.items()}
+    def compatible_relation(key, identity):
+        target = selected.get(identity)
+        return target is None or ENTITY_KINDS[target["kind"]] == key.removesuffix("_ids")
+    for row in selected.values():
+        if row["kind"] in TECHNICAL_ENTITY_KINDS:
+            if any(not compatible_relation(key, identity) for key, values in _related(row["payload"]).items() for identity in values):
+                conflicts.append({"record_id": row["id"], "reason": "technical_relation_type_conflict"})
     for entity_id, rows in sorted(groups.items()):
         types = {ENTITY_KINDS[row["kind"]] for row in rows}
         if len(types) != 1:
@@ -671,6 +697,9 @@ def build_index(records: Iterable[dict], now: datetime, previous_manifest: dict 
         for row in ordered:
             for key, values in _related(row["payload"]).items():
                 related[key] = sorted(set(related.get(key, []) + values))
+        if technical:
+            related = {key: kept for key, values in _related(payload).items()
+                       if (kept := [identity for identity in values if compatible_relation(key, identity)])}
         suppressed = entity_id in suppressed_ids or any(value in suppressed_ids for key, values in related.items() if key in {"company_ids", "contact_ids"} for value in values)
         blockers, last_action = [], None
         if confirmed:
@@ -788,6 +817,34 @@ def build_index(records: Iterable[dict], now: datetime, previous_manifest: dict 
         # changes on fresh->stale or suppression without wall-clock churn.
         projection["version"] = content_hash(projection)
         projections[entity_id], latest_sources[entity_id] = projection, latest
+    # Reverse links are compact metadata only. Use current revisions, never raw
+    # evidence, and hash all linked revisions so a change advances the dossier's
+    # cursor even when its stable linked entity ID does not change.
+    reverse = defaultdict(list)
+    for source_id, source in selected.items():
+        if source["kind"] not in TECHNICAL_ENTITY_KINDS:
+            continue
+        for key, values in _related(source["payload"]).items():
+            for target_id in set(values):
+                if target_id in projections and target_id != source_id and compatible_relation(key, target_id):
+                    reverse[target_id].append((source_id, source["kind"], source["hash"]))
+    for target_id, links in reverse.items():
+        projection = projections[target_id]
+        links = sorted(set(links))
+        for source_id, source_kind, _ in links[:20]:
+            key = TECHNICAL_ENTITY_KINDS[source_kind] + "_ids"
+            projection["related_ids"][key] = sorted(set(projection["related_ids"].get(key, []) + [source_id]))
+        projection["technical_links_truncated"] = len(links) > 20
+        projection["technical_context_hash"] = content_hash(links)
+        projection["version"] = content_hash({key: value for key, value in projection.items() if key != "version"})
+    for projection in projections.values():
+        if projection["entity_type"] != "technical_next_action":
+            continue
+        contacts = [projections[identity] for identity in projection["related_ids"].get("contact_ids", []) if identity in projections]
+        if any(contact["suppression"]["retry_blocked"] or any(reason.startswith("coordination_") for reason in contact["blockers"]) for contact in contacts):
+            projection["blockers"] = sorted(set(projection["blockers"] + ["contact_action_held"]))
+            projection["blocking_conditions"] = projection["blockers"]
+            projection["version"] = content_hash({key: value for key, value in projection.items() if key != "version"})
     # Applications suppress every official URL alias/job representation, using
     # the existing conservative employer/requisition identity helper.
     for entity_id, projection in projections.items():

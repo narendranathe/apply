@@ -128,6 +128,11 @@ def _semantic_reservation(envelope):
     # different caller, key or alias task ID cannot duplicate current intent.
     semantic = {"kind": envelope["kind"], "entity_id": action["entity_id"], "type": action["type"],
                 "projection_hash": payload["expected_projection_hash"]}
+    if envelope["kind"] == "agent_proposals" and action["type"] == "admit_technical_source":
+        candidate = validate_record(action["candidate"])
+        semantic = {"kind": envelope["kind"], "type": action["type"],
+                    "entity_id": candidate["payload"]["entity_id"], "record_kind": candidate["kind"],
+                    "revision": candidate["payload"]["revision"]}
     if envelope["kind"] == "agent_observations":
         semantic.pop("projection_hash")
         timestamp = action.get('occurred_at')

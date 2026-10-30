@@ -11,12 +11,14 @@ import math
 from typing import Mapping
 
 from .records import canonical_json, content_hash, make_record, stable_id, validate_record
+from .technical_records import TECHNICAL_KINDS, validate_technical_record
 
 SCHEMA = "apply-agent-protocol/v1"
 INTAKE_SCHEMA = "apply-agent-intake/v1"
 CAPABILITIES = frozenset({"read_summarize", "research_propose", "prepare_application",
     "execute_permitted_application", "ingest_verified_conversation", "record_verified_manual_action", "administer_workflow"})
 ACTION_CAPABILITIES = {"research": "research_propose", "prepare_application": "prepare_application",
+    "admit_technical_source": "research_propose",
     "submit_application": "execute_permitted_application", "review_outreach": "research_propose",
     "prepare_interview": "research_propose", "review_referral": "research_propose",
     "reconcile": "research_propose", "configure_workflow": "administer_workflow"}
@@ -26,7 +28,8 @@ OBSERVATION_CAPABILITIES = {"conversation_observed": "ingest_verified_conversati
 PROJECTION_FIELDS = ("entity_id", "entity_type", "state", "current_state", "last_verified_action",
     "source", "verified_at", "observed_at", "next_action", "due_at", "blocking_conditions",
     "related_ids", "responsible_agent", "version", "evidence_refs", "confidence", "freshness",
-    "suppression", "suppressed", "history_complete", "source_complete", "application_state")
+    "suppression", "suppressed", "history_complete", "source_complete", "application_state",
+    "technical_links_truncated")
 TASK_FIELDS = ("task_id", "entity_id", "type", "action_type", "status", "due_at", "reason",
     "priority", "evidence_refs", "allowed_capabilities", "allowed_executor_capabilities",
     "executor", "responsible_agent", "blocking_conditions", "expected_projection_hash")
@@ -259,7 +262,8 @@ class AgentProtocol:
         if depth == 2:
             events = self._records(payload.get("recent_event_ids", payload.get("history_ids", [])), 5)
             data["latest_events"] = [{"record_id": r["id"], "hash": r["hash"],
-                                      **_select(r["payload"], EVENT_FIELDS)} for r in events]
+                                      **({"type": r["kind"]} if r["kind"] in TECHNICAL_KINDS
+                                         else _select(r["payload"], EVENT_FIELDS))} for r in events]
         elif depth == 3:
             if not self.allow_source_evidence:
                 raise ProtocolError("source_evidence_permission_denied")
@@ -397,6 +401,19 @@ class AgentProtocol:
         if not isinstance(action, dict) or action.get("type") not in ACTION_CAPABILITIES:
             raise ProtocolError("unsupported_action_type")
         kind = action["type"]
+        if kind == "admit_technical_source":
+            try:
+                candidate = validate_technical_record(action.get("candidate"))
+                refs = candidate["payload"]["evidence_refs"]
+                if (candidate["kind"] not in {"technical_sources", "technical_items"}
+                    or candidate["status"] != "proposed" or candidate["payload"]["freshness"] != "unknown"
+                    or candidate["payload"]["author"] is not None or candidate["payload"]["author_verified"] is not False
+                    or candidate["payload"]["source_published_at"] is not None
+                    or candidate["payload"]["actor"] != self.principal
+                    or not isinstance(evidence, list) or not refs or not set(refs) <= set(evidence)):
+                    raise ValueError("invalid candidate")
+            except (TypeError, ValueError, KeyError):
+                raise ProtocolError("technical_candidate_invalid") from None
         # Observations and opt-out reconciliation may be proposed while effects
         # are suppressed. Actions requiring contact/submission cannot be.
         start = self._calls

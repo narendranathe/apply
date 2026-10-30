@@ -617,6 +617,15 @@ class NotionStore:
             return existing
         if record_id in self._uncertain:
             raise AmbiguousWriteError("Previous write is unresolved; absence is not proof that replay is safe")
+        if record["kind"] in {"technical_sources", "technical_items"}:
+            # This verifies the pre-existing durable chain, not writer identity
+            # or the host's previous-writer fence; those remain host obligations.
+            from .technical_admission import _records
+            intent, aliases, _ = _records(record)
+            for required in (intent, *aliases):
+                actual = self.get(required["id"])
+                if not actual or validate_record(actual) != required:
+                    raise ConflictError("Technical source requires readback of admission intent and alias reservations")
         envelope = canonical_json(record)
         props = {"Cloud ID": {"rich_text": _rich_text(record_id)},
                  "Cloud Kind": {"rich_text": _rich_text(record["kind"])},

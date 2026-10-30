@@ -383,6 +383,40 @@ def _observation(store, intake, now):
     return "verified_observation_recorded", [row]
 
 
+def _admit_technical_source(store, intake, writer_context):
+    """Admit an attributed proposal, not independently verify its source claims."""
+    from .technical_admission import (AdmissionConflict, AdmissionRejected, AdmissionStorageError,
+                                      _records as admission_records, admit_technical_record)
+    from .technical_records import validate_technical_record
+    payload = intake["payload"]
+    try:
+        candidate = validate_technical_record(payload["action"].get("candidate"))
+        source = candidate["payload"]
+        if (candidate["kind"] not in {"technical_sources", "technical_items"}
+                or candidate["status"] != "proposed"
+                or source.get("freshness") != "unknown"
+                or source.get("author") is not None or source.get("author_verified") is not False
+                or source.get("source_published_at") is not None
+                or source.get("actor") != payload["actor"]
+                or not source.get("evidence_refs")
+                or not set(source["evidence_refs"]) <= set(payload["evidence_hashes"])):
+            raise ValueError("technical source candidate rejected")
+    except (ValueError, TypeError, KeyError, AttributeError):
+        raise WorkerBlocked("technical_source_candidate_invalid") from None
+    try:
+        admit_technical_record(store, candidate, writer_context=writer_context)
+    except AdmissionRejected:
+        raise WorkerBlocked("technical_source_writer_fence_required") from None
+    except (AdmissionStorageError, AdmissionConflict):
+        raise WorkerStorageError("technical_source_admission_requires_reconciliation") from None
+    intent, reservations, completion = admission_records(candidate)
+    expected = [candidate, intent, *reservations, completion]
+    outputs = [_read(store, row["id"]) for row in expected]
+    if outputs != expected:
+        raise WorkerStorageError("technical_source_readback_requires_reconciliation")
+    return "technical_source_admitted", outputs
+
+
 def run_agent_worker(store, config, *, trusted_registry, writer_context, now=None,
                      transport=None, feed=None, prepare=None, effect_guard=None):
     """Consume a bounded admitted queue; never send, submit, or administer.
@@ -435,6 +469,12 @@ def run_agent_worker(store, config, *, trusted_registry, writer_context, now=Non
         if execution:
             raise WorkerStorageError("partial_worker_execution_requires_reconciliation")
         admitted.append((queue, intake, reservation, ack))
+    # This fence precedes every append, including execution markers and work for
+    # other queued actions. An unresolved previous writer stops the entire run.
+    if (writer_context.get("previous_writer_reconciled") is not True
+            and any(intake["payload"]["action"].get("type") == "admit_technical_source"
+                    for _, intake, _, _ in admitted)):
+        raise WorkerStorageError("technical_source_previous_writer_requires_reconciliation")
     # Preflight the complete admitted family before any append. A partial
     # execution beyond today's processing budget still fences all new work.
     for queue, intake, reservation, ack in admitted[:maximum]:
@@ -466,7 +506,9 @@ def run_agent_worker(store, config, *, trusted_registry, writer_context, now=Non
                 readonly = ReadOnlyTransport(transport)
                 if effect_guard:
                     effect_guard()
-                if action_type == "research":
+                if action_type == "admit_technical_source":
+                    outcome, outputs = _admit_technical_source(store, intake, writer_context)
+                elif action_type == "research":
                     outcome, outputs = _research(store, intake, projection, config, readonly, now)
                 elif action_type == "prepare_application":
                     outcome, outputs = _prepare(store, intake, projection, config, readonly, now, feed, prepare)

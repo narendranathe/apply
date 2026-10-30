@@ -12,6 +12,7 @@ TECHNICAL_KINDS = frozenset({
     "technical_hypotheses", "engineering_opportunities", "contact_topic_relevances",
     "engagement_intents", "engagement_outcomes", "content_drafts", "content_revisions",
     "publisher_intents", "publisher_receipts", "source_cursors", "technical_next_actions",
+    "technical_technologies",
 })
 REQUIRED = frozenset({"entity_id", "revision", "source_url", "source_identity", "author",
                       "author_verified", "first_seen_at", "source_published_at", "observed_at",

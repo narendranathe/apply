@@ -1,10 +1,12 @@
 """TI-02/TI-05: technical state participates in the shared handoff index."""
 import unittest
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
-from cloud.agent_index import build_index
+from cloud.agent_index import build_index, _completed_action_outputs
+from cloud.agent_protocol import AgentProtocol, ProtocolError
 from cloud.records import make_record, stable_id
 from cloud.technical_records import make_technical_record
+from tests.test_agent_protocol import FixtureStore, fixture, action_for, REGISTRY, NOW as PROTOCOL_NOW
 
 NOW = datetime(2026, 10, 30, 12, tzinfo=timezone.utc)
 
@@ -25,6 +27,137 @@ def technical(kind="technical_items", entity_id="technical-item:example", **over
 
 
 class TechnicalIndexTests(unittest.TestCase):
+    def test_default_dossier_hides_untrusted_technical_event_fields(self):
+        record = technical(actor="PRIVATE AUTHOR NOTES", source="PRIVATE SOURCE TEXT", status="PRIVATE STATUS TEXT")
+        rows = build_index([record], NOW, source_complete=True)
+        store = FixtureStore()
+        store.records.update({row["id"]: row for row in [record, *rows]})
+        response = AgentProtocol(store, principal="reader", now=NOW).get_entity_context(record["payload"]["entity_id"])
+        for secret in ("PRIVATE AUTHOR NOTES", "PRIVATE SOURCE TEXT", "PRIVATE STATUS TEXT"):
+            self.assertNotIn(secret, str(response))
+
+    def test_linked_contact_uncertainty_blocks_technical_task(self):
+        item = technical()
+        action = technical("technical_next_actions", "held", contact_id="contact:one", evidence_refs=[item["id"]])
+        for state, uncertain in (("connected", True), ("pending", False)):
+            with self.subTest(state=state):
+                contact = make_record("contacts", {"contact_id": "contact:one", "source": "live", "state": state,
+                    "verified_at": NOW.isoformat(), "live_state_verified": True, "identity_verified": True,
+                    "history_complete": True, "delivery_unknown": uncertain}, "contact-row")
+                rows = build_index([item, action, contact], NOW, source_complete=True)
+                task = next(row["payload"] for row in rows if row["kind"] == "agent_tasks" and row["payload"]["entity_id"] == action["payload"]["entity_id"])
+                self.assertEqual(task["status"], "blocked")
+                self.assertIn("contact_action_held", task["blockers"])
+
+    def test_mismatched_relation_type_cannot_enter_dossier(self):
+        company = make_record("companies", {"company_id": "company:one"}, "company-row")
+        contact = make_record("contacts", {"contact_id": "contact:one"}, "contact-row")
+        technology = technical("technical_technologies", "technology:cdc", source_identity=stable_id("source", "cdc"))
+        item = technical(contact_id="company:one", company_id=technology["payload"]["entity_id"], technology_id="contact:one")
+        rows = build_index([company, contact, technology, item], NOW, source_complete=True)
+        manifest = next(row["payload"] for row in rows if row["kind"] == "index_manifests")
+        self.assertFalse(manifest["complete"])
+        for row in rows:
+            if row["kind"] == "entity_projections" and row["payload"]["entity_id"] != item["payload"]["entity_id"]:
+                self.assertNotIn(item["payload"]["entity_id"], row["payload"]["related_ids"].get("technical_item_ids", []))
+
+    def test_technical_admission_proposal_requires_trusted_actor_and_selected_evidence(self):
+        store, _ = fixture()
+        client = AgentProtocol(store, REGISTRY, "codex", now=PROTOCOL_NOW)
+        action = action_for(client, "admit_technical_source")
+        candidate = technical(actor="codex", evidence_refs=["evidence:application"], status="proposed", freshness="unknown")
+        action["candidate"] = candidate
+        result = client.propose_action(action, ["evidence:application"])
+        self.assertEqual(result["data"]["status"], "proposed")
+        for index, invalid in enumerate((technical(actor="muse", evidence_refs=["evidence:application"]),
+                        technical(actor="codex", evidence_refs=[]),
+                        technical(actor="codex", evidence_refs=["evidence:other"]),
+                        technical("publisher_intents", actor="codex", evidence_refs=["evidence:application"]),
+                        technical(actor="codex", evidence_refs=["evidence:application"], status="verified"),
+                        technical(actor="codex", evidence_refs=["evidence:application"], status="observed", freshness="unknown"),
+                        technical(actor="codex", evidence_refs=["evidence:application"], status="proposed", freshness="fresh"),
+                        technical(actor="codex", evidence_refs=["evidence:application"], status="proposed", freshness="unknown", author="Claimed Person", author_verified=True),
+                        technical(actor="codex", evidence_refs=["evidence:application"], status="proposed", freshness="unknown", source_published_at=NOW.isoformat()))):
+            with self.subTest(candidate=invalid["kind"], status=invalid["status"]), self.assertRaises(ProtocolError):
+                client.propose_action({**action, "candidate": invalid, "idempotency_key": f"invalid:{index}"}, ["evidence:application"])
+
+    def test_technical_admission_result_requires_exact_complete_chain(self):
+        from cloud.technical_admission import _records
+        candidate = technical(actor="codex", evidence_refs=["evidence:application"], status="proposed", freshness="unknown")
+        intent, reservations, completion = _records(candidate)
+        outputs = [candidate, intent, *reservations, completion]
+        intake = {"id": "fixture-intake", "payload": {"actor": "codex", "action": {
+            "type": "admit_technical_source", "candidate": candidate},
+            "evidence_hashes": {"evidence:application": "a" * 64}}}
+        execution = make_record("agent_action_executions", {}, "execution:fixture")
+        result = {"execution_id": execution["id"], "outcome": "technical_source_admitted",
+                  "output_hashes": {row["id"]: row["hash"] for row in outputs}}
+        sources = {row["id"]: row for row in [execution, *outputs]}
+        self.assertTrue(_completed_action_outputs(result, intake, sources))
+        for missing in outputs:
+            with self.subTest(missing=missing["kind"]):
+                shortened = {**result, "output_hashes": {key: value for key, value in result["output_hashes"].items() if key != missing["id"]}}
+                self.assertFalse(_completed_action_outputs(shortened, intake, sources))
+        altered = {**intake, "payload": {**intake["payload"], "actor": "muse"}}
+        self.assertFalse(_completed_action_outputs(result, altered, sources))
+
+    def test_technical_reverse_dossier_and_cursor_handoff(self):
+        company = make_record("companies", {"company_id": "company:one"}, "company-row")
+        contact = make_record("contacts", {"contact_id": "contact:one", "company_id": "company:one"}, "contact-row")
+        tech = technical("technical_technologies", "technology:cdc", source_identity=stable_id("source", "cdc"))
+        initial = build_index([company, contact, tech], NOW, source_complete=True)
+        previous = next(row for row in initial if row["kind"] == "index_manifests")
+        item = technical(company_id="company:one", contact_id="contact:one",
+                         technology_id=tech["payload"]["entity_id"], original_text="PRIVATE SOURCE TEXT")
+        rows = build_index([company, contact, tech, item], NOW + timedelta(seconds=1), previous, source_complete=True)
+        store = FixtureStore()
+        store.records.update({row["id"]: row for row in [company, contact, tech, item, *rows]})
+        first = AgentProtocol(store, principal="codex", now=NOW + timedelta(seconds=1))
+        cursor = previous["payload"]["source_cursor"]
+        changes = first.get_recent_changes(cursor)["data"]["changes"]
+        changed = {change["entity_id"] for change in changes}
+        for entity_id in ("company:one", "contact:one", tech["payload"]["entity_id"]):
+            with self.subTest(entity_id=entity_id):
+                self.assertIn(entity_id, changed)
+                dossier = first.get_entity_context(entity_id)["data"]["entity"]
+                self.assertIn(item["payload"]["entity_id"], dossier["related_ids"]["technical_item_ids"])
+                self.assertNotIn("PRIVATE SOURCE TEXT", str(dossier))
+        self.assertEqual(first.get_entity_context(tech["payload"]["entity_id"])["data"]["entity"]["entity_type"], "technology")
+        with self.assertRaisesRegex(ProtocolError, "source_evidence_permission_denied"):
+            first.get_entity_context("contact:one", 3, task_id="ungranted", evidence_ids=[item["id"]])
+        second = AgentProtocol(store, principal="muse", now=NOW + timedelta(seconds=1))
+        self.assertEqual(second.get_entity_context("company:one")["data"]["entity"]["related_ids"],
+                         first.get_entity_context("company:one")["data"]["entity"]["related_ids"])
+        self.assertEqual(store.writes, 0)
+
+    def test_linked_revision_changes_dossier_cursor_without_old_links(self):
+        company = make_record("companies", {"company_id": "company:one"}, "company-row")
+        item = technical(company_id="company:one")
+        first = build_index([company, item], NOW, source_complete=True)
+        previous = next(row for row in first if row["kind"] == "index_manifests")
+        revised = technical(company_id="company:one", revision=2, content_hash="b" * 64)
+        second = build_index([company, item, revised], NOW + timedelta(seconds=1), previous, source_complete=True)
+        changes = [row["payload"] for row in second if row["kind"] == "index_changes"]
+        self.assertIn("company:one", {row["entity_id"] for row in changes})
+        moved = technical(company_id="company:other", revision=2, content_hash="b" * 64)
+        company2 = make_record("companies", {"company_id": "company:other"}, "company-row-2")
+        changed = build_index([company, company2, item, moved], NOW + timedelta(seconds=1), previous, source_complete=True)
+        old = next(row["payload"] for row in changed if row["kind"] == "entity_projections" and row["payload"]["entity_id"] == "company:one")
+        self.assertNotIn(item["payload"]["entity_id"], old["related_ids"].get("technical_item_ids", []))
+
+    def test_reverse_links_are_bounded_and_do_not_change_suppression(self):
+        contact = make_record("contacts", {"contact_id": "contact:one", "opt_out": True}, "contact-row")
+        items = [technical(entity_id=f"item:{index}", contact_id="contact:one",
+                           source_identity=stable_id("source", index),
+                           source_url=f"https://example.com/item/{index}") for index in range(25)]
+        rows = build_index([contact, *items], NOW, source_complete=True)
+        projection = next(row["payload"] for row in rows if row["kind"] == "entity_projections"
+                          and row["payload"]["entity_id"] == "contact:one")
+        self.assertTrue(projection["suppression"]["suppressed"])
+        self.assertEqual(len(projection["related_ids"]["technical_item_ids"]), 20)
+        self.assertTrue(projection["technical_links_truncated"])
+        self.assertFalse(any(row["kind"] == "agent_tasks" and row["payload"]["entity_id"] == "contact:one" for row in rows))
+
     def test_ti02_technical_item_is_indexed_for_agent_handoff(self):
         source = technical()
         rows = build_index([source], NOW, source_complete=True)

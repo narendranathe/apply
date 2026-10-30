@@ -180,7 +180,7 @@ def _attach_budget(store, budget):
         store._orchestrator_budget = budget
 
 
-def _agent_worker_authority():
+def _agent_worker_authority(store=None):
     """Use deployment-owned grants inside the reserved hosted orchestrator only.
 
     This is called after activation, baseline and previous-writer verification.
@@ -204,9 +204,14 @@ def _agent_worker_authority():
     if (registry.get('schema') != 'apply-github-agent-registry/v1'
             or not isinstance(registry.get('actors'), dict)):
         raise Blocked('trusted_agent_registry_required')
-    return registry['actors'], {'concurrency_group': CONCURRENCY_GROUP,
+    context = {'concurrency_group': CONCURRENCY_GROUP,
         'reservation_verified': True, 'orchestrator_verified': True,
         'run_id': os.environ['GITHUB_RUN_ID']}
+    if store is not None:
+        from cloud.runtime_guard import verify_previous_writers
+        verify_previous_writers(store)
+        context['previous_writer_reconciled'] = True
+    return registry['actors'], context
 
 
 def execute(store, config, now=None, cron='', requested='all', dry_run=True, reconcile=False,
@@ -384,10 +389,8 @@ def main():
         if not cutover or cutover['payload'].get('historical_manifest_sha256') != manifest_hash:
             raise Blocked('authenticated_baseline_differs_from_cutover')
         config['_reconciled_export'] = baseline
-        from cloud.runtime_guard import verify_previous_writers
-        verify_previous_writers(store)
         with _cloud_stage('verify_agent_worker_context'):
-            agent_registry, writer_context = _agent_worker_authority()
+            agent_registry, writer_context = _agent_worker_authority(store)
     preview = []
     result = execute(store, config, cron=args.cron, requested=args.lane, mode=args.mode,
                      reconcile=args.reconcile, budget=budget,

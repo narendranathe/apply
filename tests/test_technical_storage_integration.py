@@ -9,6 +9,7 @@ import unittest
 from cloud.notion import AmbiguousWriteError, ConflictError, NotionStore
 from cloud.records import make_record, stable_id, validate_record
 from cloud.technical_records import TECHNICAL_KINDS, make_technical_record
+from cloud.technical_admission import _records
 from tests.test_notion import FakeNotion
 
 
@@ -38,6 +39,11 @@ class TechnicalStorageIntegrationTests(unittest.TestCase):
         self.store = NotionStore("fixture-token", transport=self.api,
                                  sleeper=lambda _: None, request_interval=0)
 
+    def reserve_source(self, record):
+        intent, aliases, _ = _records(record)
+        for row in (intent, *aliases):
+            self.store.put(row)
+
     def test_all_technical_kinds_round_trip_without_rewriting_history(self):
         history = make_record("outreach_events", {
             "message": "historic fixture", "occurred_at": "2026-10-01T12:00:00+00:00"
@@ -49,17 +55,20 @@ class TechnicalStorageIntegrationTests(unittest.TestCase):
         for kind in sorted(TECHNICAL_KINDS):
             with self.subTest(kind=kind):
                 record = technical(kind)
+                if kind in {"technical_sources", "technical_items"}:
+                    self.reserve_source(record)
                 self.assertEqual(validate_record(self.store.put(record)), record)
                 self.assertEqual(validate_record(self.store.get(record["id"])), record)
                 self.assertEqual(validate_record(self.store.put(record)), record)
 
-        self.assertEqual(len(self.api.writes()), 1 + len(TECHNICAL_KINDS))
+        self.assertEqual(len(self.api.writes()), 1 + len(TECHNICAL_KINDS) + 6)
         self.assertEqual(validate_record(self.store.get(history["id"])), history)
         self.assertEqual(self.api.pages[0], original_page)
         self.assertEqual(self.api.blocks[original_page["id"]], original_blocks)
 
     def test_changed_payload_at_same_immutable_revision_conflicts(self):
         record = technical("technical_items")
+        self.reserve_source(record)
         self.store.put(record)
         changed = make_technical_record("technical_items", {
             **record["payload"], "content_hash": "b" * 64,
@@ -67,7 +76,7 @@ class TechnicalStorageIntegrationTests(unittest.TestCase):
         self.assertEqual(changed["id"], record["id"])
         with self.assertRaises(ConflictError):
             self.store.put(changed)
-        self.assertEqual(len(self.api.writes()), 1)
+        self.assertEqual(len(self.api.writes()), 4)
         self.assertEqual(validate_record(self.store.get(record["id"])), record)
 
     def test_invalid_technical_envelope_never_reaches_transport(self):
@@ -79,15 +88,16 @@ class TechnicalStorageIntegrationTests(unittest.TestCase):
 
     def test_uncertain_create_is_not_blindly_retried_when_readback_absent(self):
         record = technical("technical_items")
+        self.reserve_source(record)
         self.api.write_then_timeout = True
         with self.assertRaises(AmbiguousWriteError):
             self.store.put(record)
-        self.assertEqual(len(self.api.writes()), 1)
+        self.assertEqual(len(self.api.writes()), 4)
         # Query invisibility cannot prove that the timed-out create failed.
         self.api.hide_created = True
         with self.assertRaises(AmbiguousWriteError):
             self.store.put(record)
-        self.assertEqual(len(self.api.writes()), 1)
+        self.assertEqual(len(self.api.writes()), 4)
 
 
 if __name__ == "__main__":
