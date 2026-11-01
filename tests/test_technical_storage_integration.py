@@ -9,7 +9,7 @@ import unittest
 from cloud.notion import AmbiguousWriteError, ConflictError, NotionStore
 from cloud.records import make_record, stable_id, validate_record
 from cloud.technical_records import TECHNICAL_KINDS, make_technical_record
-from cloud.technical_admission import _records, admit_technical_record
+from cloud.technical_admission import _records
 from tests.test_notion import FakeNotion
 
 
@@ -56,31 +56,18 @@ class TechnicalStorageIntegrationTests(unittest.TestCase):
             with self.subTest(kind=kind):
                 record = technical(kind)
                 if kind == "source_cursors":
-                    source = make_technical_record("technical_sources", {**technical("technical_sources")["payload"],
-                        "entity_id": stable_id("fixture_source", "cursor"),
-                        "source_identity": stable_id("fixture_origin", "cursor"),
-                        "source_url": "https://example.org/engineering/feed"})
-                    item = make_technical_record("technical_items", {**technical("technical_items")["payload"],
-                        "entity_id": stable_id("fixture_item", "cursor"),
-                        "source_identity": stable_id("fixture_item_origin", "cursor"),
-                        "source_url": "https://example.org/engineering/article",
-                        "technical_source_id": source["payload"]["entity_id"]})
-                    context = {"concurrency_group": "hiring-outreach-single-writer", "reservation_verified": True,
-                               "orchestrator_verified": True, "previous_writer_reconciled": True, "run_id": "fixture"}
-                    admit_technical_record(self.store, source, writer_context=context)
-                    admit_technical_record(self.store, item, writer_context=context)
-                    record = make_technical_record("source_cursors", {**record["payload"],
-                        "entity_id": stable_id("source_cursor", source["payload"]["entity_id"]),
-                        "source_identity": source["payload"]["source_identity"],
-                        "technical_source_id": source["payload"]["entity_id"],
-                        "evidence_refs": [source["id"], item["id"]], "cursor_value": "next"})
+                    # Cursor writes stay unavailable until complete feed-cohort
+                    # verification exists, even for a valid generic envelope.
+                    with self.assertRaises(ConflictError):
+                        self.store.put(record)
+                    continue
                 if kind in {"technical_sources", "technical_items"}:
                     self.reserve_source(record)
                 self.assertEqual(validate_record(self.store.put(record)), record)
                 self.assertEqual(validate_record(self.store.get(record["id"])), record)
                 self.assertEqual(validate_record(self.store.put(record)), record)
 
-        self.assertEqual(len(self.api.writes()), 1 + len(TECHNICAL_KINDS) + 6 + 10)
+        self.assertEqual(len(self.api.writes()), 1 + len(TECHNICAL_KINDS) + 6 - 1)
         self.assertEqual(validate_record(self.store.get(history["id"])), history)
         self.assertEqual(self.api.pages[0], original_page)
         self.assertEqual(self.api.blocks[original_page["id"]], original_blocks)

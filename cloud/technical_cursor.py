@@ -125,5 +125,9 @@ def commit_cursor(store, candidate, *, writer_context):
         return previous
     # Ambiguous write/readback exceptions fence the enclosing writer; never retry
     # solely because a later query cannot see the attempted append.
-    _write(store, cursor)
+    from .notion import CursorCohortUnavailable
+    try:
+        _write(store, cursor)
+    except CursorCohortUnavailable:
+        raise CursorBlocked("cursor_cohort_verification_unavailable") from None
     return cursor

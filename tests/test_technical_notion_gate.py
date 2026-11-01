@@ -1,5 +1,6 @@
 """Synthetic transport checks for technical-source Notion creation boundary."""
 import unittest
+from unittest.mock import patch
 
 from cloud.notion import ConflictError, NotionStore
 from cloud.records import make_record, stable_id, validate_record
@@ -51,10 +52,13 @@ class TechnicalNotionGateTests(unittest.TestCase):
             "source_identity": source["payload"]["source_identity"],
             "technical_source_id": source["payload"]["entity_id"],
             "evidence_refs": [source["id"]], "cursor_value": "first"})
-        self.store.put(first)
         second = make_technical_record("source_cursors", {**first["payload"], "revision": 2,
             "previous_cursor_hash": first["hash"], "cursor_value": "second"})
-        self.store.put(second)
+        # Simulate historical rows written by a future independently verified
+        # cohort path; the actual creation guard remains closed in production.
+        with patch("cloud.notion._require_verified_cursor_cohort"):
+            self.store.put(first)
+            self.store.put(second)
         count = len(self.api.writes())
         with self.assertRaises(ConflictError):
             self.store.put(first)

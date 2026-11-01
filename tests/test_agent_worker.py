@@ -51,7 +51,7 @@ def job_store():
     return store
 
 
-def admit(store, kind="research", *, agent="codex", entity="job:fixture", evidence=None, key="worker-fixture", now=NOW, **extra):
+def admit(store, kind="research", *, agent="codex", entity="job:fixture", evidence=None, key="worker-fixture", now=NOW, writer_context=None, **extra):
     client = AgentProtocol(store, REGISTRY, agent, now=now)
     action = action_for(client, kind, entity, key)
     action.update(extra)
@@ -60,7 +60,7 @@ def admit(store, kind="research", *, agent="codex", entity="job:fixture", eviden
         envelope = client.report_observed_outcome(action, refs)["data"]["envelope"]
     else:
         envelope = client.propose_action(action, refs)["data"]["envelope"]
-    dispatch(store, envelope, actor="fixture-github-" + agent, now=now)
+    dispatch(store, envelope, actor="fixture-github-" + agent, now=now, context=writer_context)
     return envelope
 
 

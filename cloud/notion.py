@@ -74,6 +74,15 @@ class ConflictError(NotionError):
                 'operation': self.operation if self.operation in OPERATIONS else 'notion_request'}
 
 
+class CursorCohortUnavailable(ConflictError):
+    """A known prewrite refusal; no cursor creation request was attempted."""
+
+
+def _require_verified_cursor_cohort(record):
+    """No production cursor write until a reviewed feed-cohort verifier exists."""
+    raise CursorCohortUnavailable("Verified feed-cohort cursor admission unavailable")
+
+
 class AmbiguousWriteError(NotionError):
     """A write may have succeeded. Persist an exception and reconcile first."""
     def __init__(self, message, *, diagnostics=None):
@@ -625,6 +634,11 @@ class NotionStore:
                 if not actual or validate_record(actual) != required:
                     raise ConflictError("Technical source requires readback of admission intent and alias reservations")
         if record["kind"] == "source_cursors":
+            if not existing:
+                # Structural item readback is not proof a feed page or its
+                # complete cohort was processed. A future reviewed collector
+                # must replace this gate with verified cohort validation.
+                _require_verified_cursor_cohort(record)
             # Source/item evidence must already be durably admitted. The host
             # still owns writer authorization and prior-writer reconciliation.
             from .technical_cursor import CursorBlocked, validate_cursor_evidence

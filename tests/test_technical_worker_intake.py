@@ -12,9 +12,15 @@ from cloud.agent_protocol import AgentProtocol
 from cloud.records import stable_id
 from cloud.technical_records import make_technical_record
 from tests.test_agent_protocol import NOW, REGISTRY
-from tests.test_agent_worker import admit, job_store, publish, worker, WRITER
+from tests.test_agent_worker import admit as _admit, job_store, publish, worker, WRITER
 from tests.test_agent_dispatcher import AUTH
 from tests.test_technical_records import sample
+
+
+def admit(*args, **kwargs):
+    # Synthetic reconciled host; the deployed intake workflow does not yet
+    # provide this proof and must reject technical proposals.
+    return _admit(*args, writer_context={**WRITER, "previous_writer_reconciled": True}, **kwargs)
 
 
 def setup_store():

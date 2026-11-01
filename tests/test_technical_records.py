@@ -27,6 +27,25 @@ def sample():
 
 
 class TechnicalRecordTests(unittest.TestCase):
+    def test_source_identity_preserves_trailing_path_separators(self):
+        urls = ["https://example.org/article", "https://example.org/article/", "https://example.org/article//"]
+        normalized = [make_technical_record("technical_items", {**sample(), "source_url": url})["payload"]["source_url"]
+                      for url in urls]
+        self.assertEqual(normalized, urls)
+
+    def test_source_identity_rejects_control_characters_and_zero_port(self):
+        for url in ("https://example.org/\x01path", "https://example.org/%0apath", "https://example.org:0/path"):
+            with self.subTest(url=repr(url)), self.assertRaises(ValueError):
+                make_technical_record("technical_items", {**sample(), "source_url": url})
+
+    def test_repeated_identity_query_values_preserve_their_order(self):
+        first = sample()
+        first["source_url"] = "https://example.org/story?id=1&id=2&utm_source=test"
+        second = {**first, "source_url": "https://example.org/story?id=2&id=1&utm_source=test"}
+        a = make_technical_record("technical_items", first)["payload"]["source_url"]
+        b = make_technical_record("technical_items", second)["payload"]["source_url"]
+        self.assertNotEqual(a, b)
+
     def test_versioned_technical_envelope_round_trips_through_existing_validator(self):
         record = make_technical_record("technical_items", sample())
         self.assertEqual(record["kind"], "technical_items")

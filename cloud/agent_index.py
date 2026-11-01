@@ -333,6 +333,8 @@ def valid_terminal_result(row, sources):
         intake = sources[action_id]
         queue, ack = _queue_and_result(intake)
         reservation = _semantic_reservation(intake)
+        from .technical_intake_aliases import technical_intake_alias_records
+        bindings, alias_intents = technical_intake_alias_records(intake)
         execution = sources[stable_id("agent_action_execution", action_id)]
         ep = execution["payload"]
         outputs = p["output_hashes"]
@@ -344,6 +346,7 @@ def valid_terminal_result(row, sources):
                 or p.get("external_effect") is not False or not _stamp(p.get("occurred_at"))
                 or sources.get(queue["id"]) != queue or sources.get(ack["id"]) != ack
                 or sources.get(reservation["id"]) != reservation
+                or any(sources.get(member["id"]) != member for member in [*bindings, *alias_intents])
                 or execution["kind"] != "agent_action_executions" or execution["status"] != "started"
                 or ep.get("schema") != "apply-agent-execution/v1" or ep.get("status") != "started"
                 or ep.get("external_effect") is not False or ep.get("action_id") != action_id
@@ -775,6 +778,10 @@ def build_index(records: Iterable[dict], now: datetime, previous_manifest: dict 
             state = "suppressed"
             blockers.append("global_opt_out")
         if kind == "technical_next_action":
+            # Source or observation metadata is not proof that a technical
+            # assertion is grounded. Phase 3 must introduce a separately
+            # verified evidence chain before any such task becomes ready.
+            blockers.append("technical_evidence_verification_unavailable")
             contact_ids = related.get("contact_ids", [])
             if any(identity not in selected or selected[identity]["kind"] != "contacts"
                    or not _live_contact(selected[identity]["payload"], now) for identity in contact_ids):

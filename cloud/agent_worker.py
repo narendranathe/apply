@@ -115,11 +115,15 @@ def _admission(store, queue):
         canonical = _envelope(intake)
         expected_queue, expected_ack = _queue_and_result(canonical)
         expected_reservation = _semantic_reservation(canonical)
+        from .technical_intake_aliases import technical_intake_alias_records
+        bindings, alias_intents = technical_intake_alias_records(canonical)
     except Exception:
         raise WorkerStorageError("worker_admission_requires_reconciliation") from None
     reservation = _read(store, expected_reservation["id"])
     if queue != expected_queue or ack != expected_ack or reservation != expected_reservation:
         raise WorkerStorageError("worker_admission_requires_reconciliation")
+    if any(_read(store, row["id"]) != row for row in [*bindings, *alias_intents]):
+        raise WorkerStorageError("worker_technical_alias_requires_reconciliation")
     p, action = intake["payload"], intake["payload"].get("action", {})
     if (intake["id"] != stable_id("agent-intake", p.get("actor"), p.get("idempotency_key"))
             or p.get("action_id") != identity or action.get("idempotency_key") != p.get("idempotency_key")
@@ -138,7 +142,7 @@ def _complete_admission_family(store, queues):
     """
     intakes = _query(store, 'agent_proposals') + _query(store, 'agent_observations')
     known = {row['id']: row for row in intakes}
-    expected_queues, expected_reservations, expected_acks = {}, {}, {}
+    expected_queues, expected_reservations, expected_acks, expected_aliases = {}, {}, {}, {}
     try:
         if len(known) != len(intakes):
             raise ValueError('ambiguous_intake')
@@ -146,12 +150,21 @@ def _complete_admission_family(store, queues):
             canonical = _envelope(row)
             queue, ack = _queue_and_result(canonical)
             reservation = _semantic_reservation(canonical)
+            from .technical_intake_aliases import technical_intake_alias_records
+            bindings, alias_intents = technical_intake_alias_records(canonical)
+            for member in [*bindings, *alias_intents]:
+                old = expected_aliases.setdefault(member['id'], member)
+                if old != member:
+                    raise ValueError('conflicting_technical_alias')
             expected_queues[queue['id']] = queue
             expected_reservations[reservation['id']] = reservation
             expected_acks[ack['id']] = ack
         if ({row['id']: row for row in queues} != expected_queues
                 or {row['id']: row for row in _query(store, 'agent_action_reservations')} != expected_reservations):
             raise ValueError('partial_admission')
+        actual_aliases = _query(store, 'technical_intake_alias_bindings') + _query(store, 'technical_intake_alias_intents')
+        if len(actual_aliases) != len(expected_aliases) or {row['id']: row for row in actual_aliases} != expected_aliases:
+            raise ValueError('partial_technical_alias_admission')
         actual_acks = {}
         for row in _query(store, 'agent_action_results'):
             identity = row['payload'].get('action_id')
@@ -455,6 +468,12 @@ def run_agent_worker(store, config, *, trusted_registry, writer_context, now=Non
         execution, terminal = _read(store, execution_id), _read(store, result_id)
         if terminal:
             sources = {row["id"]: row for row in (intake, reservation, queue, ack) + ((execution,) if execution else ())}
+            from .technical_intake_aliases import technical_intake_alias_records
+            bindings, alias_intents = technical_intake_alias_records(intake)
+            for member in [*bindings, *alias_intents]:
+                actual = _read(store, member["id"])
+                if actual:
+                    sources[member["id"]] = actual
             for ref in p.get("evidence_hashes", {}):
                 evidence = _read(store, ref)
                 if evidence:

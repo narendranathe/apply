@@ -48,10 +48,14 @@ def _timestamp(value):
 def canonical_technical_url(url):
     """Conservative technical-source identity; fetch safety is a separate gate."""
     try:
-        parts = urlsplit(url.strip())
+        if not isinstance(url, str) or re.search(r"[\x00-\x20\x7f]|%(?:0[0-9a-f]|1[0-9a-f]|7f)", url, re.I):
+            raise ValueError("Invalid URL characters")
+        parts = urlsplit(url)
         if parts.scheme.lower() not in {"http", "https"} or not parts.hostname or parts.username or parts.password:
             raise ValueError("Expected a public HTTP(S) URL")
         port = parts.port
+        if port == 0:
+            raise ValueError("Invalid URL port")
     except (AttributeError, ValueError) as error:
         raise ValueError("Expected a public HTTP(S) URL") from error
     host = parts.hostname.lower()
@@ -61,7 +65,10 @@ def canonical_technical_url(url):
         host += ":" + str(port)
     query = [(key, value) for key, value in parse_qsl(parts.query, keep_blank_values=True)
              if not key.lower().startswith("utm_") and key.lower() not in {"fbclid", "gclid"}]
-    return urlunsplit((parts.scheme.lower(), host, parts.path.rstrip("/") or "/", urlencode(sorted(query)), ""))
+    # Sort parameter names for stable aliases without reordering repeated
+    # values: some providers assign meaning to their original sequence.
+    return urlunsplit((parts.scheme.lower(), host, parts.path or "/",
+                       urlencode(sorted(query, key=lambda pair: pair[0])), ""))
 
 
 def make_technical_record(kind, payload):

@@ -165,6 +165,11 @@ def dispatch_intake(store, envelope, *, github_actor, trusted_registry, writer_c
     """
     record = _envelope(envelope)
     principal, registry = _authority(record, github_actor, trusted_registry, writer_context)
+    if (record["payload"]["action"].get("type") == "admit_technical_source"
+            and writer_context.get("previous_writer_reconciled") is not True):
+        # The current separate intake host does not provide this proof. Do not
+        # queue technical work until its cross-workflow writer fence exists.
+        raise DispatcherRejected("technical_previous_writer_reconciliation_required")
     # Intake shares the operational writer with business lanes. A partially
     # persisted technical admission is a global storage ambiguity, so even
     # an otherwise idempotent acknowledgement must not be returned before a
@@ -174,18 +179,57 @@ def dispatch_intake(store, envelope, *, github_actor, trusted_registry, writer_c
         snapshot = store.index_source_records() if hasattr(store, "index_source_records") else store.query()
         if not isinstance(snapshot, list):
             raise ValueError("incomplete_source_snapshot")
-        _check_admission_ledger(snapshot)
+        indexed = _check_admission_ledger(snapshot)
     except Exception:
         raise DispatcherStorageError("technical_admission_requires_reconciliation") from None
+    if (writer_context.get("previous_writer_reconciled") is not True
+            and any(row["kind"] in {"technical_intake_alias_bindings", "technical_intake_alias_intents",
+                                   "technical_admission_intents", "technical_alias_reservations",
+                                   "technical_admission_completions"} for row in indexed.values())):
+        raise DispatcherStorageError("technical_previous_writer_reconciliation_required")
     payload = record["payload"]
+    if payload["action"].get("type") == "admit_technical_source":
+        from .technical_records import validate_technical_aliases, validate_technical_record
+        try:
+            candidate = validate_technical_record(payload["action"].get("candidate"))
+        except (KeyError, TypeError, ValueError):
+            raise DispatcherRejected("technical_candidate_invalid") from None
+        try:
+            validate_technical_aliases(indexed.values())
+        except (KeyError, TypeError, ValueError):
+            raise DispatcherStorageError("technical_source_alias_snapshot_conflict") from None
+        try:
+            validate_technical_aliases([*indexed.values(), candidate])
+        except (KeyError, TypeError, ValueError):
+            raise DispatcherConflict("technical_source_alias_already_reserved") from None
+        prior_candidate = indexed.get(candidate["id"])
+        if _get(store, candidate["id"]) != prior_candidate:
+            raise DispatcherStorageError("technical_candidate_snapshot_readback_mismatch")
+        if prior_candidate is not None and record["id"] not in indexed:
+            # A new intent cannot re-admit an existing immutable revision;
+            # exact replay of the original complete intake remains read-only.
+            raise DispatcherConflict("technical_source_revision_already_admitted")
     try:
         queue, result = _queue_and_result(record)
         reservation = _semantic_reservation(record)
+        from .technical_intake_aliases import technical_intake_alias_records
+        bindings, alias_intents = technical_intake_alias_records(record)
     except Exception:
         raise DispatcherRejected("invalid_intake_contract") from None
     existing = _get(store, record["id"])
     old_queue, old_result = _get(store, queue["id"]), _get(store, result["id"])
     old_reservation = _get(store, reservation["id"])
+    for actual, expected in ((existing, record), (old_queue, queue), (old_result, result),
+                             (old_reservation, reservation)):
+        if actual != indexed.get(expected["id"]):
+            raise DispatcherStorageError("intake_snapshot_readback_mismatch")
+    alias_rows = [*bindings, *alias_intents]
+    old_aliases = [_get(store, row["id"]) for row in alias_rows]
+    for actual, expected in zip(old_aliases, alias_rows):
+        if actual != indexed.get(expected["id"]):
+            raise DispatcherStorageError("technical_alias_snapshot_readback_mismatch")
+        if actual is not None and actual != expected:
+            raise DispatcherConflict("semantic_action_already_reserved")
     # Complete replays remain authenticated against today's registry, but do
     # not require the historical proposal's snapshot still to be the latest.
     for actual, expected in ((existing, record), (old_queue, queue), (old_result, result)):
@@ -193,7 +237,7 @@ def dispatch_intake(store, envelope, *, github_actor, trusted_registry, writer_c
             raise DispatcherConflict("immutable_intake_identity_conflict")
     if old_reservation and old_reservation != reservation:
         raise DispatcherConflict("semantic_action_already_reserved")
-    if existing and old_queue and old_result and old_reservation:
+    if existing and old_queue and old_result and old_reservation and all(old_aliases):
         return old_result
     if any((existing, old_queue, old_result, old_reservation)):
         raise DispatcherStorageError("partial_intake_requires_reconciliation")
@@ -211,6 +255,6 @@ def dispatch_intake(store, envelope, *, github_actor, trusted_registry, writer_c
         raise DispatcherRejected("intake_canonical_revalidation_mismatch")
     # No writes occur above this line. Each append requires exact readback;
     # any uncertainty aborts before the next append or business effect.
-    for immutable in (record, reservation, queue, result):
+    for immutable in (record, *[row for row, old in zip(alias_rows, old_aliases) if old is None], reservation, queue, result):
         _put_exact(store, immutable)
     return result

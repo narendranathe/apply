@@ -32,8 +32,11 @@ def _read(store, identity):
 
 
 def _write(store, row):
+    from .notion import CursorCohortUnavailable
     try:
         store.put(row)
+    except CursorCohortUnavailable:
+        raise
     except Exception:
         raise AdmissionStorageError("write_unconfirmed_reconcile") from None
     if _read(store, row["id"]) != row:
@@ -96,6 +99,13 @@ def _check_admission_ledger(snapshot):
             raise ValueError("unadmitted technical source")
     from .technical_cursor import validate_cursor_snapshot
     validate_cursor_snapshot(indexed)
+    from .technical_intake_aliases import technical_alias_bindings, validate_technical_intake_alias_snapshot
+    validate_technical_intake_alias_snapshot(indexed)
+    for target_id in admitted_targets:
+        for binding in technical_alias_bindings(indexed[target_id]):
+            existing = indexed.get(binding["id"])
+            if existing is not None and existing != binding:
+                raise ValueError("intake and admission alias ownership conflict")
     return indexed
 
 
@@ -117,6 +127,13 @@ def admit_technical_record(store, candidate, *, writer_context):
         validate_technical_aliases(snapshot + [record])
     except Exception:
         raise AdmissionStorageError("snapshot_or_source_conflict_reconcile") from None
+    from .technical_intake_aliases import technical_alias_bindings
+    for binding in technical_alias_bindings(record):
+        existing_binding = _read(store, binding["id"])
+        if existing_binding != indexed.get(binding["id"]):
+            raise AdmissionStorageError("intake_alias_snapshot_readback_mismatch")
+        if existing_binding is not None and existing_binding != binding:
+            raise AdmissionConflict("technical_intake_alias_owned_by_other_entity")
     intent, reservations, completion = _records(record)
     expected = [intent, *reservations, record, completion]
     prior = [_read(store, row["id"]) for row in expected]

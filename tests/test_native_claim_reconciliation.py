@@ -265,11 +265,12 @@ class NativeContainmentTests(unittest.TestCase):
             self.load(repin=True)
 
     def test_exact_native_source_and_resource_binding_cannot_be_changed(self):
+        original_contents = dict(self.contents)
         logical = json.loads(self.contents['source/native-claim-logical.json'])
         logical['page']['properties']['Actor'] = {'select': {'name': 'changed'}}
         self.contents['source/native-claim-logical.json'] = body(logical)
         with self.assertRaisesRegex(subject.ReconciliationBlocked, 'exact_source_page_changed'): self.load()
-        self.contents = fixture()[2]
+        self.contents = original_contents
         resource = json.loads(self.contents['source/native-resource-fields.json'])
         resource['source_page_id'] = 'different-source-page'
         self.contents['source/native-resource-fields.json'] = body(resource)
