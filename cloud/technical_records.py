@@ -56,6 +56,9 @@ def canonical_technical_url(url):
         port = parts.port
         if port == 0:
             raise ValueError("Invalid URL port")
+        if re.search(r"%(?![0-9a-f]{2})", parts.query, re.I):
+            raise ValueError("Invalid query escape")
+        parsed_query = parse_qsl(parts.query, keep_blank_values=True, errors="strict")
     except (AttributeError, ValueError) as error:
         raise ValueError("Expected a public HTTP(S) URL") from error
     host = parts.hostname.lower()
@@ -63,7 +66,7 @@ def canonical_technical_url(url):
         host = "[" + host + "]"
     if port and not (parts.scheme.lower() == "https" and port == 443 or parts.scheme.lower() == "http" and port == 80):
         host += ":" + str(port)
-    query = [(key, value) for key, value in parse_qsl(parts.query, keep_blank_values=True)
+    query = [(key, value) for key, value in parsed_query
              if not key.lower().startswith("utm_") and key.lower() not in {"fbclid", "gclid"}]
     # Sort parameter names for stable aliases without reordering repeated
     # values: some providers assign meaning to their original sequence.
