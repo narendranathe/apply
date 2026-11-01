@@ -1,6 +1,6 @@
 """Pure immutable technical intelligence record envelopes; no storage or effects."""
 from copy import deepcopy
-from datetime import datetime
+from datetime import datetime, timezone
 import re
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
@@ -42,6 +42,10 @@ def _timestamp(value):
         raise ValueError("Expected timezone-aware timestamp") from error
     if parsed.tzinfo is None or parsed.utcoffset() is None:
         raise ValueError("Expected timezone-aware timestamp")
+    try:
+        parsed.astimezone(timezone.utc)
+    except OverflowError as error:
+        raise ValueError("Timestamp is outside UTC range") from error
     return parsed
 
 
@@ -51,7 +55,8 @@ def canonical_technical_url(url):
         if not isinstance(url, str) or re.search(r"[\x00-\x20\x7f]|%(?:0[0-9a-f]|1[0-9a-f]|7f)", url, re.I):
             raise ValueError("Invalid URL characters")
         parts = urlsplit(url)
-        if parts.scheme.lower() not in {"http", "https"} or not parts.hostname or parts.username or parts.password:
+        if (parts.scheme.lower() not in {"http", "https"} or not parts.hostname
+                or parts.username is not None or parts.password is not None):
             raise ValueError("Expected a public HTTP(S) URL")
         port = parts.port
         if port == 0:
