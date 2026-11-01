@@ -53,6 +53,8 @@ class GitHub:
         path = url.path.removeprefix(base)
         if path == '/actions/workflows/cloud-operations.yml/runs':
             value = {'workflow_runs': self.runs}
+        elif path == '/actions/workflows/index-custody-reconciliation.yml/runs':
+            value = {'workflow_runs': [], 'total_count': 0}
         elif path.endswith('/jobs'):
             query = parse_qs(url.query)
             assert query == {'filter': ['all'], 'per_page': ['100'], 'page': ['1']}
@@ -174,7 +176,9 @@ class CancelledWriterTests(unittest.TestCase):
             {'external_effects_reconciled': True, 'evidence': 'Existing independently reviewed evidence'})
         self.verify(store, github)
         self.assertEqual(store.writes, [])
-        self.assertEqual(len(github.calls), 1)
+        self.assertEqual(len(github.calls), 2)
+        self.assertTrue(any('/index-custody-reconciliation.yml/runs?' in call
+                            for call in github.calls))
 
 
 class PinnedStartupResolutionTests(unittest.TestCase):

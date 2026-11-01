@@ -30,14 +30,40 @@
 - [x] Monitor receipts/status of auto-submitted jobs separately from prepared/attempted/manual-action-needed jobs; ensure ambiguous submissions are never blindly retried. Actual cloud attempts/receipts are zero; one historical human-confirmed submission is counted separately.
 - [x] Document rollback, alerting, restoration, retention, measured runner usage and a clear list of remaining exceptions. Account allowance/spend visibility remains unavailable; no billing changes were made.
 
+## Current operational evidence, October 28, 2026
+
+- [x] Implement the pinned five-record custody path, manual common-lock workflow, no-retry/source/readback gates and separate maintenance-history fence in PR #28. No live record is cleared by local tests or a full cohort alone.
+- [x] Authenticate actual trusted/observed archives and preserved history through the new core and CLI; verify original native run/job/log/artifact witnesses through read-only GitHub APIs. Zero dispatches, Notion/provider calls, imports or operational writes.
+- [x] Implement independent actual hosted-receipt admission, exact restored post-backup equality and retention-independent durable runtime verification. No actual receipt is fabricated or installed.
+- [x] Keep production disabled, research configured, both desktop writers paused, stopped controllers and all existing uncertainty holds preserved. Respect the owner's decision to wait for the November 1 Actions reset without spending changes.
+- [ ] Pass hosted CI, merge/deploy normally and authenticate a current-main research validation after capacity returns.
+- [ ] Execute the one initial custody recovery and authenticate/deploy its actual successful receipt and complete encrypted backup.
+- [ ] Verify persistent index/backup, same-day no-repeat and actual hosted intake/consumer/repeat, then assess production activation.
+
+The [operator runbook](../runbooks/INDEX_CUSTODY.md) gives the exact boundaries. Local implementation is not operational production health.
+
+## Current operational evidence, October 26, 2026
+
+- [x] Restore disabled production and verify `CLOUD_ENABLED=false`, `CLOUD_RESEARCH_ENABLED=true` after the [failed controlled validation](https://github.com/narendranathe/apply/actions/runs/40050463437). The temporary local watcher did not verify its rollback.
+- [x] Authenticate the [read-only snapshot](https://github.com/narendranathe/apply/actions/runs/40337456562): 3,631 raw pages / 3,384 COREs; all prior COREs and 757 historical records unchanged, zero new effect signatures. Preserve the one exact unmanaged derived-mention display discrepancy rather than declaring all raw pages equal.
+- [x] Identify the actual Notion manifest capacity defect through offline serializer replay; the original failed publication clock and upstream exception remain unknown.
+- [x] Finish local bounded manifest storage, preflight, safe failure-artifact retention and actual authenticated-data codec checks in [PR #28](https://github.com/narendranathe/apply/pull/28).
+- [ ] Pass hosted CI and deploy the correction after Actions capacity returns.
+- [ ] Reconcile the new failed writer and four subsequent guard failures from authenticated actual evidence without replaying effects.
+- [ ] Verify complete persistent index, encrypted backup, same-day no-repeat behavior and a real hosted intake/consumer/repeat before production activation.
+- [ ] Restore GitHub Actions capacity: both October 26 morning events failed before starting code. Account UI confirms 2,000/2,000 included minutes used and a $0 Actions budget marked Usage blocked; reset is November 1. The owner chose to wait for the November 1 reset; no payment/budget change or further dispatch was made.
+- [x] Preserve daily 06:00/06:30 `America/Chicago` schedules with DST, paused desktop writers, stopped Milo/Muse and all existing suppression/uncertainty holds. Schedule configuration does not establish healthy or punctual current execution.
+
+Follow the [latest runbook checkpoint](../runbooks/CUTOVER.md#october-26-failed-validation-authenticated-capture-and-actions-capacity-block). Earlier checked activation gates are historical evidence.
+
 ## Current operational evidence, October 23, 2026
 
 - [x] Authenticate the single [contained recovery](https://github.com/narendranathe/apply/actions/runs/39958792936): exactly four new audit records; all 2,898 prior logical pages and 757 historical records preserved; no new external effects; original unknown-effect hold retained.
-- [ ] Deploy the exact actual trusted receipt/cipher and verified publication-clock/candidate-progress corrections. Current local artifacts and tests do not satisfy deployment.
+- [x] Deploy the exact actual trusted receipt/cipher and verified publication-clock/candidate-progress corrections through [PR #27](https://github.com/narendranathe/apply/pull/27). [Main CI](https://github.com/narendranathe/apply/actions/runs/40047299221) passed all 709 tests and 85 legacy tests without skips, plus real encrypted history restore.
 - [ ] Pass hosted changed-behavior validation, then verify actual persistent production, complete index, encrypted backup and a same-day no-repeat run before claiming operational activation.
 - [ ] Verify an actual sealed hosted intake, seven-record research consumer chain and unchanged repeat against a fresh complete persistent index.
 - [x] Keep daily 06:00/06:30 `America/Chicago` schedules enabled. Both October 23 native scheduled events succeeded, with delays of over four hours; punctual execution remains unproven.
-- [x] Keep production disabled and research enabled during these remaining gates; retain both paused desktop schedules and user-confirmed stopped controllers.
+- [x] Keep production disabled through the authenticated research gate. Production is now enabled only for the controlled [live validation](https://github.com/narendranathe/apply/actions/runs/40050463437), with failure rollback; research remains enabled, both desktop schedules paused and other controllers stopped. Persistent validation and agent-consumer proof remain pending.
 
 Follow the [current runbook checkpoint](../runbooks/CUTOVER.md#october-23-authenticated-storage-recovery-and-remaining-activation). Earlier activation checkmarks are historical evidence and do not establish current production health.
 

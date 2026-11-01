@@ -10,7 +10,9 @@ from collections import Counter
 from datetime import datetime
 
 from .agent_index import GENERATED_KINDS, SCHEMA, build_index
-from .records import content_hash, validate_record
+from .index_manifest import ManifestError, ManifestView, pack_manifest
+from .notion import DEFAULT_DATA_SOURCE_ID, _managed_hash, _rich_text
+from .records import canonical_json, content_hash, display_title, validate_record
 
 CORE = ("id", "kind", "payload", "status", "hash")
 INDEX_PUBLICATION_ERROR_CODES = frozenset({
@@ -19,7 +21,7 @@ INDEX_PUBLICATION_ERROR_CODES = frozenset({
     "previous_index_unavailable", "previous_index_invalid",
     "index_write_uncertain_stop_no_retry", "index_write_readback_mismatch_stop_no_retry",
     "index_readback_uncertain_stop_no_retry", "index_readback_mismatch_stop_no_retry",
-    "index_builder_manifest_invalid",
+    "index_builder_manifest_invalid", "index_storage_capacity_exceeded",
 })
 
 
@@ -129,9 +131,65 @@ def _previous_manifest(store, snapshot):
     if previous is None:
         return None
     previous = _canonical(previous)
-    if previous["kind"] != "index_manifests" or previous["payload"].get("schema") != SCHEMA:
+    if previous["kind"] != "index_manifests":
         raise IndexPublicationError("previous_index_invalid")
-    return previous
+    try:
+        # Fully reconstruct prior logical state before sampling the publication
+        # clock or building semantic deltas. No partial directory is authority.
+        logical = ManifestView(previous, store.get).materialize()
+    except ManifestError as error:
+        code = "previous_index_unavailable" if error.code == "manifest_page_unavailable" else "previous_index_invalid"
+        raise IndexPublicationError(code) from None
+    if logical["payload"].get("schema") != SCHEMA:
+        raise IndexPublicationError("previous_index_invalid")
+    return logical
+
+
+def _notion_write_request(row, data_source_id):
+    """Pure capacity model of the frozen NotionStore.put request.
+
+    Share its rich-text and managed-hash helpers and retain its limits. This
+    performs no schema read, exact-identity lookup, write or write replay.
+    """
+    record = validate_record(row)
+    envelope = canonical_json(record)
+    props = {"Cloud ID": {"rich_text": _rich_text(record["id"])},
+             "Cloud Kind": {"rich_text": _rich_text(record["kind"])},
+             "Cloud Hash": {"rich_text": _rich_text(record["hash"])},
+             "Cloud Status": {"rich_text": _rich_text(record["status"])},
+             "Cloud Envelope": {"rich_text": _rich_text(envelope)},
+             "Section": {"select": {"name": "Cloud"}}, "Type": {"select": {"name": "Reference"}},
+             "Status": {"select": {"name": "Done"}},
+             "Name": {"title": _rich_text(display_title(record))}}
+    blocks = [{"object": "block", "type": "code", "code": {"language": "json", "rich_text": _rich_text(envelope)}}]
+    props["Cloud Managed Hash"] = {"rich_text": _rich_text(_managed_hash(props, blocks))}
+    request = {"parent": {"type": "data_source_id", "data_source_id": data_source_id},
+               "properties": props, "children": blocks}
+    if len(canonical_json(request).encode("utf-8")) > 490_000:
+        raise ValueError("index_storage_capacity_exceeded")
+    return request
+
+
+def _storage_data_source_id(store):
+    # Preview/shadow wrappers retain the concrete store under .base. Synthetic
+    # stores without a concrete Notion parent use the existing default only.
+    seen = set()
+    while store is not None and id(store) not in seen:
+        seen.add(id(store))
+        parent = getattr(store, "data_source_id", None)
+        if isinstance(parent, str) and parent:
+            return parent
+        store = getattr(store, "base", None)
+    return DEFAULT_DATA_SOURCE_ID
+
+
+def _preflight_capacity(store, records):
+    parent = _storage_data_source_id(store)
+    try:
+        for row in records:
+            _notion_write_request(row, parent)
+    except (ValueError, TypeError, KeyError):
+        raise IndexPublicationError("index_storage_capacity_exceeded") from None
 
 
 def _put_verified(store, row):
@@ -288,12 +346,21 @@ def publish_index(store, now: datetime, source_complete=False, source_snapshot_h
     manifests = [row for row in indexed if row["kind"] == "index_manifests"]
     if len(manifests) != 1:
         raise IndexPublicationError("index_builder_manifest_invalid")
-    manifest = manifests[0]
+    logical_manifest = manifests[0]
+    try:
+        pages, manifest = pack_manifest(logical_manifest)
+    except ManifestError as error:
+        code = "index_storage_capacity_exceeded" if error.code == "manifest_capacity_exceeded" else "index_builder_manifest_invalid"
+        raise IndexPublicationError(code) from None
     children = [row for row in indexed if row["kind"] != "index_manifests"]
-    for row in children:
+    physical = [*children, *pages, manifest]
+    # Reject any semantic child, storage page or root that cannot be represented
+    # by the existing Notion writer before publishing even a harmless prefix.
+    _preflight_capacity(store, physical)
+    for row in [*children, *pages]:
         _put_verified(store, row)
     verified_manifest = _put_verified(store, manifest)
     return {"manifest_id": verified_manifest["id"], "manifest_hash": verified_manifest["hash"],
-            "source_snapshot_hash": actual_hash, "complete": verified_manifest["payload"]["complete"],
-            "counts": verified_manifest["payload"]["counts"], "record_count": len(indexed),
-            "created_or_verified": len(indexed), "manifest": verified_manifest}
+            "source_snapshot_hash": actual_hash, "complete": logical_manifest["payload"]["complete"],
+            "counts": logical_manifest["payload"]["counts"], "record_count": len(physical),
+            "created_or_verified": len(physical), "manifest": verified_manifest}

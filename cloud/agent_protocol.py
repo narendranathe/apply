@@ -7,9 +7,11 @@ The authoritative dispatcher must recheck identity, permissions and fresh state.
 from __future__ import annotations
 
 import datetime as dt
+from functools import wraps
 import math
 from typing import Mapping
 
+from .index_manifest import ManifestError, ManifestView, PAGE_SCHEMA, PAGE_STATUS
 from .records import canonical_json, content_hash, make_record, stable_id, validate_record
 
 SCHEMA = "apply-agent-protocol/v1"
@@ -41,6 +43,34 @@ class ProtocolError(RuntimeError):
     def __init__(self, code):
         self.code = code
         super().__init__(code)
+
+
+def _manifest_errors(operation):
+    """Keep lazy storage failures inside the existing safe protocol boundary."""
+    @wraps(operation)
+    def guarded(*args, **kwargs):
+        try:
+            return operation(*args, **kwargs)
+        except ManifestError as error:
+            code = ("cursor_expired_refresh_brief" if error.code == "cursor_expired_refresh_brief"
+                    else "authoritative_index_unavailable_or_conflicted")
+            raise ProtocolError(code) from None
+    return guarded
+
+
+def _reject_storage_change(value):
+    """Physical directory pages never become public semantic change events."""
+    if isinstance(value, str):
+        if value.startswith("index_manifest_page:"):
+            raise ProtocolError("index_invalid")
+        return
+    if isinstance(value, dict):
+        nested = value.get("payload", {})
+        if (value.get("status") == PAGE_STATUS or value.get("schema") == PAGE_SCHEMA
+                or isinstance(nested, dict) and nested.get("schema") == PAGE_SCHEMA):
+            raise ProtocolError("index_invalid")
+        for field in ("id", "record_id"):
+            _reject_storage_change(value.get(field))
 
 
 def _time(value):
@@ -97,6 +127,7 @@ class AgentProtocol:
         elif not entry:
             self.capabilities = frozenset({"read_summarize"})
         self._manifest_cache = None
+        self._manifest_view = None
         self._intake = {}
         self._calls = 0
         self._provider_input_tokens = None
@@ -125,9 +156,14 @@ class AgentProtocol:
         except Exception:
             raise ProtocolError("authoritative_record_unavailable_or_conflicted") from None
 
+    @_manifest_errors
     def _manifest(self, *, fresh=False):
         if self._manifest_cache is not None and not fresh:
             return self._manifest_cache
+        if fresh:
+            # A prior immutable page cache cannot authorize a new proposal.
+            # Discard it even when the fresh physical root has the same ID.
+            self._manifest_cache, self._manifest_view = None, None
         # A pinned snapshot is sufficient for reads, never proposal authority.
         # Intake must compare against the current writer-published manifest.
         if self.manifest_id and not fresh:
@@ -148,11 +184,20 @@ class AgentProtocol:
         payload = manifest["payload"]
         if not isinstance(payload, dict):
             raise ProtocolError("index_invalid")
-        self._manifest_cache = manifest
+        view = ManifestView(manifest, self._get)
+        self._manifest_cache, self._manifest_view = manifest, view
         return manifest
 
+    def _payload(self, manifest):
+        # Keep the raw record separate: replacing its payload with a lazy view
+        # would no longer represent the CORE protected by its physical hash.
+        if manifest is self._manifest_cache and self._manifest_view is not None:
+            return self._manifest_view
+        return ManifestView(manifest, self._get)
+
+    @_manifest_errors
     def _health(self, manifest):
-        payload = manifest["payload"]
+        payload = self._payload(manifest)
         generated = _time(payload.get("generated_at"))
         age = (self.now - generated).total_seconds() if generated else None
         blockers = []
@@ -165,11 +210,15 @@ class AgentProtocol:
         return {"generated_at": payload.get("generated_at"), "age_seconds": age,
                 "complete": payload.get("complete") is True, "blocking_conditions": blockers}
 
+    @_manifest_errors
     def _projection(self, entity_id, manifest):
-        mapping = manifest["payload"].get("projections", {})
+        payload = self._payload(manifest)
+        mapping = payload.get("projections", {})
         # Explicit immutable mappings are preferred. A fixed ID is supported
         # for older fixtures/imports, never rewritten by the protocol.
-        identity = mapping.get(entity_id) if isinstance(mapping, dict) else None
+        identity = mapping.get(entity_id) if isinstance(mapping, Mapping) else None
+        if payload.is_paged and not identity:
+            raise ProtocolError("entity_projection_missing")
         record = self._get(identity or "projection:" + entity_id)
         if not record or record.get("kind") != "entity_projections":
             raise ProtocolError("entity_projection_missing")
@@ -201,7 +250,7 @@ class AgentProtocol:
         self._require()
         start = self._calls
         manifest = self._manifest()
-        payload = manifest["payload"]
+        payload = self._payload(manifest)
         data = {"manifest_id": manifest["id"], "cursor": payload.get("source_cursor", manifest["id"]),
                 "health": self._health(manifest), "counts": _safe(payload.get("counts", {})),
                 "brief": _safe(payload.get("campaign_brief", {}), 250),
@@ -223,7 +272,7 @@ class AgentProtocol:
         health = self._health(manifest)
         tasks = []
         if not health["blocking_conditions"]:
-            ids = manifest["payload"].get("tasks", [])
+            ids = self._payload(manifest).get("tasks", [])
             # Publisher supplies a bounded priority-ordered task window.
             for identity in ids[:40]:
                 record = self._get(identity)
@@ -242,6 +291,7 @@ class AgentProtocol:
         return self._response("get_ready_tasks", {"manifest_id": manifest["id"], "health": health,
             "tasks": tasks, "requested_capabilities": sorted(requested), "available_window": 40}, start=start)
 
+    @_manifest_errors
     def get_entity_context(self, entity_id, depth=2, *, task_id=None, evidence_ids=None):
         self._require()
         if depth not in (1, 2, 3):
@@ -262,10 +312,11 @@ class AgentProtocol:
             if (not isinstance(task_id, str) or not task_id or not isinstance(evidence_ids, list)
                 or not evidence_ids or len(evidence_ids) > 5 or any(not isinstance(ref, str) for ref in evidence_ids)):
                 raise ProtocolError("specific_task_and_evidence_selection_required")
-            task_map = manifest["payload"].get("task_map", manifest["payload"].get("all_tasks", {}))
-            if not isinstance(task_map, dict):
+            manifest_payload = self._payload(manifest)
+            task_map = manifest_payload.get("task_map", manifest_payload.get("all_tasks", {}))
+            if not isinstance(task_map, Mapping):
                 task_map = {}
-            if "task_map" in manifest["payload"] and task_id not in task_map:
+            if "task_map" in manifest_payload and task_id not in task_map:
                 raise ProtocolError("evidence_task_outside_current_index")
             task_record = self._get(task_map.get(task_id, task_id))
             if (not task_record or task_record.get("kind") != "agent_tasks"
@@ -278,16 +329,33 @@ class AgentProtocol:
             data["evidence"] = self._records(evidence_ids, 5)
         return self._response("get_entity_context", data, start=start, evidence=depth == 3)
 
+    @_manifest_errors
     def get_recent_changes(self, since_cursor=None, *, limit=20):
         self._require()
         if type(limit) is not int or not 1 <= limit <= 20:
             raise ProtocolError("invalid_limit")
         start = self._calls
         manifest = self._manifest()
-        payload = manifest["payload"]
+        payload = self._payload(manifest)
         current = payload.get("source_cursor", manifest["id"])
         if since_cursor == current:
             selected = []
+        elif payload.is_paged:
+            window = payload.change_window(since_cursor, limit)
+            selected = []
+            for identity, cursor in zip(window["changes"], window["cursors"]):
+                _reject_storage_change(identity)
+                if isinstance(identity, dict):  # paged legacy fixture metadata
+                    selected.append(_safe(identity))
+                    continue
+                record = self._get(identity)
+                if not record:
+                    raise ProtocolError("indexed_record_missing")
+                _reject_storage_change(record)
+                if record.get("kind") != "index_changes" or not isinstance(record["payload"], dict):
+                    raise ProtocolError("index_invalid")
+                selected.append({"record_id": record["id"], "hash": record["hash"], "cursor": cursor,
+                    **_select(record["payload"], (*EVENT_FIELDS, "from_cursor", "projection_hash", "projection_id", "change", "state"))})
         elif isinstance(payload.get("change_cursors"), list):
             cursors = payload["change_cursors"]
             identities = payload.get("changes", [])
@@ -301,18 +369,22 @@ class AgentProtocol:
                 raise ProtocolError("cursor_expired_refresh_brief")
             selected = []
             for index in range(offset, min(len(identities), offset + limit)):
+                _reject_storage_change(identities[index])
                 record = self._get(identities[index])
                 if not record:
                     raise ProtocolError("indexed_record_missing")
+                _reject_storage_change(record)
                 selected.append({"record_id": record["id"], "hash": record["hash"], "cursor": cursors[index],
                     **_select(record["payload"], (*EVENT_FIELDS, "from_cursor", "projection_hash", "projection_id", "change", "state"))})
         else:
             changes = []
             for item in payload.get("changes", [])[:40]:
+                _reject_storage_change(item)
                 if isinstance(item, str):
                     record = self._get(item)
                     if not record:
                         raise ProtocolError("indexed_record_missing")
+                    _reject_storage_change(record)
                     changes.append({"record_id": record["id"], "hash": record["hash"],
                         **_select(record["payload"], (*EVENT_FIELDS, "cursor", "from_cursor", "projection_hash", "projection_id", "change", "state"))})
                 elif isinstance(item, dict):  # compatibility with fixture snapshots
@@ -432,11 +504,14 @@ class AgentProtocol:
         return self._response("report_observed_outcome", {"action_id": envelope["id"],
             "status": "proposed", "envelope": envelope}, start=start, evidence=True)
 
+    @_manifest_errors
     def get_action_result(self, action_id):
         self._require()
         start = self._calls
         manifest = self._manifest()
-        mapping = manifest["payload"].get("action_results", {})
+        mapping = self._payload(manifest).get("action_results", {})
+        if not isinstance(mapping, Mapping):
+            mapping = {}
         record = self._get(mapping.get(action_id, "action-result:" + action_id))
         if record:
             data = {"action_id": action_id, "record_id": record["id"], "hash": record["hash"],

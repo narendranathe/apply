@@ -49,7 +49,10 @@ class ReconciledSlotTests(unittest.TestCase):
             record_id=marker['id'], status=marker['status'])
         env = {'GITHUB_REPOSITORY': recovery.REPOSITORY, 'CLOUD_GITHUB_TOKEN': 'fixture-token',
                'GITHUB_RUN_ID': '999'}
-        with patch.dict('os.environ', env), self.assertRaises(Blocked):
+        from tests.test_runtime_guard import GitHub
+        with patch.dict('os.environ', env), \
+             patch('cloud.runtime_guard.urlopen', side_effect=GitHub([]).open), \
+             self.assertRaises(Blocked):
             verify_previous_writers(self.store, transport=lambda _: {
                 'workflow_runs': [self.fixture.github.runs[recovery.FAILED]]})
 

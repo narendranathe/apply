@@ -169,6 +169,13 @@ def verify_previous_writers(store, transport=None):
             if isinstance(value, dict) and 'rel="next"' in getattr(response, 'headers', {}).get('Link', ''):
                 value['_next_page'] = True
             return value
+    # Maintenance has its own workflow history. A failure there must remain
+    # fenced even when cloud operation history is empty or has aged out.
+    from cloud.index_custody_receipt import verify_maintenance_history
+    try:
+        verify_maintenance_history(store.get, request_path, repository)
+    except Exception:
+        raise Blocked('custody_maintenance_requires_reconciliation') from None
     fetch = transport or (lambda page: request_path('/actions/workflows/cloud-operations.yml/runs?per_page=100&page=' + str(page)))
     for page in range(1, 101):
         response = fetch(page)
@@ -179,6 +186,12 @@ def verify_previous_writers(store, transport=None):
             marker = store.get('writer-resolution:' + identity)
             payload = marker.get('payload', {}) if marker else {}
             schema = payload.get('schema')
+            from cloud.index_custody_reconciliation import FAILURES as CUSTODY_FAILURES, SCHEMA as CUSTODY_SCHEMA
+            if identity in CUSTODY_FAILURES or (isinstance(schema, str)
+                    and schema.startswith('apply-pinned-index-custody-writer-resolution/')):
+                from cloud.index_custody_receipt import custody_resolution_matches
+                return schema == CUSTODY_SCHEMA and custody_resolution_matches(
+                    identity, marker, request_path, repository, read_record=store.get)
             from cloud.readback_reconciliation import (
                 FAILURES as READBACK_FAILURES, SCHEMA as READBACK_SCHEMA, readback_resolution_matches,
             )

@@ -58,6 +58,19 @@ def check():
     assert "elif [ \"$IMPORT_MODE\" = 'reconcile-readback' ]; then\n            python scripts/reconcile_readback.py" in maintenance
     assert "elif [ \"$IMPORT_MODE\" = 'reconcile-contained' ]; then\n            python scripts/reconcile_contained.py" in maintenance
     assert 'CLOUD_ENABLED: ${{ vars.CLOUD_ENABLED }}' in maintenance
+    custody = (ROOT / '.github/workflows/index-custody-reconciliation.yml').read_text()
+    assert re.search(r'^concurrency:\n  group: hiring-outreach-single-writer\n  cancel-in-progress: false\n',
+                     custody, re.MULTILINE)
+    assert '  workflow_dispatch:\n' in custody
+    assert '  schedule:' not in custody and '  push:' not in custody
+    assert 'default: reconcile' in custody and 'options: [verify, reconcile]' in custody
+    assert "if: github.ref == 'refs/heads/main'" in custody
+    assert 'timeout-minutes: 180' in custody
+    assert 'python scripts/reconcile_index_custody.py' in custody
+    assert 'CLOUD_ENABLED: ${{ vars.CLOUD_ENABLED }}' in custody
+    assert 'CLOUD_RESEARCH_ENABLED: ${{ vars.CLOUD_RESEARCH_ENABLED }}' in custody
+    assert 'contents: write' not in custody and 'actions: write' not in custody
+    assert 'continue-on-error:' not in custody and 'persist-credentials: false' in custody
     for workflow in (ROOT / '.github/workflows').glob('*.yml'):
         content = workflow.read_text()
         for use in re.findall(r'uses: ([^\s]+)', content):

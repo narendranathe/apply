@@ -31,6 +31,11 @@ jobs:
         env:
           MIGRATION_BACKUP_KEY: ${{ secrets.MIGRATION_BACKUP_KEY }}
         run: python scripts/verify_migration_archive.py
+      - name: Verify archived index custody without operational writes
+        if: github.event_name == 'push'
+        env:
+          MIGRATION_BACKUP_KEY: ${{ secrets.MIGRATION_BACKUP_KEY }}
+        run: python scripts/verify_index_custody.py --archives-only
       - run: python -m compileall -q cloud scripts
       - name: Schedule and single writer validation
         run: python scripts/check_workflows.py
