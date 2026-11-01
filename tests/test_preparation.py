@@ -38,6 +38,53 @@ class PreparationTests(unittest.TestCase):
             requirements = requirements_from_jd(heading + '\nSQL and Python\nCI/CD\nPreferred qualifications:\nProduction AWS\nBenefits:\nUnlimited leave')
             self.assertEqual(requirements, ['SQL and Python', 'CI/CD'])
 
+    def test_additional_explicit_requirement_headings_preserve_exact_text(self):
+        for heading in ("Required Skills and Experience:",
+                        "We’d love to hear from you if you have:",
+                        "We'd love to hear from you if you have:",
+                        "What’s REQUIRED:", "What's REQUIRED:"):
+            with self.subTest(heading=heading):
+                self.assertEqual(requirements_from_jd(heading + '\nSQL and Python.\nCI/CD experience!\nBenefits:\nPaid leave'),
+                                 ['SQL and Python.', 'CI/CD experience!'])
+
+    def test_additional_requirement_boundaries_exclude_optional_benefits_and_metadata(self):
+        for heading in ("While it’s not required, it’s an added plus if you also have:",
+                        "While it's not required, it's an added plus if you also have:",
+                        "We take care of our people:", "#LI-REMOTE",
+                        "Job ID#: R12345", "Annual base salary range (excluding equity and bonus):",
+                        "Pay Transparency Disclosure:"):
+            with self.subTest(heading=heading):
+                self.assertEqual(requirements_from_jd('Requirements:\nSQL and Python\n' + heading + '\nProduction AWS'),
+                                 ['SQL and Python'])
+
+    def test_requirement_heading_phrases_in_prose_do_not_start_a_section(self):
+        for prose in ("Our Required Skills and Experience include SQL.",
+                      "We’d love to hear from you if you have SQL experience.",
+                      "What’s REQUIRED is collaboration."):
+            with self.subTest(prose=prose):
+                self.assertEqual(requirements_from_jd(prose + '\nPython'), [])
+
+    def test_requirement_boundary_phrases_in_prose_do_not_end_a_section(self):
+        requirements = ['SQL and Python', 'We take care of our people with monitoring.',
+                        'Annual base salary range analysis with SQL', 'Job ID#: R12345 supports SQL pipelines']
+        self.assertEqual(requirements_from_jd('Requirements:\n' + '\n'.join(requirements)), requirements)
+
+    def test_requirement_sections_over_forty_lines_fail_closed_without_truncation(self):
+        for heading in ('Requirements', 'Required Skills and Experience'):
+            with self.subTest(heading=heading):
+                self.assertEqual(len(requirements_from_jd(heading + '\n' + '\n'.join(['SQL'] * 40))), 40)
+                self.assertEqual(requirements_from_jd(heading + '\n' + '\n'.join(['SQL'] * 41)), [])
+
+    def test_additional_heading_keeps_mandatory_tenure_gate_above_coverage_threshold(self):
+        for heading in ('Required Skills and Experience', 'We’d love to hear from you if you have', 'What’s REQUIRED'):
+            with self.subTest(heading=heading):
+                result = grade_job({**self.job, 'jd': heading + '\nSQL\nPython\nCI/CD\n7+ years SQL experience\nWe take care of our people\nPaid leave'})
+                self.assertFalse(result['qualified'])
+                self.assertEqual(result['reason'], 'qualification_gaps')
+                self.assertEqual(result['coverage'], 0.75)
+                self.assertEqual(len(result['requirements']), 4)
+                self.assertIn('experience_tenure', result['requirements'][-1]['gaps'])
+
     def test_ineligible_country_and_sponsorship_prohibition(self):
         self.assertFalse(grade_job({**self.job, 'location': 'London, England'})['qualified'])
         self.assertFalse(grade_job({**self.job, 'jd': self.job['jd']+'\nCannot sponsor visas'})['qualified'])
