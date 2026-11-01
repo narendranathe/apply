@@ -25,7 +25,10 @@ def _date(value):
             parsed = parsedate_to_datetime(value)
         except (ValueError, TypeError, OverflowError):
             return None
-    return parsed.astimezone(timezone.utc).isoformat() if parsed and parsed.tzinfo else None
+    try:
+        return parsed.astimezone(timezone.utc).isoformat() if parsed and parsed.tzinfo else None
+    except OverflowError:
+        return None
 
 
 def _text(node, path):

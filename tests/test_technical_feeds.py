@@ -6,6 +6,17 @@ from cloud.technical_feeds import parse_feed
 
 
 class TechnicalFeedTests(unittest.TestCase):
+    def test_unrepresentable_utc_dates_are_retained_as_unknown(self):
+        feed = b'''<rss><channel>
+          <item><link>https://example.test/early</link><pubDate>0001-01-01T00:00:00+14:00</pubDate></item>
+          <item><link>https://example.test/late</link><pubDate>9999-12-31T23:59:59-14:00</pubDate></item>
+        </channel></rss>'''
+        early, late = parse_feed(feed, "https://example.test/feed")["items"]
+        self.assertIsNone(early["published_at"])
+        self.assertIsNone(late["published_at"])
+        self.assertEqual(early["source_published_at_raw"], "0001-01-01T00:00:00+14:00")
+        self.assertEqual(late["source_published_at_raw"], "9999-12-31T23:59:59-14:00")
+
     def test_conflicting_authors_across_revisions_remain_ambiguous(self):
         feed = b'''<rss><channel>
           <item><title>T</title><link>https://example.test/post</link><description>original</description><author>Alice</author></item>
