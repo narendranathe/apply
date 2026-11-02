@@ -15,6 +15,20 @@ class AnalysisRejected(ValueError):
     """Return fixed error codes, never private evidence text."""
 
 
+_MEASUREMENT = re.compile(
+    r"(?<![A-Za-z0-9.,])(?P<number>[-+−]?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?:e[+-]?\d+)?)"
+    r"\s*(?P<unit>(?:percentage|percent)\s+points?|percentage|percent|milliseconds?|seconds?|times|ms|s|x|%)(?![A-Za-z])",
+    re.IGNORECASE,
+)
+
+
+def _measurement_value(match):
+    units = {"percentage": "%", "percent": "%", "millisecond": "ms", "milliseconds": "ms",
+             "second": "s", "seconds": "s", "times": "x"}
+    unit = match.group("unit").lower()
+    return match.group("number").replace(",", "") + units.get(unit, unit)
+
+
 def _bounded_text(value):
     return isinstance(value, str) and bool(value.strip()) and len(value) <= 2000
 
@@ -122,8 +136,7 @@ def validate_opportunity(proposal, hypotheses, observations, sources):
         values.add(value)
     texts = [proposal[field] for field in fields] + [tradeoffs[axis] for axis in axes]
     for text in texts:
-        numeric_claims = re.findall(r"(?<![A-Za-z0-9])\d+(?:\.\d+)?\s*(?:%|x|ms|s)(?![A-Za-z])", text)
-        numeric_claims = [re.sub(r"\s+", "", claim) for claim in numeric_claims]
+        numeric_claims = [_measurement_value(match) for match in _MEASUREMENT.finditer(text)]
         if not set(numeric_claims) <= values:
             raise AnalysisRejected("benchmark_not_cited")
     return {"classification": "proposed", "hypothesis_ids": list(refs),
