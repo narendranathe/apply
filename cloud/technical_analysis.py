@@ -23,15 +23,22 @@ def validate_observation(observation, evidence):
     if not isinstance(observation, dict) or not isinstance(evidence, dict):
         raise AnalysisRejected("invalid_evidence")
     body = evidence.get("body")
-    if not isinstance(body, str) or len(body.encode("utf-8")) > 1_000_000:
+    if not isinstance(body, str) or len(body) > 1_000_000:
+        raise AnalysisRejected("invalid_evidence")
+    try:
+        body_bytes = body.encode("utf-8")
+    except UnicodeEncodeError:
+        raise AnalysisRejected("invalid_evidence") from None
+    if len(body_bytes) > 1_000_000:
         raise AnalysisRejected("invalid_evidence")
     try:
         canonical_technical_url(evidence.get("url"))
     except ValueError:
         raise AnalysisRejected("invalid_evidence") from None
-    digest = sha256(body.encode("utf-8")).hexdigest()
+    digest = sha256(body_bytes).hexdigest()
     quote = observation.get("quote")
-    if (observation.get("classification") not in {"source_statement", "author_opinion"}
+    if (not isinstance(observation.get("classification"), str)
+            or observation["classification"] not in {"source_statement", "author_opinion"}
             or not isinstance(evidence.get("source_id"), str) or not evidence["source_id"]
             or observation.get("source_id") != evidence["source_id"]
             or digest != evidence.get("sha256") or observation.get("source_sha256") != digest
@@ -55,6 +62,7 @@ def validate_hypothesis(hypothesis, observations):
             or any(not _bounded_text(hypothesis.get(field)) for field in ("hypothesis", "alternative", "falsification"))):
         raise AnalysisRejected("hypothesis_invalid")
     if any(not isinstance(observations[ref], dict)
+           or not isinstance(observations[ref].get("classification"), str)
            or observations[ref].get("classification") not in {"source_statement", "author_opinion"}
            or observations[ref].get("requires_human_review") is not True for ref in refs):
         raise AnalysisRejected("observation_unavailable")
@@ -82,7 +90,8 @@ def validate_opportunity(proposal, hypotheses, observations, sources):
         hypothesis = hypotheses[ref]
         if (not isinstance(hypothesis, dict) or hypothesis.get("classification") != "inferred"
                 or hypothesis.get("requires_human_review") is not True
-                or not isinstance(hypothesis.get("observation_ids"), list)):
+                or not isinstance(hypothesis.get("observation_ids"), list)
+                or any(not isinstance(ref, str) or not ref for ref in hypothesis["observation_ids"])):
             raise AnalysisRejected("hypothesis_unavailable")
         observation_ids.update(hypothesis["observation_ids"])
     if not observation_ids or any(ref not in observations for ref in observation_ids):
@@ -90,7 +99,7 @@ def validate_opportunity(proposal, hypotheses, observations, sources):
     validated_observations = {}
     for ref in observation_ids:
         observation = observations[ref]
-        if not isinstance(observation, dict):
+        if not isinstance(observation, dict) or not isinstance(observation.get("source_id"), str):
             raise AnalysisRejected("observation_unavailable")
         validated_observations[ref] = validate_observation(observation, sources.get(observation.get("source_id")))
     for ref in refs:
@@ -105,7 +114,7 @@ def validate_opportunity(proposal, hypotheses, observations, sources):
             raise AnalysisRejected("benchmark_invalid")
         value, ref = benchmark.get("value"), benchmark.get("observation_id")
         if (not isinstance(value, str) or not re.fullmatch(r"\d+(?:\.\d+)?(?:%|x|ms|s)", value)
-                or ref not in observation_ids):
+                or not isinstance(ref, str) or ref not in observation_ids):
             raise AnalysisRejected("benchmark_invalid")
         observation = validated_observations[ref]
         if not re.search(r"(?<![A-Za-z0-9.])" + re.escape(value) + r"(?![A-Za-z0-9.])", observation["quote"]):
